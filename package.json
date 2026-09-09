@@ -1,0 +1,29 @@
+{
+  "name": "copc-adapter-test",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run dev --workspace apps/vite-vanillajs --",
+    "build": "npm run build:matrix",
+    "preview": "npm run preview --workspace apps/vite-vanillajs --",
+    "build:matrix": "npm run build --workspace apps/vite-vanillajs && npm run build --workspace apps/vite-react-cesium && npm run build --workspace apps/vite-react-three && npm run build --workspace apps/vite-r3f && npm run build --workspace apps/next-cesium && npm run build --workspace apps/next-three && npm run build --workspace apps/next-r3f",
+    "dev:vite-vanillajs": "npm run dev --workspace apps/vite-vanillajs --",
+    "dev:vite-react-cesium": "npm run dev --workspace apps/vite-react-cesium --",
+    "dev:vite-react-three": "npm run dev --workspace apps/vite-react-three --",
+    "dev:vite-r3f": "npm run dev --workspace apps/vite-r3f --",
+    "dev:next-cesium": "npm run dev --workspace apps/next-cesium --",
+    "dev:next-three": "npm run dev --workspace apps/next-three --",
+    "dev:next-r3f": "npm run dev --workspace apps/next-r3f --"
+  },
+  "workspaces": [
+    "apps/vite-vanillajs",
+    "apps/vite-react-cesium",
+    "apps/vite-react-three",
+    "apps/vite-r3f",
+    "apps/next-cesium",
+    "apps/next-three",
+    "apps/next-r3f"
+  ],
+  "devDependencies": {}
+}

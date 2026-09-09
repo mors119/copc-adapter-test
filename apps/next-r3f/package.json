@@ -1,0 +1,25 @@
+{
+  "name": "copc-matrix-next-r3f",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@frillab/copc-adapter-local": "file:../../../copc-adapter/apps/viewer-web/frillab-copc-adapter-0.3.0.tgz",
+    "@react-three/fiber": "^9.7.0",
+    "@types/three": "^0.185.4",
+    "next": "^16.3.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "^0.186.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "typescript": "~6.0.2"
+  }
+}

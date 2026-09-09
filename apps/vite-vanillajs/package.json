@@ -1,0 +1,19 @@
+{
+  "name": "copc-matrix-vite-vanillajs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@frillab/copc-adapter": "^0.3.0",
+    "@frillab/copc-adapter-local": "file:../../../copc-adapter/apps/viewer-web/frillab-copc-adapter-0.3.0.tgz",
+    "cesium": "^1.144.0"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  }
+}

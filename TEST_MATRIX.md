@@ -148,3 +148,47 @@ Next는 각 앱의 `app/api/fixtures/[...path]/route.ts`가 `/api/fixtures/*`를
 기본 fixture는 Vite에서 `/fixtures/small-valid-copc`, Next에서
 `/api/fixtures/small-valid-copc`다. 실제 브라우저 smoke와 backend/fixture 조합은
 후속 E2E matrix에서 이 ID와 manifest를 재사용한다.
+
+## Playwright runtime scenarios
+
+`tools/matrix/manifest.mjs`의 `runtimeScenarios`가 consumer별 실행 대상을 관리하고,
+`tests/e2e/runtime.spec.ts`는 모든 consumer에 같은 시나리오 구현을 적용한다. 테스트는
+`window.__COPC_TEST__`의 공개 결과만 읽으며 decoder 내부 객체에는 접근하지 않는다.
+
+계약에 정의된 시나리오 ID는 다음과 같다.
+
+`metadata-root-hierarchy`, `attach-to-caller-renderer`, `initial-point-rendering`,
+`camera-streaming-update`, `equivalent-view-is-stable`, `reload-to-ready`,
+`detach-preserves-host-resources`, `unload-releases-point-state`,
+`destroy-releases-layer-resources`, `color-mode-change`, `point-picking`,
+`diagnostics-observable`, `source-error-is-visible`, `rust-failure-is-not-retried`.
+
+현재 구현된 consumer가 제공하는 공통 smoke subset은 matrix manifest에 선언한다.
+현재 공개 Cesium layer를 직접 사용하는 Vanilla consumer는 detach/unload/destroy도
+실행하며, Three/R3F adapter artifact가 해당 lifecycle/picking API를 제공하면 같은
+시나리오를 해당 consumer manifest에 추가한다.
+
+```bash
+# Chromium fast suite: representative Vite/Next consumers
+npm run fixtures:fetch
+npm run e2e:install       # first run only
+npm run e2e:fast
+
+# Every current consumer on Chromium, Firefox, and WebKit
+npm run e2e:full
+
+# Narrow the matrix without changing test logic
+COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e
+```
+
+Fast mode uses Chromium and `vite-react-cesium`, `vite-react-three`, and `next-r3f`.
+Full mode selects all apps in the matrix and all three Playwright browser projects.
+`COPC_E2E_APPS` and `COPC_E2E_BROWSERS` override either selection. Each project starts
+its own dev server and reports the app identity, host, renderer, backend, fixture, and
+browser in failure artifacts.
+
+On failure Playwright retains the trace/video and attaches a screenshot, browser console
+log, page errors, harness result JSON, and request summary. The request summary includes
+all observed `Range` headers so a passing point-rendering test proves actual byte-range
+streaming rather than page load alone. `--project <app>-<browser>` can be used after
+`npm run e2e:full` to rerun one exact combination.

@@ -15,6 +15,14 @@ export type {
   HarnessDiagnostics,
 } from '@copc-test/test-contract';
 export { createTestContract, normalizeSnapshot, TEST_CONTRACT_GLOBAL, TEST_CONTRACT_VERSION } from '@copc-test/test-contract';
+export {
+  assertRuntimeScenario,
+  type RuntimeAssertionOptions,
+} from './runtime-scenarios.ts';
+export {
+  RUNTIME_SCENARIO_IDS,
+  type RuntimeScenarioId,
+} from '@copc-test/test-contract';
 
 export const DEFAULT_PACKAGE_VERSION = '0.3.0';
 

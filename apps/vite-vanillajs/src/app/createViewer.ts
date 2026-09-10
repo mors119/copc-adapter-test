@@ -6,25 +6,12 @@ export function createViewer(): Cesium.Viewer {
   (window as Window & { CESIUM_BASE_URL?: string }).CESIUM_BASE_URL =
     `${appBaseUrl}cesium/`;
 
-  const cesiumToken = import.meta.env.VITE_CESIUM_ION_TOKEN;
-
-  if (!cesiumToken) {
-    throw new Error(
-      'VITE_CESIUM_ION_TOKEN is missing. Add it to your .env file.',
-    );
-  }
-
-  Cesium.Ion.defaultAccessToken = cesiumToken;
-
   const viewer = new Cesium.Viewer('cesiumContainer', {
     animation: false,
     timeline: false,
     geocoder: false,
     baseLayerPicker: false,
-    baseLayer: Cesium.ImageryLayer.fromWorldImagery({}),
-    terrain: Cesium.Terrain.fromWorldTerrain({
-      requestVertexNormals: true,
-    }),
+    baseLayer: false,
     skyBox: false,
     sceneModePicker: false,
     navigationHelpButton: false,
@@ -33,11 +20,6 @@ export function createViewer(): Cesium.Viewer {
     infoBox: false,
     selectionIndicator: false,
   });
-
-  const imageryLayer = viewer.imageryLayers.get(0);
-  imageryLayer.brightness = 0.72;
-  imageryLayer.saturation = 0.72;
-  imageryLayer.contrast = 1.05;
 
   viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#07111f');
   viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#182536');

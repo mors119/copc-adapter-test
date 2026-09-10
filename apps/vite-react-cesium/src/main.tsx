@@ -91,6 +91,10 @@ function App(): ReactNode {
   const [reloadKey, setReloadKey] = useState(0);
   const [status, setStatus] = useState('idle');
   const [snapshot, setSnapshot] = useState<CopcCesiumLayerSnapshot>();
+  useEffect(() => {
+    testContract.registerCommand('reload', () => setReloadKey((value) => value + 1));
+    return () => testContract.unregisterCommand('reload');
+  }, []);
   const reportStatus = useCallback((value: string): void => {
     setStatus(value);
     if (value === 'loading') testContract.markLoading();

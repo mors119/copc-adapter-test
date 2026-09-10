@@ -44,6 +44,7 @@ test('normalizes adapter snapshots into the renderer-neutral diagnostics shape',
 test('publishes lifecycle, error, and config transitions through one contract', () => {
   const contract = createTestContract(config);
   assert.equal(contract.result.status, 'idle');
+  assert.equal(contract.result.diagnostics.backend, 'copc-js');
 
   contract.markLoading();
   contract.setSnapshot({ lifecycle: 'loading', renderedNodeKeys: [], selectedNodeKeys: [] });
@@ -53,6 +54,7 @@ test('publishes lifecycle, error, and config transitions through one contract', 
   contract.setConfig({ backend: 'rust', packageSource: 'tarball' });
   assert.equal(contract.result.config.backend, 'rust');
   assert.equal(contract.result.config.packageSource, 'tarball');
+  assert.equal(contract.result.diagnostics.backend, 'rust');
 
   contract.markError(new Error('fixture unavailable'));
   assert.equal(contract.result.status, 'error');
@@ -62,4 +64,56 @@ test('publishes lifecycle, error, and config transitions through one contract', 
   contract.markDestroyed();
   assert.equal(contract.result.status, 'destroyed');
   assert.equal(contract.result.lifecycle, 'destroyed');
+});
+
+test('normalizes optional picking and cache diagnostics without exposing decoder internals', () => {
+  assert.deepEqual(normalizeSnapshot({
+    lifecycle: 'ready',
+    selectedPoint: {
+      index: 4,
+      nodeKey: '0/0-0-0-0',
+      position: [1, 2, 3],
+      attributes: { classification: 2, label: 'ground' },
+    },
+    pointCache: {
+      cachedNodeCount: 2,
+      currentCacheBytes: 4096,
+      cacheByteBudget: 8192,
+    },
+  }), {
+    backend: undefined,
+    lifecycle: 'ready',
+    datasetUrl: undefined,
+    attached: undefined,
+    selectedNodeKeys: [],
+    renderedNodeKeys: [],
+    renderedPointCount: undefined,
+    streamingUpdateCount: undefined,
+    metadataLoaded: true,
+    hierarchyLoaded: true,
+    selectedPoint: {
+      index: 4,
+      nodeKey: '0/0-0-0-0',
+      position: [1, 2, 3],
+      attributes: { classification: 2, label: 'ground' },
+    },
+    cache: {
+      loadedNodeCount: 2,
+      cacheBytes: 4096,
+      cacheBudgetBytes: 8192,
+    },
+  });
+});
+
+test('keeps registered browser commands outside the serializable result', async () => {
+  const contract = createTestContract(config);
+  let invoked = false;
+  contract.registerCommand('reload', () => { invoked = true; });
+
+  assert.deepEqual(contract.getCapabilities(), ['reload']);
+  await contract.commands.reload?.();
+  assert.equal(invoked, true);
+
+  contract.unregisterCommand('reload');
+  assert.deepEqual(contract.getCapabilities(), []);
 });

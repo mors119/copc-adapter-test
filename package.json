@@ -13,6 +13,10 @@
     "test:contract": "npm run test --workspace @copc-test/test-contract",
     "test:fixtures": "npm run test --workspace @copc-test/fixture-server",
     "test:matrix": "npm run test:contract && npm run test:fixtures && npm run typecheck:matrix",
+    "e2e": "playwright test",
+    "e2e:fast": "COPC_E2E_MODE=fast playwright test",
+    "e2e:full": "COPC_E2E_MODE=full playwright test",
+    "e2e:install": "playwright install chromium firefox webkit",
     "matrix": "node tools/matrix/cli.mjs",
     "fixtures": "node --experimental-strip-types tools/fixtures/cli.mjs",
     "fixtures:list": "npm run fixtures -- list",
@@ -38,5 +42,7 @@
     "apps/next-three",
     "apps/next-r3f"
   ],
-  "devDependencies": {}
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
 }

@@ -52,7 +52,7 @@ export function HarnessPanel({
         <strong>{config.scenario}</strong>
       </div>
 
-      <button className="primary-button" type="button" onClick={onReload}>
+      <button className="primary-button" data-testid="harness-reload" type="button" onClick={onReload}>
         레이어 다시 로드
       </button>
 

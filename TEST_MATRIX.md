@@ -13,6 +13,10 @@
 | `next-cesium` | Next.js | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:next-cesium` |
 | `next-three` | Next.js | Three.js | `@frillab/copc-adapter/three` | `npm run dev:next-three` |
 | `next-r3f` | Next.js | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:next-r3f` |
+| `webpack-three` | Webpack 5 | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/webpack-three` |
+| `rollup-cesium` | Rollup | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev --workspace apps/rollup-cesium` |
+| `esbuild-three` | esbuild | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/esbuild-three` |
+| `parcel-three` | Parcel | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/parcel-three` |
 
 ## 설치 및 package source
 
@@ -139,7 +143,24 @@ npm run build:matrix
 ```bash
 npm run matrix -- typecheck --apps vite-react-three,next-r3f
 npm run matrix -- build --apps vite-react-cesium
+npm run build:bundlers
 ```
+
+Bundler consumers are separate workspaces with independent bundler
+configuration. Each `dev` command runs a production build first, then starts
+the small static server that delegates fixture, Range, CORS, and diagnostic
+endpoints to the shared fixture server.
+
+```bash
+npm run typecheck:bundlers
+npm run build:bundlers
+npm run e2e:bundlers
+npm run matrix -- build --apps webpack-three,rollup-cesium
+```
+
+Webpack and esbuild exercise the Rust/WASM backend. Rollup exercises the
+explicit `/cesium` entrypoint, while Parcel exercises `/three`. All four are in
+the full Playwright matrix; Webpack and Rollup are in the fast matrix.
 
 Vite는 `apps/shared/viteFixtureServer.ts`가 `/fixtures/*`와 `/cesium/*`를 제공한다.
 Next는 각 앱의 `app/api/fixtures/[...path]/route.ts`가 `/api/fixtures/*`를 제공한다.

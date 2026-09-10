@@ -1,7 +1,7 @@
 export const TEST_CONTRACT_VERSION = 1 as const;
 export const TEST_CONTRACT_GLOBAL = '__COPC_TEST__' as const;
 
-export type HarnessHost = 'vite' | 'next';
+export type HarnessHost = 'vite' | 'next' | 'webpack' | 'rollup' | 'esbuild' | 'parcel';
 export type HarnessRenderer = 'cesium' | 'three' | 'r3f';
 export type HarnessBackend = 'copc-js' | 'rust';
 export type HarnessScenario = 'load-and-stream' | 'camera-stream' | 'static';

@@ -5,7 +5,8 @@ import { test, expect } from './fixtures.ts';
 
 type ProjectMetadata = {
   appId: string;
-  host: 'vite' | 'next';
+  host: 'vite' | 'next' | 'webpack' | 'rollup' | 'esbuild' | 'parcel';
+  bundler?: string;
   renderer: 'cesium' | 'three' | 'r3f';
   backend: 'copc-js' | 'rust';
   fixtureId: string;

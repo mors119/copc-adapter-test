@@ -68,6 +68,7 @@ export const test = base.extend({
       const artifact = {
         app: identity.appId,
         host: identity.host,
+        bundler: identity.bundler,
         renderer: identity.renderer,
         backend: resultRecord?.config?.backend ?? identity.backend,
         fixtureId: identity.fixtureId,

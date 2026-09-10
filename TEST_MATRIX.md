@@ -151,8 +151,10 @@ Angular 앱은 표준 Angular CLI workspace의 standalone component로 구성한
 `apps/angular-shared/proxy.conf.json`이 개발 서버의 fixture/diagnostics 요청을
 공용 `packages/fixture-server` 프로세스(`127.0.0.1:8787`)로 전달하며, Cesium 정적
 자산은 Angular production build의 `assets` 설정으로 패키지에서 복사한다.
-Playwright가 Angular E2E 실행 시 공용 fixture 서버를 함께 시작하므로 Angular 전용
-fixture server나 fixture/diagnostics 구현을 추가하지 않는다.
+`npm run dev:angular-cesium`과 `npm run dev:angular-three`는 공용 fixture server와
+해당 Angular dev server를 함께 실행한다. Playwright도 Angular E2E 실행 시 공용
+fixture server를 함께 시작하므로 Angular 전용 fixture server나 fixture/diagnostics
+구현을 추가하지 않는다.
 
 기본 fixture는 Vite에서 `/fixtures/small-valid-copc`, Next에서
 `/api/fixtures/small-valid-copc`다. 실제 브라우저 smoke와 backend/fixture 조합은

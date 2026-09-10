@@ -163,6 +163,10 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
       assertRuntimeScenario('initial-point-rendering', current);
       const stats = await fixtureStats(page, info.host);
       expect(stats.requestedRanges?.length ?? 0, 'runtime test must observe byte-range streaming').toBeGreaterThan(0);
+      if (info.appId === 'angular-cesium') {
+        const cesiumWorker = await page.request.get('/cesium/Workers/createTaskProcessorWorker.js');
+        expect(cesiumWorker.ok(), 'Angular must serve Cesium worker assets from its build output').toBeTruthy();
+      }
     },
   },
   {

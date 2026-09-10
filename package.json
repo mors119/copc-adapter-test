@@ -31,8 +31,8 @@
     "dev:next-cesium": "npm run dev --workspace apps/next-cesium --",
     "dev:next-three": "npm run dev --workspace apps/next-three --",
     "dev:next-r3f": "npm run dev --workspace apps/next-r3f --",
-    "dev:angular-cesium": "npm run dev --workspace apps/angular-cesium --",
-    "dev:angular-three": "npm run dev --workspace apps/angular-three --"
+    "dev:angular-cesium": "node tools/matrix/angular-dev.mjs angular-cesium",
+    "dev:angular-three": "node tools/matrix/angular-dev.mjs angular-three"
   },
   "workspaces": [
     "packages/*",

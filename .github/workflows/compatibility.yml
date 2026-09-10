@@ -42,6 +42,8 @@ jobs:
           # compatibility runs reproducible until that artifact is republished.
           ref: 73ec063cfac915ae2c0013f603f46102ae731012
           path: .copc-adapter
+      - name: Install Rust WASM target
+        run: rustup target add wasm32-unknown-unknown
       - name: Pack adapter source
         working-directory: .copc-adapter/apps/viewer-web
         run: |
@@ -85,6 +87,8 @@ jobs:
           # Keep the full scheduled matrix on the same source artifact as PR validation.
           ref: 73ec063cfac915ae2c0013f603f46102ae731012
           path: .copc-adapter
+      - name: Install Rust WASM target
+        run: rustup target add wasm32-unknown-unknown
       - name: Pack adapter source
         working-directory: .copc-adapter/apps/viewer-web
         run: |

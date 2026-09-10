@@ -1,0 +1,23 @@
+{
+  "name": "copc-matrix-rollup-cesium",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rollup --config rollup.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "dev": "npm run build && node --experimental-strip-types ../../tools/bundlers/serve.mjs --dist dist"
+  },
+  "dependencies": {
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
+    "@frillab/copc-adapter": "^0.3.0",
+    "cesium": "^1.144.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "rollup": "^4.52.5",
+    "rollup-plugin-esbuild": "^6.2.1",
+    "typescript": "~6.0.2"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "copc-matrix-vite-vue-cesium",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
+    "@frillab/copc-adapter": "^0.3.0",
+    "cesium": "^1.144.0",
+    "vue": "^3.5.42"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2",
+    "vue-tsc": "^3.3.11"
+  }
+}

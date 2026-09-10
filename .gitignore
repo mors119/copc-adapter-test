@@ -11,11 +11,13 @@ node_modules
 dist
 dist-ssr
 .next
+.parcel-cache
 .env
 .env.*
 !.env.example
 *.local
 *.tsbuildinfo
+.angular/
 test-results/
 playwright-report/
 
@@ -32,3 +34,5 @@ playwright-report/
 
 public/
 .cache/copc-fixtures/
+test-results/
+playwright-report/

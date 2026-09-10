@@ -1,0 +1,118 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "apps",
+  "projects": {
+    "angular-cesium": {
+      "projectType": "application",
+      "root": "apps/angular-cesium",
+      "sourceRoot": "apps/angular-cesium/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "apps/angular-cesium/src/main.ts",
+            "index": "apps/angular-cesium/src/index.html",
+            "polyfills": ["zone.js"],
+            "tsConfig": "apps/angular-cesium/tsconfig.app.json",
+            "inlineStyleLanguage": "css",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "node_modules/cesium/Build/Cesium",
+                "output": "cesium"
+              }
+            ],
+            "styles": [
+              "node_modules/cesium/Build/Cesium/Widgets/widgets.css",
+              "apps/angular-cesium/src/styles.css"
+            ],
+            "loader": {
+              ".wasm": "file"
+            }
+          },
+          "configurations": {
+            "production": {
+              "budgets": [],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "apps/angular-shared/proxy.conf.json"
+          },
+          "configurations": {
+            "production": {
+              "buildTarget": "angular-cesium:build:production"
+            },
+            "development": {
+              "buildTarget": "angular-cesium:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    },
+    "angular-three": {
+      "projectType": "application",
+      "root": "apps/angular-three",
+      "sourceRoot": "apps/angular-three/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "apps/angular-three/src/main.ts",
+            "index": "apps/angular-three/src/index.html",
+            "polyfills": ["zone.js"],
+            "tsConfig": "apps/angular-three/tsconfig.app.json",
+            "inlineStyleLanguage": "css",
+            "styles": ["apps/angular-three/src/styles.css"],
+            "loader": {
+              ".wasm": "file"
+            }
+          },
+          "configurations": {
+            "production": {
+              "budgets": [],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "apps/angular-shared/proxy.conf.json"
+          },
+          "configurations": {
+            "production": {
+              "buildTarget": "angular-three:build:production"
+            },
+            "development": {
+              "buildTarget": "angular-three:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  },
+  "cli": {
+    "packageManager": "npm"
+  }
+}

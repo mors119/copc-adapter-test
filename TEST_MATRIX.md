@@ -7,12 +7,23 @@
 | App identity | Host | Renderer | Public entry | 개발 명령 |
 | --- | --- | --- | --- | --- |
 | `vite-vanillajs-cesium` | Vite Vanilla JS | Cesium | `@frillab/copc-adapter` | `npm run dev:vite-vanillajs` |
+| `vite-vanilla-three` | Vite Vanilla JS | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-vanilla-three` |
 | `vite-react-cesium` | Vite + React | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-react-cesium` |
 | `vite-react-three` | Vite + React | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-react-three` |
 | `vite-r3f` | Vite | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:vite-r3f` |
+| `vite-vue-cesium` | Vite + Vue | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-vue-cesium` |
+| `vite-vue-three` | Vite + Vue | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-vue-three` |
+| `vite-svelte-cesium` | Vite + Svelte | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-svelte-cesium` |
+| `vite-svelte-three` | Vite + Svelte | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-svelte-three` |
 | `next-cesium` | Next.js | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:next-cesium` |
 | `next-three` | Next.js | Three.js | `@frillab/copc-adapter/three` | `npm run dev:next-three` |
 | `next-r3f` | Next.js | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:next-r3f` |
+| `webpack-three` | Webpack 5 | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/webpack-three` |
+| `rollup-cesium` | Rollup | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev --workspace apps/rollup-cesium` |
+| `esbuild-three` | esbuild | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/esbuild-three` |
+| `parcel-three` | Parcel | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/parcel-three` |
+| `angular-cesium` | Angular | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:angular-cesium` |
+| `angular-three` | Angular | Three.js | `@frillab/copc-adapter/three` | `npm run dev:angular-three` |
 
 ## 설치 및 package source
 
@@ -139,11 +150,37 @@ npm run build:matrix
 ```bash
 npm run matrix -- typecheck --apps vite-react-three,next-r3f
 npm run matrix -- build --apps vite-react-cesium
+npm run build:bundlers
 ```
+
+Bundler consumers are separate workspaces with independent bundler
+configuration. Each `dev` command runs a production build first, then starts
+the small static server that delegates fixture, Range, CORS, and diagnostic
+endpoints to the shared fixture server.
+
+```bash
+npm run typecheck:bundlers
+npm run build:bundlers
+npm run e2e:bundlers
+npm run matrix -- build --apps webpack-three,rollup-cesium
+```
+
+Webpack and esbuild exercise the Rust/WASM backend. Rollup exercises the
+explicit `/cesium` entrypoint, while Parcel exercises `/three`. All four are in
+the full Playwright matrix; Webpack and Rollup are in the fast matrix.
 
 Vite는 `apps/shared/viteFixtureServer.ts`가 `/fixtures/*`와 `/cesium/*`를 제공한다.
 Next는 각 앱의 `app/api/fixtures/[...path]/route.ts`가 `/api/fixtures/*`를 제공한다.
 그래서 2GB fixture를 앱별 `public` 또는 build output으로 복사하지 않는다.
+
+Angular 앱은 표준 Angular CLI workspace의 standalone component로 구성한다.
+`apps/angular-shared/proxy.conf.json`이 개발 서버의 fixture/diagnostics 요청을
+공용 `packages/fixture-server` 프로세스(`127.0.0.1:8787`)로 전달하며, Cesium 정적
+자산은 Angular production build의 `assets` 설정으로 패키지에서 복사한다.
+`npm run dev:angular-cesium`과 `npm run dev:angular-three`는 공용 fixture server와
+해당 Angular dev server를 함께 실행한다. Playwright도 Angular E2E 실행 시 공용
+fixture server를 함께 시작하므로 Angular 전용 fixture server나 fixture/diagnostics
+구현을 추가하지 않는다.
 
 기본 fixture는 Vite에서 `/fixtures/small-valid-copc`, Next에서
 `/api/fixtures/small-valid-copc`다. 실제 브라우저 smoke와 backend/fixture 조합은
@@ -161,7 +198,8 @@ Next는 각 앱의 `app/api/fixtures/[...path]/route.ts`가 `/api/fixtures/*`를
 `camera-streaming-update`, `equivalent-view-is-stable`, `reload-to-ready`,
 `detach-preserves-host-resources`, `unload-releases-point-state`,
 `destroy-releases-layer-resources`, `color-mode-change`, `point-picking`,
-`diagnostics-observable`, `source-error-is-visible`, `rust-failure-is-not-retried`.
+`diagnostics-observable`, `api-lifecycle`, `source-probe`, `source-error-is-visible`,
+`rust-failure-is-not-retried`.
 
 현재 구현된 consumer가 제공하는 공통 smoke subset은 matrix manifest에 선언한다.
 현재 공개 Cesium layer를 직접 사용하는 Vanilla consumer는 detach/unload/destroy도
@@ -181,8 +219,9 @@ npm run e2e:full
 COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e
 ```
 
-Fast mode uses Chromium and `vite-react-cesium`, `vite-react-three`, and `next-r3f`.
-Full mode selects all apps in the matrix and all three Playwright browser projects.
+Fast mode uses Chromium and the non-Next consumer apps in the matrix; build and
+typecheck still cover every app. Full mode selects all apps in the matrix and all
+three Playwright browser projects.
 `COPC_E2E_APPS` and `COPC_E2E_BROWSERS` override either selection. Each project starts
 its own dev server and reports the app identity, host, renderer, backend, fixture, and
 browser in failure artifacts.
@@ -215,6 +254,25 @@ that consumer builds do not retain checkout-relative adapter paths.
 `.github/workflows/compatibility.yml` runs the fast gate on pull requests and normal
 pushes, and the full gate on the weekly schedule or manual dispatch. The separate
 `release-gate.yml` workflow accepts an adapter ref or a prepared tarball URL.
+
+`npm run e2e:preview` builds the matrix first and runs the same Chromium scenarios
+against each Vite production preview server. This keeps the development-server and
+production-bundle paths under the same consumer contract.
+## Public API coverage
+
+The `vite-react-three` consumer enables the extended `api-lifecycle` scenario. It
+uses the published `/three` entry directly to exercise the layer lifecycle and
+diagnostics (`getMetadata()`, hierarchy/cache counters, snapshots), all documented
+color-mode constructor options, `pick(...)`, `probeCopcSource(...)`, and the
+renderer-neutral `CopcStreamingCore` load and view-update contract. The same consumer also runs the
+`source-probe` scenario against the fixture server's ignored-Range mode. Its normal
+camera-streaming scenario still verifies the integrated layer update, while the
+API-focused URL skips only the initial active-layer render pass; its explicit core and
+color-mode candidates still load and update against the fixture.
+
+```bash
+COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e -- --grep 'api-lifecycle|source-probe'
+```
 
 On failure Playwright retains the trace/video and attaches a screenshot, browser console
 log, page errors, harness result JSON, and request summary. The request summary includes

@@ -15,19 +15,39 @@ const VANILLA_RUNTIME_SCENARIOS = [
   'unload-releases-point-state',
   'destroy-releases-layer-resources',
 ];
+const API_RUNTIME_SCENARIOS = [
+  ...CORE_RUNTIME_SCENARIOS,
+  'detach-preserves-host-resources',
+  'unload-releases-point-state',
+  'destroy-releases-layer-resources',
+  'point-picking',
+  'api-lifecycle',
+  'source-probe',
+];
 
 export const MATRIX_BACKENDS = ['copc-js', 'rust'];
 export const MATRIX_BROWSERS = ['chromium', 'firefox', 'webkit'];
 export const MATRIX_FIXTURES = ['small-valid-copc', 'point-format-7-rgb'];
 
 export const MATRIX = [
-  { appId: 'vite-vanillajs-cesium', workspace: 'apps/vite-vanillajs', host: 'vite', renderer: 'cesium', entry: '@frillab/copc-adapter', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: VANILLA_RUNTIME_SCENARIOS },
+  { appId: 'vite-vanillajs-cesium', workspace: 'apps/vite-vanillajs', host: 'vite', renderer: 'cesium', entry: '@frillab/copc-adapter', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: VANILLA_RUNTIME_SCENARIOS },
+  { appId: 'vite-vanilla-three', workspace: 'apps/vite-vanilla-three', host: 'vite', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'vite-react-cesium', workspace: 'apps/vite-react-cesium', host: 'vite', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
-  { appId: 'vite-react-three', workspace: 'apps/vite-react-three', host: 'vite', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'vite-react-three', workspace: 'apps/vite-react-three', host: 'vite', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: API_RUNTIME_SCENARIOS },
   { appId: 'vite-r3f', workspace: 'apps/vite-r3f', host: 'vite', renderer: 'r3f', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'vite-vue-cesium', workspace: 'apps/vite-vue-cesium', host: 'vite', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'vite-vue-three', workspace: 'apps/vite-vue-three', host: 'vite', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'vite-svelte-cesium', workspace: 'apps/vite-svelte-cesium', host: 'vite', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'vite-svelte-three', workspace: 'apps/vite-svelte-three', host: 'vite', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'next-cesium', workspace: 'apps/next-cesium', host: 'next', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'next-three', workspace: 'apps/next-three', host: 'next', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'next-r3f', workspace: 'apps/next-r3f', host: 'next', renderer: 'r3f', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'webpack-three', workspace: 'apps/webpack-three', host: 'webpack', renderer: 'three', bundler: 'webpack', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'rollup-cesium', workspace: 'apps/rollup-cesium', host: 'rollup', renderer: 'cesium', bundler: 'rollup', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'esbuild-three', workspace: 'apps/esbuild-three', host: 'esbuild', renderer: 'three', bundler: 'esbuild', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'parcel-three', workspace: 'apps/parcel-three', host: 'parcel', renderer: 'three', bundler: 'parcel', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'angular-cesium', workspace: 'apps/angular-cesium', host: 'angular', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'angular-three', workspace: 'apps/angular-three', host: 'angular', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
 ];
 
 const ALL_APP_IDS = MATRIX.map((entry) => entry.appId);
@@ -39,7 +59,7 @@ const ALL_APP_IDS = MATRIX.map((entry) => entry.appId);
  */
 export const MATRIX_TIERS = {
   fast: {
-    apps: ['vite-react-cesium', 'vite-react-three', 'next-r3f'],
+    apps: ['vite-vanillajs-cesium', 'vite-vanilla-three', 'vite-react-cesium', 'vite-react-three', 'vite-r3f', 'vite-vue-cesium', 'vite-vue-three', 'vite-svelte-cesium', 'vite-svelte-three', 'webpack-three', 'rollup-cesium', 'angular-cesium', 'angular-three'],
     buildApps: ALL_APP_IDS,
     browsers: ['chromium'],
     backends: ['copc-js'],

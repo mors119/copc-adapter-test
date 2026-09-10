@@ -5,7 +5,7 @@ import { test, expect } from './fixtures.ts';
 
 type ProjectMetadata = {
   appId: string;
-  host: 'vite' | 'next';
+  host: 'vite' | 'next' | 'angular';
   renderer: 'cesium' | 'three' | 'r3f';
   backend: 'copc-js' | 'rust';
   fixtureId: string;
@@ -101,7 +101,7 @@ async function reloadHarness(page: Page): Promise<void> {
 
 async function invokeHarnessCommand(
   page: Page,
-  name: 'detach' | 'unload' | 'destroy' | 'setColorMode' | 'pick' | 'runApiCoverage' | 'probeSource',
+  name: 'detach' | 'unload' | 'destroy' | 'setColorMode' | 'pick' | 'setView' | 'runApiCoverage' | 'probeSource',
   ...args: unknown[]
 ): Promise<void> {
   await page.evaluate(({ commandName, commandArgs }) => {
@@ -110,6 +110,23 @@ async function invokeHarnessCommand(
     if (!command) throw new Error(`Harness command ${commandName} is not registered.`);
     return command(...commandArgs);
   }, { commandName: name, commandArgs: args });
+}
+
+async function movePointerToCanvas(page: Page): Promise<void> {
+  const canvas = page.locator('canvas').first();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('The consumer did not expose a visible renderer canvas.');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+async function moveCameraForStreaming(page: Page): Promise<void> {
+  const hasCommand = await page.evaluate(() => typeof window.__COPC_TEST__?.commands.setView === 'function');
+  if (hasCommand) {
+    await invokeHarnessCommand(page, 'setView', 'near');
+    return;
+  }
+  await movePointerToCanvas(page);
+  await page.mouse.wheel(0, -700);
 }
 
 function withFixtureScenario(
@@ -146,16 +163,19 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
       assertRuntimeScenario('initial-point-rendering', current);
       const stats = await fixtureStats(page, info.host);
       expect(stats.requestedRanges?.length ?? 0, 'runtime test must observe byte-range streaming').toBeGreaterThan(0);
+      if (info.appId === 'angular-cesium') {
+        const cesiumWorker = await page.request.get('/cesium/Workers/createTaskProcessorWorker.js');
+        expect(cesiumWorker.ok(), 'Angular must serve Cesium worker assets from its build output').toBeTruthy();
+      }
     },
   },
   {
     id: 'camera-streaming-update',
     run: async (page) => {
       const before = await waitForRenderedPoints(page);
-      await page.locator('canvas').first().hover();
-      await page.mouse.wheel(0, -700);
+      await moveCameraForStreaming(page);
       await expect.poll(async () => (await result(page))?.diagnostics.streamingUpdateCount ?? 0, {
-        timeout: 10_000,
+        timeout: READY_TIMEOUT,
       }).toBeGreaterThan(before.diagnostics.streamingUpdateCount ?? 0);
       const current = await result(page);
       if (!current) throw new Error('Missing result after camera movement.');
@@ -166,7 +186,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
     id: 'equivalent-view-is-stable',
     run: async (page) => {
       const before = await waitForReady(page);
-      await page.locator('canvas').first().hover();
+      await movePointerToCanvas(page);
       await page.mouse.wheel(0, 0);
       await page.waitForTimeout(600);
       const current = await result(page);

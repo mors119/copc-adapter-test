@@ -36,7 +36,9 @@
     "dev:vite-svelte-three": "npm run dev --workspace apps/vite-svelte-three --",
     "dev:next-cesium": "npm run dev --workspace apps/next-cesium --",
     "dev:next-three": "npm run dev --workspace apps/next-three --",
-    "dev:next-r3f": "npm run dev --workspace apps/next-r3f --"
+    "dev:next-r3f": "npm run dev --workspace apps/next-r3f --",
+    "dev:angular-cesium": "node tools/matrix/angular-dev.mjs angular-cesium",
+    "dev:angular-three": "node tools/matrix/angular-dev.mjs angular-three"
   },
   "workspaces": [
     "packages/*",
@@ -51,9 +53,13 @@
     "apps/vite-svelte-three",
     "apps/next-cesium",
     "apps/next-three",
-    "apps/next-r3f"
+    "apps/next-r3f",
+    "apps/angular-cesium",
+    "apps/angular-three"
   ],
   "devDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "@angular/cli": "^22.1.7",
+    "@angular/build": "^22.1.7"
   }
 }

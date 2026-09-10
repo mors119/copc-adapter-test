@@ -38,6 +38,8 @@ export const MATRIX = [
   { appId: 'next-cesium', workspace: 'apps/next-cesium', host: 'next', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'next-three', workspace: 'apps/next-three', host: 'next', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'next-r3f', workspace: 'apps/next-r3f', host: 'next', renderer: 'r3f', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'angular-cesium', workspace: 'apps/angular-cesium', host: 'angular', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'angular-three', workspace: 'apps/angular-three', host: 'angular', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', runtimeScenarios: CORE_RUNTIME_SCENARIOS },
 ];
 
 export function selectMatrix(selector) {

@@ -1,6 +1,8 @@
 import '../../../apps/shared/styles.css';
 
-import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter-local/three';
+import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
+import { DEFAULT_FIXTURE_PATH } from '@copc-test/fixture-client';
+import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { StrictMode, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -8,7 +10,15 @@ import { createRoot } from 'react-dom/client';
 import { HarnessPanel } from '../../../apps/shared/HarnessPanel';
 import { fitThreeCamera } from '../../../apps/shared/threeFit';
 
-const SAMPLE_URL = '/samples/sofi.copc.laz';
+const harnessConfig = createHarnessConfig({
+  appId: 'vite-r3f',
+  host: 'vite',
+  renderer: 'r3f',
+  fixtureUrl: DEFAULT_FIXTURE_PATH,
+  backend: 'copc-js',
+  scenario: 'camera-stream',
+}, import.meta.env, 'VITE_');
+const testContract = createTestContract(harnessConfig);
 
 type PointCloudProps = {
   url: string;
@@ -29,7 +39,7 @@ function CopcPointCloud({ url, onStatus, onSnapshot }: PointCloudProps): ReactNo
     const layer = new CopcThreeLayer({
       url,
       colorMode: 'elevation',
-      backend: 'copc-js',
+      backend: harnessConfig.backend,
       pointSize: 3,
       maxRenderedPoints: 1_000_000,
       streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
@@ -43,6 +53,7 @@ function CopcPointCloud({ url, onStatus, onSnapshot }: PointCloudProps): ReactNo
     void (async (): Promise<void> => {
       try {
         layer.attachTo({ scene, camera, renderer: gl });
+        testContract.markAttached();
         await layer.load();
         if (disposed) return;
         await layer.update();
@@ -55,7 +66,10 @@ function CopcPointCloud({ url, onStatus, onSnapshot }: PointCloudProps): ReactNo
         onSnapshot(layer.getSnapshot());
         onStatus('ready');
       } catch (error: unknown) {
-        if (!disposed) onStatus(error instanceof Error ? error.message : String(error));
+        if (!disposed) {
+          testContract.markError(error);
+          onStatus(error instanceof Error ? error.message : String(error));
+        }
       }
     })();
 
@@ -66,6 +80,7 @@ function CopcPointCloud({ url, onStatus, onSnapshot }: PointCloudProps): ReactNo
       controlsRef.current = undefined;
       layer.destroy();
       layerRef.current = undefined;
+      testContract.markDestroyed();
       onSnapshot(undefined);
     };
   }, [camera, gl, onSnapshot, onStatus, scene, url]);
@@ -82,21 +97,29 @@ function App(): ReactNode {
   const [reloadKey, setReloadKey] = useState(0);
   const [status, setStatus] = useState('idle');
   const [snapshot, setSnapshot] = useState<CopcThreeLayerSnapshot>();
-  const reportStatus = useCallback((value: string) => setStatus(value), []);
-  const reportSnapshot = useCallback((value: CopcThreeLayerSnapshot | undefined) => setSnapshot(value), []);
+  const reportStatusWithContract = useCallback((value: string): void => {
+    setStatus(value);
+    if (value === 'loading') testContract.markLoading();
+    else if (value === 'ready') testContract.markReady();
+    else if (value !== 'idle') testContract.markError(value);
+  }, []);
+  const reportSnapshot = useCallback((value: CopcThreeLayerSnapshot | undefined): void => {
+    setSnapshot(value);
+    testContract.setSnapshot(value);
+  }, []);
 
   return (
     <main className="harness-root">
       <div className="harness-canvas">
-        <Canvas key={`${SAMPLE_URL}:${reloadKey}`} camera={{ position: [0, 0, 1000], near: 0.1, far: 20_000 }}>
-          <CopcPointCloud url={SAMPLE_URL} onStatus={reportStatus} onSnapshot={reportSnapshot} />
+        <Canvas key={`${harnessConfig.fixtureUrl}:${reloadKey}`} camera={{ position: [0, 0, 1000], near: 0.1, far: 20_000 }}>
+          <CopcPointCloud url={harnessConfig.fixtureUrl} onStatus={reportStatusWithContract} onSnapshot={reportSnapshot} />
         </Canvas>
       </div>
       <HarnessPanel
+        config={harnessConfig}
         framework="Vite"
         renderer="React Three Fiber"
         status={status}
-        sampleUrl={SAMPLE_URL}
         snapshot={snapshot}
         onReload={() => setReloadKey((value) => value + 1)}
       >

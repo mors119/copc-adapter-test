@@ -10,8 +10,7 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
-    "../../apps/shared/**/*.tsx",
-    "../../apps/shared/**/*.ts"
+    "../../apps/shared/HarnessPanel.tsx"
   ],
   "exclude": ["node_modules"]
 }

@@ -1,10 +1,10 @@
 import type { CopcCesiumLayerSnapshot } from '@frillab/copc-adapter';
-import type { AdapterTrack, AppSettings, DemoMode, LayerState } from './types';
+import type { HarnessPackageSource } from '@copc-test/harness-core';
+import type { AppSettings, DemoMode, LayerState } from './types';
 import type { CopcSample } from './sampleCatalog';
 
 type ControlPanelCallbacks = {
   onApply: (settings: AppSettings) => void;
-  onAdapterChange: (track: AdapterTrack) => void;
   onRun: (settings: AppSettings) => void;
   onStop: () => void;
   onCamera: (view: 'far' | 'near' | 'overview') => void;
@@ -23,14 +23,13 @@ export class ControlPanel {
 
   private readonly sampleSelect: HTMLSelectElement;
 
-  private readonly adapterButtons: NodeListOf<HTMLButtonElement>;
-
-  private adapterTrack: AdapterTrack = 'published';
+  private readonly packageSource: HarnessPackageSource;
 
   private samplesReady = false;
 
-  constructor(callbacks: ControlPanelCallbacks) {
+  constructor(callbacks: ControlPanelCallbacks, packageSource: HarnessPackageSource) {
     this.callbacks = callbacks;
+    this.packageSource = packageSource;
     this.root = document.createElement('div');
     this.root.className = 'copc-control-panel';
     this.root.innerHTML = this.createMarkup();
@@ -40,7 +39,6 @@ export class ControlPanel {
     this.diagnosticsElement = this.getElement<HTMLDivElement>('panel-diagnostics');
     this.applyButton = this.getElement<HTMLButtonElement>('apply-settings');
     this.sampleSelect = this.getElement<HTMLSelectElement>('sample-file');
-    this.adapterButtons = this.root.querySelectorAll<HTMLButtonElement>('[data-adapter-track]');
     this.applyButton.disabled = true;
 
     this.applyButton.addEventListener('click', () => {
@@ -52,16 +50,6 @@ export class ControlPanel {
     this.getElement<HTMLButtonElement>('stop-demo').addEventListener('click', () => {
       this.callbacks.onStop();
     });
-    for (const button of this.adapterButtons) {
-      button.addEventListener('click', () => {
-        const track = button.dataset.adapterTrack;
-        if (track === 'published' || track === 'local') {
-          this.setAdapterTrack(track);
-          this.callbacks.onAdapterChange(track);
-        }
-      });
-    }
-
     for (const button of this.root.querySelectorAll<HTMLButtonElement>('[data-camera]')) {
       button.addEventListener('click', () => {
         const view = button.dataset.camera;
@@ -79,9 +67,6 @@ export class ControlPanel {
   setBusy(busy: boolean): void {
     this.applyButton.disabled = busy || !this.samplesReady;
     this.sampleSelect.disabled = busy || !this.samplesReady;
-    for (const button of this.adapterButtons) {
-      button.disabled = busy;
-    }
     this.applyButton.textContent = busy ? '적용 중…' : '설정 적용 및 다시 로드';
   }
 
@@ -102,17 +87,6 @@ export class ControlPanel {
     }
     this.sampleSelect.disabled = !this.samplesReady;
     this.applyButton.disabled = !this.samplesReady;
-  }
-
-  setAdapterTrack(track: AdapterTrack): void {
-    this.adapterTrack = track;
-
-    for (const button of this.adapterButtons) {
-      button.setAttribute(
-        'aria-pressed',
-        String(button.dataset.adapterTrack === track),
-      );
-    }
   }
 
   getSettings(): AppSettings {
@@ -149,7 +123,7 @@ export class ControlPanel {
     const demoMode = this.getElement<HTMLSelectElement>('demo-mode').value as DemoMode;
 
     return {
-      adapterTrack: this.adapterTrack,
+      packageSource: this.packageSource,
       sampleUrl: this.getElement<HTMLSelectElement>('sample-file').value,
       colorMode: this.getElement<HTMLSelectElement>('color-mode').value as AppSettings['colorMode'],
       backend: this.getElement<HTMLSelectElement>('backend').value as AppSettings['backend'],
@@ -180,15 +154,9 @@ export class ControlPanel {
       <p class="panel-help">레이어 옵션을 바꾸고 바로 다시 로드합니다.</p>
 
       <div class="control-grid">
-        <div class="control-label">Adapter 구현체
-          <div class="adapter-toggle" role="group" aria-label="Adapter 구현체">
-            <button type="button" class="adapter-button" data-adapter-track="published" aria-pressed="true">
-              Published package
-            </button>
-            <button type="button" class="adapter-button" data-adapter-track="local" aria-pressed="false">
-              Local TGZ
-            </button>
-          </div>
+        <div class="control-label">Package source
+          <strong class="source-value">${this.packageSource === 'tarball' ? 'Packed TGZ' : 'npm published'}</strong>
+          <small>소스 변경은 앱 재설치 후 적용됩니다.</small>
         </div>
         <label>샘플 파일
           <select id="sample-file" disabled>

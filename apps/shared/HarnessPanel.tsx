@@ -1,32 +1,27 @@
+import { fixtureName } from '@copc-test/fixture-client';
+import { normalizeSnapshot, type HarnessConfig } from '@copc-test/harness-core';
 import type { ReactNode } from 'react';
 
-export type HarnessSnapshot = {
-  lifecycle?: string;
-  backend?: string;
-  renderedPointCount?: number;
-  renderedNodeKeys?: string[];
-  streamingUpdateCount?: number;
-};
-
 type HarnessPanelProps = {
+  config: HarnessConfig;
   framework: string;
   renderer: string;
   status: string;
-  sampleUrl: string;
-  snapshot?: HarnessSnapshot;
+  snapshot?: unknown;
   onReload: () => void;
   children?: ReactNode;
 };
 
 export function HarnessPanel({
+  config,
   framework,
   renderer,
   status,
-  sampleUrl,
   snapshot,
   onReload,
   children,
 }: HarnessPanelProps): ReactNode {
+  const diagnostics = snapshot === undefined ? undefined : normalizeSnapshot(snapshot);
   const format = (value: number | undefined): string =>
     value === undefined ? '—' : new Intl.NumberFormat('en-US').format(value);
 
@@ -41,7 +36,7 @@ export function HarnessPanel({
       <div className="tag-row">
         <span>{framework}</span>
         <span>{renderer}</span>
-        <span>Range fixture</span>
+        <span>{config.packageSource === 'tarball' ? 'Packed TGZ' : `npm ${config.packageVersion}`}</span>
       </div>
 
       <div className="status-row">
@@ -50,7 +45,11 @@ export function HarnessPanel({
       </div>
       <div className="status-row">
         <span>fixture</span>
-        <strong>{sampleUrl.split('/').at(-1) ?? sampleUrl}</strong>
+        <strong>{fixtureName(config.fixtureUrl)}</strong>
+      </div>
+      <div className="status-row">
+        <span>scenario</span>
+        <strong>{config.scenario}</strong>
       </div>
 
       <button className="primary-button" type="button" onClick={onReload}>
@@ -58,11 +57,12 @@ export function HarnessPanel({
       </button>
 
       <div className="diagnostics">
-        <div><span>lifecycle</span><b>{snapshot?.lifecycle ?? '—'}</b></div>
-        <div><span>backend</span><b>{snapshot?.backend ?? '—'}</b></div>
-        <div><span>rendered nodes</span><b>{format(snapshot?.renderedNodeKeys?.length)}</b></div>
-        <div><span>rendered points</span><b>{format(snapshot?.renderedPointCount)}</b></div>
-        <div><span>stream updates</span><b>{format(snapshot?.streamingUpdateCount)}</b></div>
+        <div><span>app</span><b>{config.appId}</b></div>
+        <div><span>lifecycle</span><b>{diagnostics?.lifecycle ?? '—'}</b></div>
+        <div><span>backend</span><b>{diagnostics?.backend ?? config.backend}</b></div>
+        <div><span>rendered nodes</span><b>{format(diagnostics?.renderedNodeKeys.length)}</b></div>
+        <div><span>rendered points</span><b>{format(diagnostics?.renderedPointCount)}</b></div>
+        <div><span>stream updates</span><b>{format(diagnostics?.streamingUpdateCount)}</b></div>
       </div>
 
       {children}

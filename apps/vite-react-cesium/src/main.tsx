@@ -2,12 +2,22 @@ import 'cesium/Build/Cesium/Widgets/widgets.css';
 import '../../../apps/shared/styles.css';
 
 import * as Cesium from 'cesium';
-import { CopcCesiumLayer, type CopcCesiumLayerSnapshot } from '@frillab/copc-adapter';
-import { StrictMode, useEffect, useState, type ReactNode } from 'react';
+import { CopcCesiumLayer, type CopcCesiumLayerSnapshot } from '@frillab/copc-adapter/cesium';
+import { DEFAULT_FIXTURE_PATH } from '@copc-test/fixture-client';
+import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
+import { StrictMode, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HarnessPanel } from '../../../apps/shared/HarnessPanel';
 
-const SAMPLE_URL = '/samples/sofi.copc.laz';
+const harnessConfig = createHarnessConfig({
+  appId: 'vite-react-cesium',
+  host: 'vite',
+  renderer: 'cesium',
+  fixtureUrl: DEFAULT_FIXTURE_PATH,
+  backend: 'copc-js',
+  scenario: 'load-and-stream',
+}, import.meta.env, 'VITE_');
+const testContract = createTestContract(harnessConfig);
 
 type ViewportProps = {
   url: string;
@@ -54,10 +64,12 @@ function CesiumViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode
     void layer.load().then(() => {
       if (disposed) return;
       layer.attachTo(viewer);
+      testContract.markAttached();
       onSnapshot(layer.getSnapshot());
       onStatus('ready');
     }).catch((error: unknown) => {
       if (disposed) return;
+      testContract.markError(error);
       onStatus(error instanceof Error ? error.message : String(error));
     });
 
@@ -67,6 +79,7 @@ function CesiumViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode
       layer.destroy();
       if (!viewer.isDestroyed()) viewer.destroy();
       container.remove();
+      testContract.markDestroyed();
       onSnapshot(undefined);
     };
   }, [onSnapshot, onStatus, url]);
@@ -78,20 +91,30 @@ function App(): ReactNode {
   const [reloadKey, setReloadKey] = useState(0);
   const [status, setStatus] = useState('idle');
   const [snapshot, setSnapshot] = useState<CopcCesiumLayerSnapshot>();
+  const reportStatus = useCallback((value: string): void => {
+    setStatus(value);
+    if (value === 'loading') testContract.markLoading();
+    else if (value === 'ready') testContract.markReady();
+    else if (value !== 'idle') testContract.markError(value);
+  }, []);
+  const reportSnapshot = useCallback((value: CopcCesiumLayerSnapshot | undefined): void => {
+    setSnapshot(value);
+    testContract.setSnapshot(value);
+  }, []);
 
   return (
     <main className="harness-root">
       <CesiumViewport
-        key={`${SAMPLE_URL}:${reloadKey}`}
-        url={SAMPLE_URL}
-        onStatus={setStatus}
-        onSnapshot={setSnapshot}
+        key={`${harnessConfig.fixtureUrl}:${reloadKey}`}
+        url={harnessConfig.fixtureUrl}
+        onStatus={reportStatus}
+        onSnapshot={reportSnapshot}
       />
       <HarnessPanel
+        config={harnessConfig}
         framework="Vite + React"
         renderer="Cesium"
         status={status}
-        sampleUrl={SAMPLE_URL}
         snapshot={snapshot}
         onReload={() => setReloadKey((value) => value + 1)}
       >

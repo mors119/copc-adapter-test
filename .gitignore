@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 .next
+.nuxt
+.svelte-kit
+.astro
+build
+.output
 .parcel-cache
 .env
 .env.*
@@ -34,5 +39,3 @@ playwright-report/
 
 public/
 .cache/copc-fixtures/
-test-results/
-playwright-report/

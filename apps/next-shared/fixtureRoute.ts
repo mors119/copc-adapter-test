@@ -1,4 +1,5 @@
 import { Readable } from 'node:stream';
+import { resolve } from 'node:path';
 import { FixtureServer } from '../../packages/fixture-server/src/index.ts';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -6,7 +7,14 @@ type FixtureRouteContext = {
   params: Promise<{ path: string[] }>;
 };
 
-const fixtureServer = new FixtureServer();
+const fixtureServerGlobal = globalThis as typeof globalThis & {
+  __copcTestFixtureServer?: FixtureServer;
+};
+const fixtureServer = fixtureServerGlobal.__copcTestFixtureServer ??= new FixtureServer({
+  // Cesium requests its runtime files below CESIUM_BASE_URL. Keep these
+  // requests on the same host while still using the shared fixture server.
+  staticRoot: resolve(process.cwd(), '../../node_modules/cesium/Build/Cesium'),
+});
 
 function nextResponse(result: Awaited<ReturnType<FixtureServer['handle']>>): NextResponse {
   if (!result) return new NextResponse('Fixture route not found', { status: 404 });

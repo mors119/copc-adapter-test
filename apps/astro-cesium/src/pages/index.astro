@@ -1,0 +1,40 @@
+---
+import '../styles/global.css';
+---
+
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Astro SSR / Cesium</title>
+  </head>
+  <body>
+    <main class="ssr-shell">
+      <h1>Astro SSR / Cesium</h1>
+      <p data-testid="ssr-marker">This shell is rendered by Astro before the browser-only Cesium island mounts.</p>
+    </main>
+    <div class="harness-root">
+      <div id="cesium-viewport" class="harness-canvas" aria-label="COPC Cesium viewport"></div>
+      <aside class="harness-panel">
+        <div class="eyebrow">COPC ADAPTER TEST MATRIX</div>
+        <h1>Astro / Cesium</h1>
+        <p class="muted">Astro의 client script 경계에서 Cesium과 adapter를 동적으로 로드합니다.</p>
+        <div class="tag-row"><span>Astro</span><span>Cesium</span><span>npm 0.3.0</span></div>
+        <div class="status-row"><span>status</span><strong id="harness-status" data-status="idle">idle</strong></div>
+        <div class="status-row"><span>fixture</span><strong id="harness-fixture">small-valid-copc</strong></div>
+        <div class="status-row"><span>scenario</span><strong>load-and-stream</strong></div>
+        <button class="primary-button" data-testid="harness-reload" type="button" id="harness-reload">레이어 다시 로드</button>
+        <div class="diagnostics">
+          <div><span>app</span><b>astro-cesium</b></div>
+          <div><span>lifecycle</span><b id="harness-lifecycle">—</b></div>
+          <div><span>backend</span><b id="harness-backend">copc-js</b></div>
+          <div><span>rendered nodes</span><b id="harness-nodes">—</b></div>
+          <div><span>rendered points</span><b id="harness-points">—</b></div>
+          <div><span>stream updates</span><b id="harness-updates">—</b></div>
+        </div>
+      </aside>
+    </div>
+    <script src="../scripts/cesium-harness.ts"></script>
+  </body>
+</html>

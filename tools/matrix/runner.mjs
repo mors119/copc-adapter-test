@@ -1,15 +1,38 @@
 import { spawn } from 'node:child_process';
 import { selectMatrix } from './manifest.mjs';
 
-function npmCommand(args) {
+function npmCommand(args, { captureOutput = false } = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn('npm', args, { stdio: 'inherit', env: process.env });
+    const child = spawn('npm', args, {
+      stdio: captureOutput ? ['inherit', 'pipe', 'pipe'] : 'inherit',
+      env: process.env,
+    });
+    let output = '';
+    if (captureOutput) {
+      child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+        process.stdout.write(chunk);
+      });
+      child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+        process.stderr.write(chunk);
+      });
+    }
     child.once('error', reject);
     child.once('exit', (code, signal) => {
       if (code === 0) resolvePromise();
-      else reject(new Error(`npm ${args.join(' ')} failed (${signal ?? code})`));
+      else {
+        const error = new Error(`npm ${args.join(' ')} failed (${signal ?? code})`);
+        error.output = output;
+        reject(error);
+      }
     });
   });
+}
+
+export function matchesExpectedFailure(output, expectedFailure) {
+  const fragments = expectedFailure.outputIncludes ?? [];
+  return fragments.length > 0 && fragments.every((fragment) => output.includes(fragment));
 }
 
 function option(name) {
@@ -24,8 +47,27 @@ export async function runMatrix(command, options = {}) {
   const backend = options.backend ?? process.env.COPC_E2E_BACKEND ?? 'copc-js';
   const fixtureId = options.fixtureId ?? process.env.COPC_E2E_FIXTURE ?? 'small-valid-copc';
   for (const app of apps) {
-    console.log(`\n→ ${app.appId} | host=${app.host} renderer=${app.renderer} backend=${backend} fixture=${fixtureId} package=${packageSource}@${packageVersion}`);
-    await npmCommand(['run', command, '--workspace', app.workspace]);
+    const script = command === 'build' ? (app.buildScript ?? 'build') : (app.typecheckScript ?? 'typecheck');
+    const expectedFailure = command === 'build' ? app.expectedFailure : undefined;
+    console.log(`\n→ ${app.matrixId ?? app.appId} (${app.host}/${app.renderer}${app.bundler ? `/${app.bundler}` : ''}) backend=${backend} fixture=${fixtureId} package=${packageSource}@${packageVersion}`);
+    const args = ['run', script, '--workspace', app.workspace];
+    if (!expectedFailure) {
+      await npmCommand(args);
+      continue;
+    }
+
+    try {
+      await npmCommand(args, { captureOutput: true });
+    } catch (error) {
+      const output = error?.output ?? '';
+      if (!matchesExpectedFailure(output, expectedFailure)) {
+        throw new Error(`Expected failure ${expectedFailure.id} did not match its recorded output signature for ${app.matrixId ?? app.appId}.`);
+      }
+      console.warn(`✓ Expected failure recorded: ${expectedFailure.id}`);
+      console.warn(`  ${expectedFailure.reason}`);
+      continue;
+    }
+    throw new Error(`Expected failure ${expectedFailure.id} no longer reproduces for ${app.matrixId ?? app.appId}. Remove expectedFailure from tools/matrix/manifest.mjs.`);
   }
 }
 

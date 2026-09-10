@@ -11,13 +11,22 @@
 | `vite-react-cesium` | Vite + React | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-react-cesium` |
 | `vite-react-three` | Vite + React | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-react-three` |
 | `vite-r3f` | Vite | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:vite-r3f` |
+| `next-cesium` (`next-cesium-webpack`) | Next.js / webpack | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:next-cesium` |
+| `next-cesium` (`next-cesium-turbopack`) | Next.js / Turbopack | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:turbo --workspace apps/next-cesium` |
+| `next-three` (`next-three-webpack`) | Next.js / webpack | Three.js | `@frillab/copc-adapter/three` | `npm run dev:next-three` |
+| `next-three` (`next-three-turbopack`) | Next.js / Turbopack | Three.js | `@frillab/copc-adapter/three` | `npm run dev:turbo --workspace apps/next-three` |
+| `next-r3f` (`next-r3f-webpack`) | Next.js / webpack | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:next-r3f` |
+| `next-r3f` (`next-r3f-turbopack`) | Next.js / Turbopack | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:turbo --workspace apps/next-r3f` |
+| `nuxt-cesium` | Nuxt | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:nuxt-cesium` |
+| `nuxt-three` | Nuxt | Three.js | `@frillab/copc-adapter/three` | `npm run dev:nuxt-three` |
+| `sveltekit-cesium` | SvelteKit | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:sveltekit-cesium` |
+| `sveltekit-three` | SvelteKit | Three.js | `@frillab/copc-adapter/three` | `npm run dev:sveltekit-three` |
+| `astro-cesium` | Astro | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:astro-cesium` |
+| `astro-three` | Astro | Three.js | `@frillab/copc-adapter/three` | `npm run dev:astro-three` |
 | `vite-vue-cesium` | Vite + Vue | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-vue-cesium` |
 | `vite-vue-three` | Vite + Vue | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-vue-three` |
 | `vite-svelte-cesium` | Vite + Svelte | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-svelte-cesium` |
 | `vite-svelte-three` | Vite + Svelte | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-svelte-three` |
-| `next-cesium` | Next.js | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:next-cesium` |
-| `next-three` | Next.js | Three.js | `@frillab/copc-adapter/three` | `npm run dev:next-three` |
-| `next-r3f` | Next.js | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:next-r3f` |
 | `webpack-three` | Webpack 5 | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/webpack-three` |
 | `rollup-cesium` | Rollup | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev --workspace apps/rollup-cesium` |
 | `esbuild-three` | esbuild | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/esbuild-three` |
@@ -97,7 +106,7 @@ app identity다. viewer/scene/camera/renderer 생성과 mount/unmount는 각 con
 fixture metadata is kept in [`fixtures/catalog.json`](fixtures/catalog.json). The catalog
 contains stable IDs, expected capabilities, source/provenance/license, checksum slots, and
 the cache path. The downloaded files are deliberately kept outside git in
-`.cache/copc-fixtures/`, so one cache can be used by every Vite and Next consumer.
+`.cache/copc-fixtures/`, so one cache can be used by every consumer.
 
 ```bash
 # List IDs, capabilities, source URLs, and cache status.
@@ -132,8 +141,10 @@ The server supports `GET`, `HEAD`, `OPTIONS`, byte ranges, `Content-Range`,
 requested ranges, bytes served, status, scenario, and failure details at
 `/__fixture__/stats`; `POST /__fixture__/reset` clears them.
 
-Vite's middleware and every Next route now delegate to `packages/fixture-server`, so
-framework-specific routes only adapt the request/response shape. The canonical browser URL
+Vite's middleware and every framework route now delegate to `packages/fixture-server`, so
+framework-specific routes only adapt the request/response shape. Next exposes the control
+endpoints at `/api/fixture-control/*` because App Router private segments cannot begin with `_`;
+the other SSR hosts retain `/api/__fixture__/*`. The canonical browser URL
 is `/fixtures/<fixture-id>`; `/samples/*` remains as a compatibility alias.
 
 ## 검증 명령
@@ -170,7 +181,8 @@ explicit `/cesium` entrypoint, while Parcel exercises `/three`. All four are in
 the full Playwright matrix; Webpack and Rollup are in the fast matrix.
 
 Vite는 `apps/shared/viteFixtureServer.ts`가 `/fixtures/*`와 `/cesium/*`를 제공한다.
-Next는 각 앱의 `app/api/fixtures/[...path]/route.ts`가 `/api/fixtures/*`를 제공한다.
+Next, Nuxt, SvelteKit, Astro는 각자의 framework route adapter를 통해 `/api/fixtures/*`와
+`/api/cesium/*`를 shared fixture server에 위임한다.
 그래서 2GB fixture를 앱별 `public` 또는 build output으로 복사하지 않는다.
 
 Angular 앱은 표준 Angular CLI workspace의 standalone component로 구성한다.
@@ -222,9 +234,18 @@ COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e
 Fast mode uses Chromium and the non-Next consumer apps in the matrix; build and
 typecheck still cover every app. Full mode selects all apps in the matrix and all
 three Playwright browser projects.
-`COPC_E2E_APPS` and `COPC_E2E_BROWSERS` override either selection. Each project starts
+`COPC_E2E_APPS` and `COPC_E2E_BROWSERS` override either selection. Expected-failure
+variants are excluded from browser runs by default; set
+`COPC_E2E_INCLUDE_EXPECTED_FAILURES=1` to inspect the known Turbopack failure. Each project starts
 its own dev server and reports the app identity, host, renderer, backend, fixture, and
 browser in failure artifacts.
+
+Next.js webpack and Turbopack are separate matrix identities. The current Turbopack entries are
+recorded expected build failures because the adapter's WASM URL modules are not yet resolvable by
+that bundler; the matrix runner captures the build output and requires the recorded adapter WASM
+loader and `?url&no-inline` markers before accepting the failure. It also fails if any of those
+builds unexpectedly start passing, so the record can be removed when the package or bundler
+behavior is fixed.
 
 ## Fast, full, and release gates
 

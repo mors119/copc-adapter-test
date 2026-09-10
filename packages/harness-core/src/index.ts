@@ -4,6 +4,7 @@ import type {
   HarnessPackageSource,
   HarnessScenario,
 } from '@copc-test/test-contract';
+export type { CopcTestContract } from '@copc-test/test-contract';
 
 export type {
   HarnessBackend,

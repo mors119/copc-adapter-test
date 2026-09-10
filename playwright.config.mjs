@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
-import { selectMatrix, selectMatrixCases } from './tools/matrix/manifest.mjs';
+import { selectMatrixCases } from './tools/matrix/manifest.mjs';
 
 const mode = process.env.COPC_E2E_MODE ?? 'fast';
 const tier = mode === 'full' || mode === 'release' ? mode : 'fast';
+const includeExpectedFailures = process.env.COPC_E2E_INCLUDE_EXPECTED_FAILURES === '1';
 const cases = selectMatrixCases(tier, {
   apps: process.env.COPC_E2E_APPS,
   browsers: process.env.COPC_E2E_BROWSERS,
@@ -10,8 +11,17 @@ const cases = selectMatrixCases(tier, {
   fixtures: process.env.COPC_E2E_FIXTURES,
   packageSource: process.env.COPC_E2E_PACKAGE_SOURCE,
   packageVersion: process.env.COPC_E2E_PACKAGE_VERSION,
-});
-const apps = selectMatrix([...new Set(cases.map((entry) => entry.appId))].join(','));
+}).filter((entry) => includeExpectedFailures || !entry.expectedFailure);
+
+// A Next app can have separate webpack and Turbopack matrix entries. Browser
+// projects use the first runnable entry as their server definition while the
+// build matrix still visits both entries independently.
+const appsById = new Map();
+for (const entry of cases) {
+  const existing = appsById.get(entry.appId);
+  if (!existing || (existing.expectedFailure && !entry.expectedFailure)) appsById.set(entry.appId, entry);
+}
+const apps = [...appsById.values()];
 const host = '127.0.0.1';
 const firstPort = Number(process.env.COPC_E2E_PORT ?? 4173);
 
@@ -30,10 +40,13 @@ function devCommand(app) {
   const port = appPorts.get(app.appId);
   const hostFlag = app.host === 'next' ? `--hostname ${host}` : `--host ${host}`;
   if (process.env.COPC_E2E_TARGET === 'preview') {
-    const command = app.host === 'next' ? 'start' : 'preview';
+    const command = app.host === 'next' ? 'start' : (app.startScript ?? 'preview');
     return `npm run ${command} --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
   }
-  return `npm run dev --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
+  // Astro detects agent environments and daemonizes by default. Disable that
+  // detection so Playwright can own the server lifecycle in the foreground.
+  const foregroundEnv = app.host === 'astro' ? 'ASTRO_DEV_BACKGROUND=0 ' : '';
+  return `${foregroundEnv}npm run ${app.devScript ?? 'dev'} --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
 }
 
 const reuseExistingServer = process.env.COPC_E2E_REUSE_SERVER === '1';
@@ -74,9 +87,12 @@ export default defineConfig({
     name: matrixCase.caseId,
     metadata: {
       appId: matrixCase.appId,
+      matrixId: matrixCase.matrixId ?? matrixCase.appId,
+      origin: baseUrlFor(matrixCase),
       host: matrixCase.host,
       bundler: matrixCase.bundler ?? matrixCase.host,
       renderer: matrixCase.renderer,
+      expectedFailure: matrixCase.expectedFailure,
       entry: matrixCase.entry,
       backend: matrixCase.backend,
       fixtureId: matrixCase.fixtureId,

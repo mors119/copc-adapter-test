@@ -5,7 +5,8 @@ import { test, expect } from './fixtures.ts';
 
 type ProjectMetadata = {
   appId: string;
-  host: 'vite' | 'next' | 'angular' | 'webpack' | 'rollup' | 'esbuild' | 'parcel';
+  origin: string;
+  host: 'vite' | 'next' | 'nuxt' | 'sveltekit' | 'astro' | 'angular' | 'webpack' | 'rollup' | 'esbuild' | 'parcel';
   bundler?: string;
   renderer: 'cesium' | 'three' | 'r3f';
   backend: 'copc-js' | 'rust';
@@ -17,8 +18,6 @@ type ProjectMetadata = {
 };
 
 const READY_TIMEOUT = Number(process.env.COPC_E2E_READY_TIMEOUT ?? 90_000);
-const fixturePath = '/fixtures/small-valid-copc';
-
 function projectMetadata(testInfo: TestInfo): ProjectMetadata {
   return testInfo.project.metadata as ProjectMetadata;
 }
@@ -53,15 +52,20 @@ async function waitForRenderedPoints(page: Page): Promise<HarnessResult> {
 }
 
 function fixturePathForHost(host: ProjectMetadata['host'], fixtureId: string): string {
-  return `${host === 'next' ? '/api/fixtures' : '/fixtures'}/${fixtureId}`;
+  const apiHosts: ProjectMetadata['host'][] = ['next', 'nuxt', 'sveltekit', 'astro'];
+  return `${apiHosts.includes(host) ? '/api/fixtures' : '/fixtures'}/${fixtureId}`;
 }
 
 function fixtureStatsPath(host: ProjectMetadata['host']): string {
-  return host === 'next' ? '/api/__fixture__/stats' : '/__fixture__/stats';
+  if (host === 'next') return '/api/fixture-control/stats';
+  if (['nuxt', 'sveltekit', 'astro'].includes(host)) return '/api/__fixture__/stats';
+  return '/__fixture__/stats';
 }
 
 function fixtureResetPath(host: ProjectMetadata['host']): string {
-  return host === 'next' ? '/api/__fixture__/reset' : '/__fixture__/reset';
+  if (host === 'next') return '/api/fixture-control/reset';
+  if (['nuxt', 'sveltekit', 'astro'].includes(host)) return '/api/__fixture__/reset';
+  return '/__fixture__/reset';
 }
 
 type FixtureStats = {
@@ -85,7 +89,9 @@ async function openConsumer(
   info?: ProjectMetadata,
 ): Promise<void> {
   if (resetHost) {
-    const response = await page.request.post(fixtureResetPath(resetHost));
+    const response = await page.request.post(fixtureResetPath(resetHost), {
+      headers: info?.origin ? { origin: info.origin } : undefined,
+    });
     if (!response.ok()) throw new Error(`Unable to reset fixture stats (${response.status()}).`);
   }
   if (info) {
@@ -285,8 +291,8 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   },
   {
     id: 'api-lifecycle',
-    run: async (page) => {
-      await openConsumer(page, '?apiCoverage=1');
+    run: async (page, info) => {
+      await openConsumer(page, '?apiCoverage=1', undefined, info);
       await waitForReady(page);
       await invokeHarnessCommand(page, 'runApiCoverage');
       const current = await result(page);
@@ -307,7 +313,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
         page,
         'probeSource',
         'ignore-range',
-        `${fixturePathForHost(info.host)}?fixtureScenario=ignore-range`,
+        `${fixturePathForHost(info.host, info.fixtureId)}?fixtureScenario=ignore-range`,
       );
       const current = await result(page);
       if (!current) throw new Error('Missing source probe result.');

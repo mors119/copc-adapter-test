@@ -1,0 +1,26 @@
+{
+  "name": "copc-matrix-nuxt-three",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "typecheck": "nuxt prepare && vue-tsc --noEmit -p tsconfig.typecheck.json",
+    "start": "node .output/server/index.mjs"
+  },
+  "dependencies": {
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/fixture-server": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
+    "@frillab/copc-adapter": "^0.3.0",
+    "h3": "^1.15.11",
+    "nuxt": "^4.5.2",
+    "three": "^0.186.0",
+    "vue": "^3.5.42"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.4",
+    "typescript": "~6.0.2",
+    "vue-tsc": "^3.3.11"
+  }
+}

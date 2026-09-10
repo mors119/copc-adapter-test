@@ -1,0 +1,13 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "include": [
+    "nuxt.config.ts",
+    "app.vue",
+    "pages/**/*.vue",
+    "components/**/*.vue",
+    "server/**/*.ts",
+    "../../apps/shared/startThreeHarness.ts",
+    "../../apps/shared/threeFit.ts"
+  ],
+  "exclude": ["node_modules", ".nuxt", ".output"]
+}

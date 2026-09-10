@@ -25,6 +25,12 @@ const API_RUNTIME_SCENARIOS = [
   'source-probe',
 ];
 
+const NEXT_TURBOPACK_WASM_EXPECTED_FAILURE = {
+  id: 'next-turbopack-adapter-wasm-url',
+  reason: 'Next.js Turbopack cannot currently resolve the adapter package WASM URL modules (__wbindgen_* / ?url&no-inline). Remove this record when the upstream/package behavior is fixed.',
+  outputIncludes: ['copc_wasm.wasm_.loader.mjs', '?url&no-inline'],
+};
+
 export const MATRIX_BACKENDS = ['copc-js', 'rust'];
 export const MATRIX_BROWSERS = ['chromium', 'firefox', 'webkit'];
 export const MATRIX_FIXTURES = ['small-valid-copc', 'point-format-7-rgb'];
@@ -39,9 +45,18 @@ export const MATRIX = [
   { appId: 'vite-vue-three', workspace: 'apps/vite-vue-three', host: 'vite', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'vite-svelte-cesium', workspace: 'apps/vite-svelte-cesium', host: 'vite', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'vite-svelte-three', workspace: 'apps/vite-svelte-three', host: 'vite', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
-  { appId: 'next-cesium', workspace: 'apps/next-cesium', host: 'next', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
-  { appId: 'next-three', workspace: 'apps/next-three', host: 'next', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
-  { appId: 'next-r3f', workspace: 'apps/next-r3f', host: 'next', renderer: 'r3f', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { matrixId: 'next-cesium-webpack', appId: 'next-cesium', bundler: 'webpack', workspace: 'apps/next-cesium', devScript: 'dev', buildScript: 'build', host: 'next', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { matrixId: 'next-cesium-turbopack', appId: 'next-cesium', bundler: 'turbopack', expectedFailure: NEXT_TURBOPACK_WASM_EXPECTED_FAILURE, workspace: 'apps/next-cesium', devScript: 'dev:turbo', buildScript: 'build:turbo', host: 'next', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { matrixId: 'next-three-webpack', appId: 'next-three', bundler: 'webpack', workspace: 'apps/next-three', devScript: 'dev', buildScript: 'build', host: 'next', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { matrixId: 'next-three-turbopack', appId: 'next-three', bundler: 'turbopack', expectedFailure: NEXT_TURBOPACK_WASM_EXPECTED_FAILURE, workspace: 'apps/next-three', devScript: 'dev:turbo', buildScript: 'build:turbo', host: 'next', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { matrixId: 'next-r3f-webpack', appId: 'next-r3f', bundler: 'webpack', workspace: 'apps/next-r3f', devScript: 'dev', buildScript: 'build', host: 'next', renderer: 'r3f', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { matrixId: 'next-r3f-turbopack', appId: 'next-r3f', bundler: 'turbopack', expectedFailure: NEXT_TURBOPACK_WASM_EXPECTED_FAILURE, workspace: 'apps/next-r3f', devScript: 'dev:turbo', buildScript: 'build:turbo', host: 'next', renderer: 'r3f', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'nuxt-cesium', workspace: 'apps/nuxt-cesium', host: 'nuxt', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', startScript: 'start', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'nuxt-three', workspace: 'apps/nuxt-three', host: 'nuxt', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', startScript: 'start', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'sveltekit-cesium', workspace: 'apps/sveltekit-cesium', host: 'sveltekit', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', startScript: 'start', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'sveltekit-three', workspace: 'apps/sveltekit-three', host: 'sveltekit', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', startScript: 'start', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'astro-cesium', workspace: 'apps/astro-cesium', host: 'astro', renderer: 'cesium', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', startScript: 'start', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
+  { appId: 'astro-three', workspace: 'apps/astro-three', host: 'astro', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', startScript: 'start', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'webpack-three', workspace: 'apps/webpack-three', host: 'webpack', renderer: 'three', bundler: 'webpack', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'rollup-cesium', workspace: 'apps/rollup-cesium', host: 'rollup', renderer: 'cesium', bundler: 'rollup', entry: '@frillab/copc-adapter/cesium', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
   { appId: 'esbuild-three', workspace: 'apps/esbuild-three', host: 'esbuild', renderer: 'three', bundler: 'esbuild', entry: '@frillab/copc-adapter/three', scenario: 'camera-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
@@ -50,7 +65,7 @@ export const MATRIX = [
   { appId: 'angular-three', workspace: 'apps/angular-three', host: 'angular', renderer: 'three', entry: '@frillab/copc-adapter/three', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: CORE_RUNTIME_SCENARIOS },
 ];
 
-const ALL_APP_IDS = MATRIX.map((entry) => entry.appId);
+const ALL_APP_IDS = [...new Set(MATRIX.map((entry) => entry.appId))];
 
 /**
  * These are the selectors used by local commands and CI. Build/typecheck
@@ -93,10 +108,12 @@ export function selectMatrix(selector) {
   const requested = new Set((Array.isArray(selector) ? selector : selector.split(','))
     .map((value) => value.trim())
     .filter(Boolean));
-  const selected = MATRIX.filter((entry) => requested.has(entry.appId) || requested.has(entry.workspace));
+  const selected = MATRIX.filter((entry) => requested.has(entry.matrixId ?? entry.appId)
+    || requested.has(entry.appId)
+    || requested.has(entry.workspace));
 
   if (selected.length === 0) {
-    throw new Error(`No matrix apps matched "${selector}". Use: ${MATRIX.map((entry) => entry.appId).join(', ')}`);
+    throw new Error(`No matrix apps matched "${selector}". Use: ${MATRIX.map((entry) => entry.matrixId ?? entry.appId).join(', ')}`);
   }
 
   return selected;
@@ -138,6 +155,6 @@ export function selectMatrixCases(tier = 'fast', options = {}) {
     fixtureId,
     packageSource: options.packageSource ?? definition.packageSource,
     packageVersion: options.packageVersion ?? definition.packageVersion,
-    caseId: `${app.appId}-${browser}-${backend}-${fixtureId}`,
+    caseId: `${app.matrixId ?? app.appId}-${browser}-${backend}-${fixtureId}`,
   })))));
 }

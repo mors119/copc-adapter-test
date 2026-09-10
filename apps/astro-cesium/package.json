@@ -1,0 +1,24 @@
+{
+  "name": "copc-matrix-astro-cesium",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "typecheck": "astro check",
+    "start": "node dist/server/entry.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.5",
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/fixture-server": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
+    "@frillab/copc-adapter": "^0.3.0",
+    "astro": "^7.3.2",
+    "cesium": "^1.144.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "~6.0.2"
+  }
+}

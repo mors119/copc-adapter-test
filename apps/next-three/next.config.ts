@@ -1,9 +1,18 @@
 import type { NextConfig } from 'next';
+import { resolve } from 'node:path';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@copc-test/fixture-client', '@copc-test/harness-core', '@copc-test/test-contract'],
-  webpack(config) {
+  turbopack: {},
+  transpilePackages: ['@copc-test/fixture-client', '@copc-test/fixture-server', '@copc-test/harness-core', '@copc-test/test-contract'],
+  webpack(config, { isServer }) {
+    if (!isServer) {
+      config.module.rules.push({
+        enforce: 'pre',
+        test: /copc-adapter.*[\\/]datasetLocalFrame-[^\\/]+\.js$/,
+        use: resolve(process.cwd(), '../../tools/nextClientAdapterUrlLoader.cjs'),
+      });
+    }
     config.module.rules.push({
       test: /\.wasm$/i,
       resourceQuery: /url/,

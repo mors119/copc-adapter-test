@@ -26,6 +26,20 @@ const testContract = createTestContract(harnessConfig);
 const appBaseUrl = import.meta.env.BASE_URL;
 const viewer = createViewer();
 const manager = new CopcLayerManager(viewer, COPC_ADAPTER);
+testContract.registerCommand('reload', () => window.location.reload());
+testContract.registerCommand('detach', () => {
+  manager.getLayer()?.detachFrom();
+  testContract.setSnapshot(manager.getSnapshot());
+});
+testContract.registerCommand('unload', () => {
+  manager.getLayer()?.unload();
+  testContract.setSnapshot(manager.getSnapshot());
+});
+testContract.registerCommand('destroy', () => {
+  manager.destroy();
+  testContract.setSnapshot(undefined);
+  testContract.markDestroyed();
+});
 
 let applyGeneration = 0;
 let panel: ControlPanel;
@@ -94,11 +108,14 @@ async function bootstrap(): Promise<void> {
 
     const defaultSample =
       samples.find((sample) => sample.id === DEFAULT_FIXTURE_ID) ?? samples[0];
-    panel.setSamples(samples, defaultSample.url);
+    const configuredSampleUrl = harnessConfig.fixtureUrl !== fixtureUrlForId(DEFAULT_FIXTURE_ID)
+      ? harnessConfig.fixtureUrl
+      : defaultSample.url;
+    panel.setSamples(samples, configuredSampleUrl);
 
     await applySettings({
       ...DEFAULT_SETTINGS,
-      sampleUrl: defaultSample.url,
+      sampleUrl: configuredSampleUrl,
       backend: harnessConfig.backend,
       packageSource: harnessConfig.packageSource,
     });

@@ -7,7 +7,7 @@ import type {
 
 export type CopcAdapterLayer = Pick<
   CopcCesiumLayer,
-  'attachTo' | 'destroy' | 'getSnapshot' | 'load'
+  'attachTo' | 'detachFrom' | 'destroy' | 'getSnapshot' | 'load' | 'unload'
 >;
 
 export type CopcAdapterModule = {

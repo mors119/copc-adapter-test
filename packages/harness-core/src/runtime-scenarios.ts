@@ -141,9 +141,8 @@ export function assertRuntimeScenario(
       const streaming = result.diagnostics.api?.streaming;
       const update = result.diagnostics.api?.operations['CopcStreamingCore.updateView'];
       if (streaming?.lifecycle !== 'ready'
-        || update?.status === undefined
-        || !['passed', 'unsupported'].includes(update.status)) {
-        fail(scenario, 'renderer-neutral streaming did not expose a loaded public core');
+        || update?.status !== 'passed') {
+        fail(scenario, 'renderer-neutral streaming did not complete a public core view update');
       }
       return;
     }

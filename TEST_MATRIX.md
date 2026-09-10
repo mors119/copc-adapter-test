@@ -194,11 +194,11 @@ The `vite-react-three` consumer enables the extended `api-lifecycle` scenario. I
 uses the published `/three` entry directly to exercise the layer lifecycle and
 diagnostics (`getMetadata()`, hierarchy/cache counters, snapshots), all documented
 color-mode constructor options, `pick(...)`, `probeCopcSource(...)`, and the
-renderer-neutral `CopcStreamingCore` load contract. The same consumer also runs the
+renderer-neutral `CopcStreamingCore` load and view-update contract. The same consumer also runs the
 `source-probe` scenario against the fixture server's ignored-Range mode. Its normal
-camera-streaming scenario performs the renderer-neutral view update; the API-focused
-URL skips that expensive render pass so API assertions remain a fast, deterministic
-PR check.
+camera-streaming scenario still verifies the integrated layer update, while the
+API-focused URL skips only the initial active-layer render pass; its explicit core and
+color-mode candidates still load and update against the fixture.
 
 ```bash
 COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e -- --grep 'api-lifecycle|source-probe'

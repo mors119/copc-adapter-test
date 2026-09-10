@@ -263,6 +263,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
       assertRuntimeScenario('color-mode-matrix', current);
       assertRuntimeScenario('source-probe', current);
       assertRuntimeScenario('renderer-neutral-streaming', current);
+      expect(current.diagnostics.api?.operations['CopcStreamingCore.updateView']?.status).toBe('passed');
     },
   },
   {

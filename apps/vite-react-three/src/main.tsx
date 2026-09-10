@@ -207,14 +207,10 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
         if (!frame) throw new Error('Three layer did not expose a loaded local frame');
         let streamingSnapshot = core.getSnapshot();
         operation('CopcStreamingCore.load', streamingSnapshot.lifecycle === 'ready' ? 'passed' : 'error');
-        if (apiCoverageOnly) {
-          operation('CopcStreamingCore.updateView', 'unsupported', 'renderer-neutral view updates are covered by the camera-streaming scenario');
-        } else {
-          const view = createThreeStreamingView({ camera, frame, renderer });
-          await core.updateView(view);
-          streamingSnapshot = core.getSnapshot();
-          operation('CopcStreamingCore.updateView', streamingSnapshot.streamingUpdateCount > 0 ? 'passed' : 'error');
-        }
+        const view = createThreeStreamingView({ camera, frame, renderer });
+        await core.updateView(view);
+        streamingSnapshot = core.getSnapshot();
+        operation('CopcStreamingCore.updateView', streamingSnapshot.streamingUpdateCount > 0 ? 'passed' : 'error');
         testContract.setApiDiagnostics({
           operations,
           streaming: {
@@ -230,13 +226,27 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
         core.destroy();
       }
 
+      let colorMatrixCameraFitted = !apiCoverageOnly;
       for (const colorMode of ['fixed', 'elevation', 'rgb', 'intensity', 'classification'] as const) {
         const candidate = new CopcThreeLayer(layerOptions(url, colorMode));
         try {
-          // The active elevation layer above proves the full render path. Keep
-          // the mode matrix cheap here while still exercising every documented
-          // public constructor option against the external fixture. The small
-          // point-format-6 fixture intentionally reports RGB as unavailable.
+          candidate.attachTo({ scene, camera, renderer });
+          await candidate.load();
+          await candidate.update();
+          if (!colorMatrixCameraFitted) {
+            if (!fitThreeCamera(candidate, camera, controls.target)) {
+              throw new Error(`No points rendered for color mode ${colorMode}`);
+            }
+            colorMatrixCameraFitted = true;
+            controls.update();
+            await candidate.update();
+          }
+          if ((candidate.getSnapshot().renderedPointCount ?? 0) <= 0) {
+            throw new Error(`Color mode ${colorMode} did not render any points`);
+          }
+          // The small point-format-6 fixture intentionally has no RGB fields;
+          // loading and updating the candidate still exercises the public
+          // option and renderer fallback before reporting that limitation.
           colorModes[colorMode] = colorMode === 'rgb'
             ? { status: 'unsupported', message: 'small-valid-copc is point format 6 and has no RGB attributes.' }
             : { status: 'passed' };

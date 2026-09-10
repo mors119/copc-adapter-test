@@ -20,8 +20,23 @@ function option(name) {
 export async function runMatrix(command) {
   const apps = selectMatrix(option('--apps') ?? option('--app'));
   for (const app of apps) {
-    console.log(`\n→ ${app.appId} (${app.host}/${app.renderer})`);
-    await npmCommand(['run', command, '--workspace', app.workspace]);
+    const script = command === 'build' ? (app.buildScript ?? 'build') : (app.typecheckScript ?? 'typecheck');
+    const expectedFailure = command === 'build' ? app.expectedFailure : undefined;
+    console.log(`\n→ ${app.matrixId ?? app.appId} (${app.host}/${app.renderer}${app.bundler ? `/${app.bundler}` : ''})`);
+    const args = ['run', script, '--workspace', app.workspace];
+    if (!expectedFailure) {
+      await npmCommand(args);
+      continue;
+    }
+
+    try {
+      await npmCommand(args);
+    } catch {
+      console.warn(`✓ Expected failure recorded: ${expectedFailure.id}`);
+      console.warn(`  ${expectedFailure.reason}`);
+      continue;
+    }
+    throw new Error(`Expected failure ${expectedFailure.id} no longer reproduces for ${app.matrixId ?? app.appId}. Remove expectedFailure from tools/matrix/manifest.mjs.`);
   }
 }
 

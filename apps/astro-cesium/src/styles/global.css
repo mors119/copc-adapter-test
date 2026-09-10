@@ -1,0 +1,4 @@
+@import '../../../../apps/shared/styles.css';
+
+.ssr-shell { padding: 24px; }
+.ssr-shell h1 { margin-top: 0; }

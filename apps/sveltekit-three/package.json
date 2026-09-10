@@ -1,0 +1,28 @@
+{
+  "name": "copc-matrix-sveltekit-three",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "start": "node build"
+  },
+  "dependencies": {
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/fixture-server": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
+    "@frillab/copc-adapter": "^0.3.0",
+    "@sveltejs/adapter-node": "^5.5.4",
+    "@sveltejs/kit": "^2.70.3",
+    "svelte": "^5.57.0",
+    "three": "^0.186.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.4",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "svelte-check": "^4.7.6",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  }
+}

@@ -1,10 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 import { selectMatrix } from './tools/matrix/manifest.mjs';
 
-const FAST_APPS = 'vite-react-cesium,vite-react-three,next-r3f';
+const FAST_APPS = 'vite-react-cesium,vite-react-three,next-r3f-webpack';
 const mode = process.env.COPC_E2E_MODE ?? 'fast';
 const appSelector = process.env.COPC_E2E_APPS ?? (mode === 'full' ? undefined : FAST_APPS);
-const apps = selectMatrix(appSelector);
+const apps = selectMatrix(appSelector).filter((app) =>
+  !app.expectedFailure || process.env.COPC_E2E_INCLUDE_EXPECTED_FAILURES === '1');
 const browsers = (process.env.COPC_E2E_BROWSERS
   ?? (mode === 'full' ? 'chromium,firefox,webkit' : 'chromium'))
   .split(',')
@@ -24,13 +25,17 @@ if (selectedBrowsers.length === 0) {
   throw new Error(`No supported browsers selected. Use chromium,firefox,webkit; received: ${browsers.join(',')}`);
 }
 
-const appPorts = new Map(apps.map((app, index) => [app.appId, firstPort + index]));
-const baseUrlFor = (app) => `http://${host}:${appPorts.get(app.appId)}`;
+const matrixIdFor = (app) => app.matrixId ?? app.appId;
+const appPorts = new Map(apps.map((app, index) => [matrixIdFor(app), firstPort + index]));
+const baseUrlFor = (app) => `http://${host}:${appPorts.get(matrixIdFor(app))}`;
 
 function devCommand(app) {
-  const port = appPorts.get(app.appId);
+  const port = appPorts.get(matrixIdFor(app));
   const hostFlag = app.host === 'next' ? `--hostname ${host}` : `--host ${host}`;
-  return `npm run dev --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
+  // Astro detects agent environments and daemonizes by default. Disable that
+  // detection so Playwright can own the server lifecycle in the foreground.
+  const foregroundEnv = app.host === 'astro' ? 'ASTRO_DEV_BACKGROUND=0 ' : '';
+  return `${foregroundEnv}npm run ${app.devScript ?? 'dev'} --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
 }
 
 export default defineConfig({
@@ -54,11 +59,15 @@ export default defineConfig({
     stderr: 'pipe',
   })),
   projects: apps.flatMap((app) => selectedBrowsers.map((browser) => ({
-    name: `${app.appId}-${browser}`,
+    name: `${matrixIdFor(app)}-${browser}`,
     metadata: {
       appId: app.appId,
+      matrixId: matrixIdFor(app),
+      origin: baseUrlFor(app),
       host: app.host,
       renderer: app.renderer,
+      bundler: app.bundler,
+      expectedFailure: app.expectedFailure,
       entry: app.entry,
       backend: 'copc-js',
       fixtureId: 'small-valid-copc',

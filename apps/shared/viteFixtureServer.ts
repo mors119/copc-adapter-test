@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { FixtureServer } from '../../packages/fixture-server/src/index.ts';
 
@@ -42,7 +44,11 @@ async function serveFixture(
 
 /** Vite adapter for the shared fixture server. It never copies fixture bytes into dist. */
 export function viteFixtureServer(): Plugin {
-  const fixtureServer = new FixtureServer();
+  const appNodeModulesCesium = resolve(process.cwd(), 'node_modules/cesium/Build/Cesium');
+  const rootNodeModulesCesium = resolve(process.cwd(), '../../node_modules/cesium/Build/Cesium');
+  const fixtureServer = new FixtureServer({
+    staticRoot: existsSync(appNodeModulesCesium) ? appNodeModulesCesium : rootNodeModulesCesium,
+  });
   const middleware = (request: IncomingMessage, response: ServerResponse, next: () => void): void => {
     if (!isFixtureRequest(request)) {
       next();

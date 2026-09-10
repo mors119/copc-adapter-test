@@ -5,7 +5,8 @@ import { test, expect } from './fixtures.ts';
 
 type ProjectMetadata = {
   appId: string;
-  host: 'vite' | 'next';
+  origin: string;
+  host: 'vite' | 'next' | 'nuxt' | 'sveltekit' | 'astro';
   renderer: 'cesium' | 'three' | 'r3f';
   backend: 'copc-js' | 'rust';
   fixtureId: string;
@@ -49,15 +50,19 @@ async function waitForRenderedPoints(page: Page): Promise<HarnessResult> {
 }
 
 function fixturePathForHost(host: ProjectMetadata['host']): string {
-  return host === 'next' ? '/api/fixtures/small-valid-copc' : fixturePath;
+  return host === 'vite' ? fixturePath : '/api/fixtures/small-valid-copc';
 }
 
 function fixtureStatsPath(host: ProjectMetadata['host']): string {
-  return host === 'next' ? '/api/__fixture__/stats' : '/__fixture__/stats';
+  if (host === 'vite') return '/__fixture__/stats';
+  if (host === 'next') return '/api/fixture-control/stats';
+  return '/api/__fixture__/stats';
 }
 
 function fixtureResetPath(host: ProjectMetadata['host']): string {
-  return host === 'next' ? '/api/__fixture__/reset' : '/__fixture__/reset';
+  if (host === 'vite') return '/__fixture__/reset';
+  if (host === 'next') return '/api/fixture-control/reset';
+  return '/api/__fixture__/reset';
 }
 
 type FixtureStats = {
@@ -78,9 +83,12 @@ async function openConsumer(
   page: Page,
   query = '',
   resetHost?: ProjectMetadata['host'],
+  origin?: string,
 ): Promise<void> {
   if (resetHost) {
-    const response = await page.request.post(fixtureResetPath(resetHost));
+    const response = await page.request.post(fixtureResetPath(resetHost), {
+      headers: origin ? { origin } : undefined,
+    });
     if (!response.ok()) throw new Error(`Unable to reset fixture stats (${response.status()}).`);
   }
   await page.goto(`/${query}`, { waitUntil: 'domcontentloaded' });
@@ -141,7 +149,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'initial-point-rendering',
     run: async (page, info) => {
-      await openConsumer(page, '', info.host);
+      await openConsumer(page, '', info.host, info.origin);
       const current = await waitForRenderedPoints(page);
       assertRuntimeScenario('initial-point-rendering', current);
       const stats = await fixtureStats(page, info.host);
@@ -253,7 +261,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'source-error-is-visible',
     run: async (page, info) => {
-      await openConsumer(page, withFixtureScenario('not-found', info.host), info.host);
+      await openConsumer(page, withFixtureScenario('not-found', info.host), info.host, info.origin);
       await expect.poll(async () => (await result(page))?.status, { timeout: READY_TIMEOUT }).toBe('error');
       const current = await result(page);
       if (!current) throw new Error('Missing source failure result.');
@@ -263,7 +271,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'rust-failure-is-not-retried',
     run: async (page, info) => {
-      await openConsumer(page, withFixtureScenario('not-found', info.host, 'rust'), info.host);
+      await openConsumer(page, withFixtureScenario('not-found', info.host, 'rust'), info.host, info.origin);
       await expect.poll(async () => (await result(page))?.status, { timeout: READY_TIMEOUT }).toBe('error');
       const current = await result(page);
       if (!current) throw new Error('Missing Rust failure result.');

@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
+    "dev:turbo": "next dev",
+    "build:turbo": "next build",
     "typecheck": "tsc --noEmit",
     "start": "next start"
   },

@@ -30,7 +30,13 @@
     "dev:vite-r3f": "npm run dev --workspace apps/vite-r3f --",
     "dev:next-cesium": "npm run dev --workspace apps/next-cesium --",
     "dev:next-three": "npm run dev --workspace apps/next-three --",
-    "dev:next-r3f": "npm run dev --workspace apps/next-r3f --"
+    "dev:next-r3f": "npm run dev --workspace apps/next-r3f --",
+    "dev:nuxt-cesium": "npm run dev --workspace apps/nuxt-cesium --",
+    "dev:nuxt-three": "npm run dev --workspace apps/nuxt-three --",
+    "dev:sveltekit-cesium": "npm run dev --workspace apps/sveltekit-cesium --",
+    "dev:sveltekit-three": "npm run dev --workspace apps/sveltekit-three --",
+    "dev:astro-cesium": "npm run dev --workspace apps/astro-cesium --",
+    "dev:astro-three": "npm run dev --workspace apps/astro-three --"
   },
   "workspaces": [
     "packages/*",
@@ -40,7 +46,13 @@
     "apps/vite-r3f",
     "apps/next-cesium",
     "apps/next-three",
-    "apps/next-r3f"
+    "apps/next-r3f",
+    "apps/nuxt-cesium",
+    "apps/nuxt-three",
+    "apps/sveltekit-cesium",
+    "apps/sveltekit-three",
+    "apps/astro-cesium",
+    "apps/astro-three"
   ],
   "devDependencies": {
     "@playwright/test": "^1.63.0"

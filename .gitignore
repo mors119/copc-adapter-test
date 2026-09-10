@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 .next
+.nuxt
+.svelte-kit
+.astro
+build
+.output
 .env
 .env.*
 !.env.example
@@ -30,3 +35,4 @@ dist-ssr
 
 public/
 .cache/copc-fixtures/
+test-results/

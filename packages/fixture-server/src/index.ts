@@ -219,7 +219,7 @@ function fixtureTarget(url: string, catalog: FixtureCatalog, rootDir: string, st
   const pathname = new URL(url, 'http://fixture.local').pathname;
   const fixtureMatch = /^\/fixtures\/([^/]+)$/.exec(pathname);
   if (fixtureMatch) {
-    const id = decodeURIComponent(fixtureMatch[1]);
+    const id = decodeURIComponent(fixtureMatch[1]!);
     const record = catalog.fixtures.find((fixture) => fixture.id === id);
     if (!record) return { id, filePath: '' };
     const filePath = safeResolve(rootDir, record.cachePath);
@@ -228,7 +228,7 @@ function fixtureTarget(url: string, catalog: FixtureCatalog, rootDir: string, st
 
   const sampleMatch = /^\/samples\/(.+)$/.exec(pathname);
   if (sampleMatch) {
-    const relativePath = decodeURIComponent(sampleMatch[1]);
+    const relativePath = decodeURIComponent(sampleMatch[1]!);
     const record = catalog.fixtures.find((fixture) => fixture.filename === relativePath || fixture.cachePath === relativePath);
     if (record) {
       const filePath = safeResolve(rootDir, record.cachePath);
@@ -240,7 +240,7 @@ function fixtureTarget(url: string, catalog: FixtureCatalog, rootDir: string, st
 
   const cesiumMatch = /^\/cesium\/(.+)$/.exec(pathname);
   if (cesiumMatch) {
-    const filePath = safeResolve(staticRoot, decodeURIComponent(cesiumMatch[1]));
+    const filePath = safeResolve(staticRoot, decodeURIComponent(cesiumMatch[1]!));
     return { filePath: filePath ?? '', invalid: filePath === undefined };
   }
   return undefined;

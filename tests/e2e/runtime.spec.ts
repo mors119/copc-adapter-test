@@ -9,11 +9,13 @@ type ProjectMetadata = {
   renderer: 'cesium' | 'three' | 'r3f';
   backend: 'copc-js' | 'rust';
   fixtureId: string;
+  browser: 'chromium' | 'firefox' | 'webkit';
+  packageSource: 'npm' | 'tarball';
+  packageVersion: string;
   appScenarios: RuntimeScenarioId[];
 };
 
 const READY_TIMEOUT = 30_000;
-const fixturePath = '/fixtures/small-valid-copc';
 
 function projectMetadata(testInfo: TestInfo): ProjectMetadata {
   return testInfo.project.metadata as ProjectMetadata;
@@ -48,8 +50,8 @@ async function waitForRenderedPoints(page: Page): Promise<HarnessResult> {
   return current;
 }
 
-function fixturePathForHost(host: ProjectMetadata['host']): string {
-  return host === 'next' ? '/api/fixtures/small-valid-copc' : fixturePath;
+function fixturePathForHost(host: ProjectMetadata['host'], fixtureId: string): string {
+  return `${host === 'next' ? '/api/fixtures' : '/fixtures'}/${fixtureId}`;
 }
 
 function fixtureStatsPath(host: ProjectMetadata['host']): string {
@@ -78,10 +80,19 @@ async function openConsumer(
   page: Page,
   query = '',
   resetHost?: ProjectMetadata['host'],
+  info?: ProjectMetadata,
 ): Promise<void> {
   if (resetHost) {
     const response = await page.request.post(fixtureResetPath(resetHost));
     if (!response.ok()) throw new Error(`Unable to reset fixture stats (${response.status()}).`);
+  }
+  if (info) {
+    const params = new URLSearchParams(query.replace(/^\?/, ''));
+    if (!params.has('fixture')) params.set('fixture', fixturePathForHost(info.host, info.fixtureId));
+    if (!params.has('backend')) params.set('backend', info.backend);
+    if (!params.has('packageSource')) params.set('packageSource', info.packageSource);
+    if (!params.has('packageVersion')) params.set('packageVersion', info.packageVersion);
+    query = `?${params.toString()}`;
   }
   await page.goto(`/${query}`, { waitUntil: 'domcontentloaded' });
 }
@@ -114,12 +125,12 @@ async function invokeHarnessCommand(
 
 function withFixtureScenario(
   scenario: string,
-  host: ProjectMetadata['host'],
-  backend?: 'copc-js' | 'rust',
+  info: ProjectMetadata,
+  backend: 'copc-js' | 'rust' = info.backend,
 ): string {
   const params = new URLSearchParams();
-  params.set('fixture', `${fixturePathForHost(host)}?fixtureScenario=${scenario}`);
-  if (backend) params.set('backend', backend);
+  params.set('fixture', `${fixturePathForHost(info.host, info.fixtureId)}?fixtureScenario=${scenario}`);
+  params.set('backend', backend);
   return `?${params.toString()}`;
 }
 
@@ -141,7 +152,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'initial-point-rendering',
     run: async (page, info) => {
-      await openConsumer(page, '', info.host);
+      await openConsumer(page, '', info.host, info);
       const current = await waitForRenderedPoints(page);
       assertRuntimeScenario('initial-point-rendering', current);
       const stats = await fixtureStats(page, info.host);
@@ -253,7 +264,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'source-error-is-visible',
     run: async (page, info) => {
-      await openConsumer(page, withFixtureScenario('not-found', info.host), info.host);
+      await openConsumer(page, withFixtureScenario('not-found', info), info.host, info);
       await expect.poll(async () => (await result(page))?.status, { timeout: READY_TIMEOUT }).toBe('error');
       const current = await result(page);
       if (!current) throw new Error('Missing source failure result.');
@@ -263,7 +274,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'rust-failure-is-not-retried',
     run: async (page, info) => {
-      await openConsumer(page, withFixtureScenario('not-found', info.host, 'rust'), info.host);
+      await openConsumer(page, withFixtureScenario('not-found', info, 'rust'), info.host, info);
       await expect.poll(async () => (await result(page))?.status, { timeout: READY_TIMEOUT }).toBe('error');
       const current = await result(page);
       if (!current) throw new Error('Missing Rust failure result.');
@@ -282,10 +293,11 @@ for (const scenario of scenarios) {
   test(scenario.id, async ({ page }, testInfo) => {
     const info = projectMetadata(testInfo);
     test.skip(!info.appScenarios.includes(scenario.id), `Scenario is not enabled for ${info.appId}.`);
+    test.skip(scenario.id === 'rust-failure-is-not-retried' && info.backend !== 'rust', 'Rust failure scenario only runs in the Rust matrix row.');
     const resetsFixtureStats = scenario.id === 'initial-point-rendering'
       || scenario.id === 'source-error-is-visible'
       || scenario.id === 'rust-failure-is-not-retried';
-    if (!resetsFixtureStats) await openConsumer(page);
+    if (!resetsFixtureStats) await openConsumer(page, '', undefined, info);
     await scenario.run(page, info);
   });
 }

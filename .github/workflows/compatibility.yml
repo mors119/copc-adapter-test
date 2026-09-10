@@ -1,0 +1,80 @@
+name: COPC adapter compatibility
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 3 * * 6'
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: Matrix tier to run manually
+        required: true
+        default: fast
+        type: choice
+        options: [fast, full]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copc-compatibility-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    name: fast compatibility gate
+    if: github.event_name != 'schedule' && (github.event_name != 'workflow_dispatch' || inputs.tier == 'fast')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: .cache/copc-fixtures
+          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run matrix:fast
+      - name: Upload fast failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-fast-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
+  full:
+    name: full compatibility matrix
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: .cache/copc-fixtures
+          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run matrix:full
+      - name: Upload full failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-full-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore

@@ -71,7 +71,7 @@ export const test = base.extend({
         renderer: identity.renderer,
         backend: resultRecord?.config?.backend ?? identity.backend,
         fixtureId: identity.fixtureId,
-        browser: testInfo.project.name.split('-').at(-1),
+        browser: identity.browser,
         scenario: testInfo.title,
         url: page.url(),
         matrix: identity,

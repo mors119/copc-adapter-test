@@ -117,3 +117,35 @@ test('keeps registered browser commands outside the serializable result', async 
   contract.unregisterCommand('reload');
   assert.deepEqual(contract.getCapabilities(), []);
 });
+
+test('preserves explicit public API and source-probe diagnostics across snapshots', () => {
+  const contract = createTestContract(config);
+  contract.setApiDiagnostics({
+    entrypoints: ['@frillab/copc-adapter/three'],
+    operations: { load: { status: 'passed' } },
+    probes: {
+      default: {
+        reachable: true,
+        rangeSupported: true,
+        corsReadable: true,
+        copcDetected: true,
+        warnings: [],
+      },
+    },
+  });
+  contract.setSnapshot({ lifecycle: 'ready', renderedPointCount: 12 });
+
+  assert.deepEqual(contract.result.diagnostics.api, {
+    entrypoints: ['@frillab/copc-adapter/three'],
+    operations: { load: { status: 'passed' } },
+    probes: {
+      default: {
+        reachable: true,
+        rangeSupported: true,
+        corsReadable: true,
+        copcDetected: true,
+        warnings: [],
+      },
+    },
+  });
+});

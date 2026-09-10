@@ -6,16 +6,18 @@ import { test, expect } from './fixtures.ts';
 type ProjectMetadata = {
   appId: string;
   origin: string;
-  host: 'vite' | 'next' | 'nuxt' | 'sveltekit' | 'astro';
+  host: 'vite' | 'next' | 'nuxt' | 'sveltekit' | 'astro' | 'angular' | 'webpack' | 'rollup' | 'esbuild' | 'parcel';
+  bundler?: string;
   renderer: 'cesium' | 'three' | 'r3f';
   backend: 'copc-js' | 'rust';
   fixtureId: string;
+  browser: 'chromium' | 'firefox' | 'webkit';
+  packageSource: 'npm' | 'tarball';
+  packageVersion: string;
   appScenarios: RuntimeScenarioId[];
 };
 
-const READY_TIMEOUT = 30_000;
-const fixturePath = '/fixtures/small-valid-copc';
-
+const READY_TIMEOUT = Number(process.env.COPC_E2E_READY_TIMEOUT ?? 90_000);
 function projectMetadata(testInfo: TestInfo): ProjectMetadata {
   return testInfo.project.metadata as ProjectMetadata;
 }
@@ -49,20 +51,21 @@ async function waitForRenderedPoints(page: Page): Promise<HarnessResult> {
   return current;
 }
 
-function fixturePathForHost(host: ProjectMetadata['host']): string {
-  return host === 'vite' ? fixturePath : '/api/fixtures/small-valid-copc';
+function fixturePathForHost(host: ProjectMetadata['host'], fixtureId: string): string {
+  const apiHosts: ProjectMetadata['host'][] = ['next', 'nuxt', 'sveltekit', 'astro'];
+  return `${apiHosts.includes(host) ? '/api/fixtures' : '/fixtures'}/${fixtureId}`;
 }
 
 function fixtureStatsPath(host: ProjectMetadata['host']): string {
-  if (host === 'vite') return '/__fixture__/stats';
   if (host === 'next') return '/api/fixture-control/stats';
-  return '/api/__fixture__/stats';
+  if (['nuxt', 'sveltekit', 'astro'].includes(host)) return '/api/__fixture__/stats';
+  return '/__fixture__/stats';
 }
 
 function fixtureResetPath(host: ProjectMetadata['host']): string {
-  if (host === 'vite') return '/__fixture__/reset';
   if (host === 'next') return '/api/fixture-control/reset';
-  return '/api/__fixture__/reset';
+  if (['nuxt', 'sveltekit', 'astro'].includes(host)) return '/api/__fixture__/reset';
+  return '/__fixture__/reset';
 }
 
 type FixtureStats = {
@@ -83,13 +86,21 @@ async function openConsumer(
   page: Page,
   query = '',
   resetHost?: ProjectMetadata['host'],
-  origin?: string,
+  info?: ProjectMetadata,
 ): Promise<void> {
   if (resetHost) {
     const response = await page.request.post(fixtureResetPath(resetHost), {
-      headers: origin ? { origin } : undefined,
+      headers: info?.origin ? { origin: info.origin } : undefined,
     });
     if (!response.ok()) throw new Error(`Unable to reset fixture stats (${response.status()}).`);
+  }
+  if (info) {
+    const params = new URLSearchParams(query.replace(/^\?/, ''));
+    if (!params.has('fixture')) params.set('fixture', fixturePathForHost(info.host, info.fixtureId));
+    if (!params.has('backend')) params.set('backend', info.backend);
+    if (!params.has('packageSource')) params.set('packageSource', info.packageSource);
+    if (!params.has('packageVersion')) params.set('packageVersion', info.packageVersion);
+    query = `?${params.toString()}`;
   }
   await page.goto(`/${query}`, { waitUntil: 'domcontentloaded' });
 }
@@ -109,7 +120,7 @@ async function reloadHarness(page: Page): Promise<void> {
 
 async function invokeHarnessCommand(
   page: Page,
-  name: 'detach' | 'unload' | 'destroy' | 'setColorMode' | 'pick',
+  name: 'detach' | 'unload' | 'destroy' | 'setColorMode' | 'pick' | 'setView' | 'runApiCoverage' | 'probeSource',
   ...args: unknown[]
 ): Promise<void> {
   await page.evaluate(({ commandName, commandArgs }) => {
@@ -120,14 +131,31 @@ async function invokeHarnessCommand(
   }, { commandName: name, commandArgs: args });
 }
 
+async function movePointerToCanvas(page: Page): Promise<void> {
+  const canvas = page.locator('canvas').first();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('The consumer did not expose a visible renderer canvas.');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+async function moveCameraForStreaming(page: Page): Promise<void> {
+  const hasCommand = await page.evaluate(() => typeof window.__COPC_TEST__?.commands.setView === 'function');
+  if (hasCommand) {
+    await invokeHarnessCommand(page, 'setView', 'near');
+    return;
+  }
+  await movePointerToCanvas(page);
+  await page.mouse.wheel(0, -700);
+}
+
 function withFixtureScenario(
   scenario: string,
-  host: ProjectMetadata['host'],
-  backend?: 'copc-js' | 'rust',
+  info: ProjectMetadata,
+  backend: 'copc-js' | 'rust' = info.backend,
 ): string {
   const params = new URLSearchParams();
-  params.set('fixture', `${fixturePathForHost(host)}?fixtureScenario=${scenario}`);
-  if (backend) params.set('backend', backend);
+  params.set('fixture', `${fixturePathForHost(info.host, info.fixtureId)}?fixtureScenario=${scenario}`);
+  params.set('backend', backend);
   return `?${params.toString()}`;
 }
 
@@ -149,21 +177,24 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'initial-point-rendering',
     run: async (page, info) => {
-      await openConsumer(page, '', info.host, info.origin);
+      await openConsumer(page, '', info.host, info);
       const current = await waitForRenderedPoints(page);
       assertRuntimeScenario('initial-point-rendering', current);
       const stats = await fixtureStats(page, info.host);
       expect(stats.requestedRanges?.length ?? 0, 'runtime test must observe byte-range streaming').toBeGreaterThan(0);
+      if (info.appId === 'angular-cesium') {
+        const cesiumWorker = await page.request.get('/cesium/Workers/createTaskProcessorWorker.js');
+        expect(cesiumWorker.ok(), 'Angular must serve Cesium worker assets from its build output').toBeTruthy();
+      }
     },
   },
   {
     id: 'camera-streaming-update',
     run: async (page) => {
       const before = await waitForRenderedPoints(page);
-      await page.locator('canvas').first().hover();
-      await page.mouse.wheel(0, -700);
+      await moveCameraForStreaming(page);
       await expect.poll(async () => (await result(page))?.diagnostics.streamingUpdateCount ?? 0, {
-        timeout: 10_000,
+        timeout: READY_TIMEOUT,
       }).toBeGreaterThan(before.diagnostics.streamingUpdateCount ?? 0);
       const current = await result(page);
       if (!current) throw new Error('Missing result after camera movement.');
@@ -174,7 +205,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
     id: 'equivalent-view-is-stable',
     run: async (page) => {
       const before = await waitForReady(page);
-      await page.locator('canvas').first().hover();
+      await movePointerToCanvas(page);
       await page.mouse.wheel(0, 0);
       await page.waitForTimeout(600);
       const current = await result(page);
@@ -259,9 +290,43 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
     },
   },
   {
+    id: 'api-lifecycle',
+    run: async (page, info) => {
+      await openConsumer(page, '?apiCoverage=1', undefined, info);
+      await waitForReady(page);
+      await invokeHarnessCommand(page, 'runApiCoverage');
+      const current = await result(page);
+      if (!current) throw new Error('Missing public API coverage result.');
+      assertRuntimeScenario('api-lifecycle', current);
+      assertRuntimeScenario('public-entrypoints', current);
+      assertRuntimeScenario('color-mode-matrix', current);
+      assertRuntimeScenario('source-probe', current);
+      assertRuntimeScenario('renderer-neutral-streaming', current);
+      expect(current.diagnostics.api?.operations['CopcStreamingCore.updateView']?.status).toBe('passed');
+    },
+  },
+  {
+    id: 'source-probe',
+    run: async (page, info) => {
+      await waitForReady(page);
+      await invokeHarnessCommand(
+        page,
+        'probeSource',
+        'ignore-range',
+        `${fixturePathForHost(info.host, info.fixtureId)}?fixtureScenario=ignore-range`,
+      );
+      const current = await result(page);
+      if (!current) throw new Error('Missing source probe result.');
+      const probe = current.diagnostics.api?.probes?.['ignore-range'];
+      expect(probe?.reachable).toBe(true);
+      expect(probe?.corsReadable).toBe(true);
+      expect(probe?.rangeSupported).toBe(false);
+    },
+  },
+  {
     id: 'source-error-is-visible',
     run: async (page, info) => {
-      await openConsumer(page, withFixtureScenario('not-found', info.host), info.host, info.origin);
+      await openConsumer(page, withFixtureScenario('not-found', info), info.host, info);
       await expect.poll(async () => (await result(page))?.status, { timeout: READY_TIMEOUT }).toBe('error');
       const current = await result(page);
       if (!current) throw new Error('Missing source failure result.');
@@ -271,7 +336,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'rust-failure-is-not-retried',
     run: async (page, info) => {
-      await openConsumer(page, withFixtureScenario('not-found', info.host, 'rust'), info.host, info.origin);
+      await openConsumer(page, withFixtureScenario('not-found', info, 'rust'), info.host, info);
       await expect.poll(async () => (await result(page))?.status, { timeout: READY_TIMEOUT }).toBe('error');
       const current = await result(page);
       if (!current) throw new Error('Missing Rust failure result.');
@@ -290,10 +355,11 @@ for (const scenario of scenarios) {
   test(scenario.id, async ({ page }, testInfo) => {
     const info = projectMetadata(testInfo);
     test.skip(!info.appScenarios.includes(scenario.id), `Scenario is not enabled for ${info.appId}.`);
+    test.skip(scenario.id === 'rust-failure-is-not-retried' && info.backend !== 'rust', 'Rust failure scenario only runs in the Rust matrix row.');
     const resetsFixtureStats = scenario.id === 'initial-point-rendering'
       || scenario.id === 'source-error-is-visible'
       || scenario.id === 'rust-failure-is-not-retried';
-    if (!resetsFixtureStats) await openConsumer(page);
+    if (!resetsFixtureStats) await openConsumer(page, '', undefined, info);
     await scenario.run(page, info);
   });
 }

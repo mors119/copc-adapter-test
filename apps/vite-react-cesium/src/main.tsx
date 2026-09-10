@@ -51,7 +51,7 @@ function CesiumViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode
     const layer = new CopcCesiumLayer({
       url,
       colorMode: 'elevation',
-      backend: 'copc-js',
+      backend: harnessConfig.backend,
       pointSize: 2,
       debug: true,
       streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8 },

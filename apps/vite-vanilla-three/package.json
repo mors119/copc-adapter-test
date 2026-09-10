@@ -1,0 +1,22 @@
+{
+  "name": "copc-matrix-vite-vanilla-three",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
+    "@frillab/copc-adapter": "^0.3.0",
+    "@types/three": "^0.185.4",
+    "three": "^0.186.0"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  }
+}

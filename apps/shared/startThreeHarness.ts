@@ -89,6 +89,16 @@ export function startThreeHarness({
         debug: true,
       });
       layer = currentLayer;
+      contract.registerCommand('setView', async (view) => {
+        if (disposed) return;
+        const scale = view === 'near' ? 0.65 : view === 'far' ? 1.5 : 1;
+        const offset = camera.position.clone().sub(currentControls.target).multiplyScalar(scale);
+        camera.position.copy(currentControls.target).add(offset);
+        camera.updateMatrixWorld(true);
+        currentControls.update();
+        await currentLayer.update();
+        if (!disposed) onSnapshot(currentLayer.getSnapshot());
+      });
       currentControls.addEventListener('change', () => {
         if (!disposed) void currentLayer.update();
       });
@@ -141,6 +151,7 @@ export function startThreeHarness({
     window.cancelAnimationFrame(animationFrame);
     removeResize?.();
     controls?.dispose();
+    contract.unregisterCommand('setView');
     layer?.destroy();
     renderer?.dispose();
     renderer?.domElement.remove();

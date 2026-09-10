@@ -1,0 +1,15 @@
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; min-height: 100%; margin: 0; }
+body { min-width: 900px; background: #07111f; color: #e6edf6; font: 14px/1.5 system-ui, sans-serif; }
+.smoke-root { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: 100vh; }
+.smoke-viewport { min-height: 100vh; overflow: hidden; }
+.smoke-viewport canvas { display: block; width: 100%; height: 100%; }
+.smoke-panel { padding: 24px; background: #0d1a2b; border-left: 1px solid #263b54; }
+.eyebrow { color: #6dd5fa; font-size: 11px; letter-spacing: .14em; }
+h1 { margin: 8px 0; font-size: 22px; }
+dl { margin: 24px 0; }
+dl div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #1f344a; }
+dt { color: #8ea7bf; } dd { margin: 0; font-weight: 600; text-align: right; }
+#status[data-status="ready"] { color: #7ee787; }
+#status[data-status="error"] { color: #ff8b8b; }
+pre { max-height: 50vh; overflow: auto; padding: 12px; background: #07111f; color: #9fb7cf; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; }

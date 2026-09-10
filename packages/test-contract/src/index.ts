@@ -1,7 +1,7 @@
 export const TEST_CONTRACT_VERSION = 1 as const;
 export const TEST_CONTRACT_GLOBAL = '__COPC_TEST__' as const;
 
-export type HarnessHost = 'vite' | 'next' | 'nuxt' | 'sveltekit' | 'astro';
+export type HarnessHost = 'vite' | 'next' | 'nuxt' | 'sveltekit' | 'astro' | 'angular' | 'webpack' | 'rollup' | 'esbuild' | 'parcel';
 export type HarnessRenderer = 'cesium' | 'three' | 'r3f';
 export type HarnessBackend = 'copc-js' | 'rust';
 export type HarnessScenario = 'load-and-stream' | 'camera-stream' | 'static';
@@ -20,6 +20,11 @@ export const RUNTIME_SCENARIO_IDS = [
   'color-mode-change',
   'point-picking',
   'diagnostics-observable',
+  'public-entrypoints',
+  'api-lifecycle',
+  'color-mode-matrix',
+  'source-probe',
+  'renderer-neutral-streaming',
   'source-error-is-visible',
   'rust-failure-is-not-retried',
 ] as const;
@@ -40,6 +45,46 @@ export type HarnessCacheDiagnostics = {
   cacheBudgetBytes?: number;
   cacheHitCount?: number;
   cacheMissCount?: number;
+};
+
+export type HarnessOperationStatus = 'passed' | 'unsupported' | 'error';
+
+export type HarnessOperation = {
+  status: HarnessOperationStatus;
+  message?: string;
+};
+
+export type HarnessProbeResult = {
+  reachable: boolean;
+  rangeSupported: boolean | 'unknown';
+  corsReadable: boolean | 'unknown';
+  copcDetected: boolean | 'unknown';
+  status?: number;
+  partialStatus?: number;
+  warnings: string[];
+};
+
+/** Results from explicit public API calls made by a browser consumer. */
+export type HarnessApiDiagnostics = {
+  entrypoints?: string[];
+  operations: Record<string, HarnessOperation>;
+  colorModes?: Record<string, HarnessOperation>;
+  probes?: Record<string, HarnessProbeResult>;
+  metadata?: {
+    pointCount?: number;
+    hasBounds?: boolean;
+    hasCrs?: boolean;
+  };
+  hierarchy?: {
+    requestCount?: number;
+    cacheHitCount?: number;
+    cacheMissCount?: number;
+  };
+  streaming?: {
+    lifecycle?: string;
+    updateCount?: number;
+    selectedNodeCount?: number;
+  };
 };
 export type HarnessLifecycle =
   | 'idle'
@@ -75,6 +120,7 @@ export type HarnessDiagnostics = {
   selectedPoint?: HarnessSelectedPoint;
   cache?: HarnessCacheDiagnostics;
   sourceErrorCategory?: string;
+  api?: HarnessApiDiagnostics;
 };
 
 export type HarnessError = {
@@ -105,6 +151,8 @@ export type HarnessCommandMap = {
   detach: () => void | Promise<void>;
   unload: () => void | Promise<void>;
   destroy: () => void | Promise<void>;
+  runApiCoverage: () => void | Promise<void>;
+  probeSource: (label: string, url: string) => void | Promise<void>;
 };
 
 export type CopcTestContract = {
@@ -113,6 +161,7 @@ export type CopcTestContract = {
   getResult(): HarnessResult;
   setConfig(config: Partial<HarnessConfig>): void;
   setSnapshot(snapshot: unknown): void;
+  setApiDiagnostics(diagnostics: Partial<HarnessApiDiagnostics>): void;
   registerCommand<K extends keyof HarnessCommandMap>(name: K, command: HarnessCommandMap[K]): void;
   unregisterCommand<K extends keyof HarnessCommandMap>(name: K): void;
   getCapabilities(): string[];
@@ -186,6 +235,100 @@ function finiteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+function apiDiagnostics(value: unknown): HarnessApiDiagnostics | undefined {
+  if (!isRecord(value) || !isRecord(value.operations)) return undefined;
+
+  const operation = (candidate: unknown): HarnessOperation | undefined => {
+    if (!isRecord(candidate)
+      || !['passed', 'unsupported', 'error'].includes(String(candidate.status))) {
+      return undefined;
+    }
+    return {
+      status: candidate.status as HarnessOperationStatus,
+      ...(typeof candidate.message === 'string' ? { message: candidate.message } : {}),
+    };
+  };
+  const operationMap = (candidate: unknown): Record<string, HarnessOperation> => {
+    if (!isRecord(candidate)) return {};
+    return Object.fromEntries(
+      Object.entries(candidate).flatMap(([key, item]) => {
+        const normalized = operation(item);
+        return normalized ? [[key, normalized]] : [];
+      }),
+    );
+  };
+  const probes = isRecord(value.probes)
+    ? Object.fromEntries(
+      Object.entries(value.probes).flatMap(([key, item]) => {
+        if (!isRecord(item)
+          || typeof item.reachable !== 'boolean'
+          || !['boolean', 'unknown'].includes(typeof item.rangeSupported === 'boolean'
+            ? 'boolean'
+            : String(item.rangeSupported))
+          || !['boolean', 'unknown'].includes(typeof item.corsReadable === 'boolean'
+            ? 'boolean'
+            : String(item.corsReadable))
+          || !['boolean', 'unknown'].includes(typeof item.copcDetected === 'boolean'
+            ? 'boolean'
+            : String(item.copcDetected))) {
+          return [];
+        }
+        return [[key, {
+          reachable: item.reachable,
+          rangeSupported: item.rangeSupported as boolean | 'unknown',
+          corsReadable: item.corsReadable as boolean | 'unknown',
+          copcDetected: item.copcDetected as boolean | 'unknown',
+          ...(finiteNumber(item.status) !== undefined ? { status: finiteNumber(item.status) } : {}),
+          ...(finiteNumber(item.partialStatus) !== undefined ? { partialStatus: finiteNumber(item.partialStatus) } : {}),
+          warnings: stringArray(item.warnings),
+        } satisfies HarnessProbeResult]];
+      }),
+    ) as Record<string, HarnessProbeResult>
+    : undefined;
+
+  return {
+    ...(Array.isArray(value.entrypoints)
+      ? { entrypoints: stringArray(value.entrypoints) }
+      : {}),
+    operations: operationMap(value.operations),
+    ...(isRecord(value.colorModes) ? { colorModes: operationMap(value.colorModes) } : {}),
+    ...(probes ? { probes } : {}),
+    ...(isRecord(value.metadata)
+      ? {
+          metadata: {
+            ...(finiteNumber(value.metadata.pointCount) !== undefined
+              ? { pointCount: finiteNumber(value.metadata.pointCount) } : {}),
+            ...(typeof value.metadata.hasBounds === 'boolean' ? { hasBounds: value.metadata.hasBounds } : {}),
+            ...(typeof value.metadata.hasCrs === 'boolean' ? { hasCrs: value.metadata.hasCrs } : {}),
+          },
+        }
+      : {}),
+    ...(isRecord(value.hierarchy)
+      ? {
+          hierarchy: {
+            ...(finiteNumber(value.hierarchy.requestCount) !== undefined
+              ? { requestCount: finiteNumber(value.hierarchy.requestCount) } : {}),
+            ...(finiteNumber(value.hierarchy.cacheHitCount) !== undefined
+              ? { cacheHitCount: finiteNumber(value.hierarchy.cacheHitCount) } : {}),
+            ...(finiteNumber(value.hierarchy.cacheMissCount) !== undefined
+              ? { cacheMissCount: finiteNumber(value.hierarchy.cacheMissCount) } : {}),
+          },
+        }
+      : {}),
+    ...(isRecord(value.streaming)
+      ? {
+          streaming: {
+            ...(typeof value.streaming.lifecycle === 'string' ? { lifecycle: value.streaming.lifecycle } : {}),
+            ...(finiteNumber(value.streaming.updateCount) !== undefined
+              ? { updateCount: finiteNumber(value.streaming.updateCount) } : {}),
+            ...(finiteNumber(value.streaming.selectedNodeCount) !== undefined
+              ? { selectedNodeCount: finiteNumber(value.streaming.selectedNodeCount) } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
 /** Convert an adapter-specific getSnapshot() object into the shared contract. */
 export function normalizeSnapshot(snapshot: unknown): HarnessDiagnostics {
   const source = isRecord(snapshot) ? snapshot : {};
@@ -217,6 +360,7 @@ export function normalizeSnapshot(snapshot: unknown): HarnessDiagnostics {
     ...(typeof source.sourceErrorCategory === 'string'
       ? { sourceErrorCategory: source.sourceErrorCategory }
       : {}),
+    ...(apiDiagnostics(source.api) ? { api: apiDiagnostics(source.api) } : {}),
   };
 }
 
@@ -280,11 +424,43 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
       const diagnostics = {
         ...normalized,
         backend: normalized.backend ?? current.config.backend,
+        ...(current.diagnostics.api && !normalized.api ? { api: current.diagnostics.api } : {}),
       };
       publish({
         ...current,
         lifecycle: diagnostics.lifecycle ?? current.lifecycle,
         diagnostics,
+      });
+    },
+    setApiDiagnostics(diagnosticsPatch: Partial<HarnessApiDiagnostics>): void {
+      const previous = current.diagnostics.api;
+      const next: HarnessApiDiagnostics = {
+        operations: {
+          ...(previous?.operations ?? {}),
+          ...(diagnosticsPatch.operations ?? {}),
+        },
+        ...(diagnosticsPatch.entrypoints
+          ? { entrypoints: [...diagnosticsPatch.entrypoints] }
+          : previous?.entrypoints ? { entrypoints: [...previous.entrypoints] } : {}),
+        ...(diagnosticsPatch.colorModes || previous?.colorModes
+          ? { colorModes: { ...(previous?.colorModes ?? {}), ...(diagnosticsPatch.colorModes ?? {}) } }
+          : {}),
+        ...(diagnosticsPatch.probes || previous?.probes
+          ? { probes: { ...(previous?.probes ?? {}), ...(diagnosticsPatch.probes ?? {}) } }
+          : {}),
+        ...(diagnosticsPatch.metadata || previous?.metadata
+          ? { metadata: { ...(previous?.metadata ?? {}), ...(diagnosticsPatch.metadata ?? {}) } }
+          : {}),
+        ...(diagnosticsPatch.hierarchy || previous?.hierarchy
+          ? { hierarchy: { ...(previous?.hierarchy ?? {}), ...(diagnosticsPatch.hierarchy ?? {}) } }
+          : {}),
+        ...(diagnosticsPatch.streaming || previous?.streaming
+          ? { streaming: { ...(previous?.streaming ?? {}), ...(diagnosticsPatch.streaming ?? {}) } }
+          : {}),
+      };
+      publish({
+        ...current,
+        diagnostics: { ...current.diagnostics, api: next },
       });
     },
     registerCommand<K extends keyof HarnessCommandMap>(name: K, command: HarnessCommandMap[K]): void {

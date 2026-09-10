@@ -16,11 +16,15 @@ dist-ssr
 .astro
 build
 .output
+.parcel-cache
 .env
 .env.*
 !.env.example
 *.local
 *.tsbuildinfo
+.angular/
+test-results/
+playwright-report/
 
 # Editor directories and files
 .vscode/*
@@ -35,4 +39,3 @@ build
 
 public/
 .cache/copc-fixtures/
-test-results/

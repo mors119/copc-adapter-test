@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../out-tsc/app",
+    "types": [],
+    "rootDir": "../../",
+    "noEmit": false,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../angular-shared/src/**/*.ts",
+    "../../packages/fixture-client/src/**/*.ts",
+    "../../packages/harness-core/src/**/*.ts",
+    "../../packages/test-contract/src/**/*.ts"
+  ],
+  "angularCompilerOptions": {
+    "enableResourceInlining": true,
+    "strictTemplates": true
+  }
+}

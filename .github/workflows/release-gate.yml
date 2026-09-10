@@ -1,0 +1,74 @@
+name: COPC adapter release gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Build from an adapter checkout/ref or use a prepared tarball URL
+        required: true
+        default: checkout
+        type: choice
+        options: [checkout, tarball]
+      adapter-repository:
+        description: GitHub repository containing the copc-adapter checkout
+        required: true
+        default: mors119/copc-adapter
+        type: string
+      adapter-ref:
+        description: Branch, tag, or commit to pack when source is checkout
+        required: true
+        default: main
+        type: string
+      adapter-tarball-url:
+        description: HTTPS URL for a prepared @frillab/copc-adapter .tgz when source is tarball
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: packed adapter release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout adapter source
+        if: inputs.source == 'checkout'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.adapter-repository }}
+          ref: ${{ inputs.adapter-ref }}
+          path: .release-adapter
+      - name: Prepare adapter tarball input
+        if: inputs.source == 'tarball'
+        run: curl --fail --location --retry 3 --output "$RUNNER_TEMP/copc-adapter.tgz" "${{ inputs.adapter-tarball-url }}"
+      - name: Export release gate source
+        shell: bash
+        run: |
+          if [[ "${{ inputs.source }}" == "checkout" ]]; then
+            echo "COPC_ADAPTER_CHECKOUT=$GITHUB_WORKSPACE/.release-adapter" >> "$GITHUB_ENV"
+          else
+            echo "COPC_ADAPTER_TARBALL=$RUNNER_TEMP/copc-adapter.tgz" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: .cache/copc-fixtures
+          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run matrix:release
+      - name: Upload release-gate failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-release-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore

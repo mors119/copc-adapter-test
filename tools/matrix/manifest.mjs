@@ -15,6 +15,15 @@ const VANILLA_RUNTIME_SCENARIOS = [
   'unload-releases-point-state',
   'destroy-releases-layer-resources',
 ];
+const API_RUNTIME_SCENARIOS = [
+  ...CORE_RUNTIME_SCENARIOS,
+  'detach-preserves-host-resources',
+  'unload-releases-point-state',
+  'destroy-releases-layer-resources',
+  'point-picking',
+  'api-lifecycle',
+  'source-probe',
+];
 
 export const MATRIX = [
   { appId: 'vite-vanillajs-cesium', workspace: 'apps/vite-vanillajs', host: 'vite', renderer: 'cesium', entry: '@frillab/copc-adapter', scenario: 'load-and-stream', runtimeScenarios: VANILLA_RUNTIME_SCENARIOS },

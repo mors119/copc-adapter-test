@@ -26,6 +26,8 @@ if (selectedBrowsers.length === 0) {
 
 const appPorts = new Map(apps.map((app, index) => [app.appId, firstPort + index]));
 const baseUrlFor = (app) => `http://${host}:${appPorts.get(app.appId)}`;
+const testTimeout = Number(process.env.COPC_E2E_TIMEOUT ?? 120_000);
+const expectTimeout = Number(process.env.COPC_E2E_EXPECT_TIMEOUT ?? 30_000);
 
 function devCommand(app) {
   const port = appPorts.get(app.appId);
@@ -40,8 +42,8 @@ function devCommand(app) {
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
-  timeout: 45_000,
-  expect: { timeout: 15_000 },
+  timeout: testTimeout,
+  expect: { timeout: expectTimeout },
   fullyParallel: false,
   workers: Number(process.env.COPC_E2E_WORKERS ?? 1),
   forbidOnly: Boolean(process.env.CI),

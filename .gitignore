@@ -17,9 +17,9 @@ dist-ssr
 !.env.example
 *.local
 *.tsbuildinfo
-.angular
-playwright-report
-test-results
+.angular/
+test-results/
+playwright-report/
 
 # Editor directories and files
 .vscode/*

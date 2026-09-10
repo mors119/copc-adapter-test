@@ -219,12 +219,41 @@ npm run e2e:full
 COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e
 ```
 
-Fast mode uses Chromium and `vite-react-cesium`, `vite-react-three`, `next-r3f`,
-`angular-cesium`, and `angular-three`.
-Full mode selects all apps in the matrix and all three Playwright browser projects.
+Fast mode uses Chromium and the non-Next consumer apps in the matrix; build and
+typecheck still cover every app. Full mode selects all apps in the matrix and all
+three Playwright browser projects.
 `COPC_E2E_APPS` and `COPC_E2E_BROWSERS` override either selection. Each project starts
 its own dev server and reports the app identity, host, renderer, backend, fixture, and
 browser in failure artifacts.
+
+## Fast, full, and release gates
+
+The tier definitions live in [`tools/matrix/manifest.mjs`](tools/matrix/manifest.mjs),
+so the same selectors are used locally and in GitHub Actions.
+
+```bash
+# Every consumer typecheck/build + representative Chromium runtime rows.
+npm run matrix:fast
+
+# Every consumer, Chromium/Firefox/WebKit, copc-js/Rust, and smoke/PF7 rows.
+npm run matrix:full
+
+# Pack and test a local copc-adapter checkout or prepared tarball.
+COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter npm run matrix:release
+# or
+COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter.tgz npm run matrix:release
+```
+
+All matrix commands accept the same narrow selectors, for example
+`npm run matrix:full -- --apps vite-react-three --browsers chromium --backends rust`.
+The release gate locates `apps/viewer-web` automatically in the upstream checkout,
+runs `npm pack`, installs that packed artifact under the real
+`@frillab/copc-adapter` name, validates the packaged Worker/WASM assets, and checks
+that consumer builds do not retain checkout-relative adapter paths.
+
+`.github/workflows/compatibility.yml` runs the fast gate on pull requests and normal
+pushes, and the full gate on the weekly schedule or manual dispatch. The separate
+`release-gate.yml` workflow accepts an adapter ref or a prepared tarball URL.
 
 `npm run e2e:preview` builds the matrix first and runs the same Chromium scenarios
 against each Vite production preview server. This keeps the development-server and
@@ -249,4 +278,5 @@ On failure Playwright retains the trace/video and attaches a screenshot, browser
 log, page errors, harness result JSON, and request summary. The request summary includes
 all observed `Range` headers so a passing point-rendering test proves actual byte-range
 streaming rather than page load alone. `--project <app>-<browser>` can be used after
-`npm run e2e:full` to rerun one exact combination.
+`npm run e2e:full` to rerun one exact combination; tiered runs include backend and
+fixture in the project name as well.

@@ -17,10 +17,14 @@ function option(name) {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
-export async function runMatrix(command) {
-  const apps = selectMatrix(option('--apps') ?? option('--app'));
+export async function runMatrix(command, options = {}) {
+  const apps = selectMatrix(options.apps ?? option('--apps') ?? option('--app'));
+  const packageSource = options.packageSource ?? process.env.COPC_ADAPTER_SOURCE ?? 'npm';
+  const packageVersion = options.packageVersion ?? process.env.COPC_ADAPTER_VERSION ?? '0.3.0';
+  const backend = options.backend ?? process.env.COPC_E2E_BACKEND ?? 'copc-js';
+  const fixtureId = options.fixtureId ?? process.env.COPC_E2E_FIXTURE ?? 'small-valid-copc';
   for (const app of apps) {
-    console.log(`\n→ ${app.appId} (${app.host}/${app.renderer})`);
+    console.log(`\n→ ${app.appId} | host=${app.host} renderer=${app.renderer} backend=${backend} fixture=${fixtureId} package=${packageSource}@${packageVersion}`);
     await npmCommand(['run', command, '--workspace', app.workspace]);
   }
 }

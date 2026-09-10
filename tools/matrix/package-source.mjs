@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readFile, rm, symlink } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 
@@ -26,26 +26,52 @@ function command(name, args) {
   });
 }
 
-async function validateTarball(tarball) {
-  await access(tarball);
-
-  const packageJson = await new Promise((resolvePromise, reject) => {
-    const child = spawn('tar', ['-xOf', tarball, 'package/package.json']);
+function commandOutput(name, args) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(name, args);
     let output = '';
     let error = '';
     child.stdout.on('data', (chunk) => { output += chunk; });
     child.stderr.on('data', (chunk) => { error += chunk; });
     child.once('error', reject);
-    child.once('exit', (code) => {
+    child.once('exit', (code, signal) => {
       if (code === 0) resolvePromise(output);
-      else reject(new Error(`Unable to read package metadata from ${tarball}: ${error}`));
+      else reject(new Error(`${name} ${args.join(' ')} failed (${signal ?? code}): ${error}`));
     });
   });
-
-  validatePackageMetadata(JSON.parse(packageJson), tarball);
 }
 
-function validatePackageMetadata(metadata, source) {
+async function tarballEntries(tarball) {
+  const output = await commandOutput('tar', ['-tzf', tarball]);
+  return output.split('\n').map((entry) => entry.trim()).filter(Boolean);
+}
+
+function validatePackedAssets(entries, source) {
+  const packageEntries = entries.filter((entry) => entry.startsWith('package/'));
+  const wasmEntries = packageEntries.filter((entry) => entry.endsWith('.wasm'));
+  const workerEntries = packageEntries.filter((entry) => /worker/i.test(entry) && /\.(?:js|mjs|cjs|ts)$/.test(entry));
+  if (wasmEntries.length === 0) {
+    throw new Error(`${source} does not contain a packaged WASM asset.`);
+  }
+  if (workerEntries.length === 0) {
+    throw new Error(`${source} does not contain a packaged Worker asset.`);
+  }
+  if (packageEntries.some((entry) => entry.includes('/../') || entry.startsWith('../') || entry.startsWith('/'))) {
+    throw new Error(`${source} contains an unsafe path outside the package root.`);
+  }
+}
+
+async function validateTarball(tarball) {
+  await access(tarball);
+
+  const packageJson = await commandOutput('tar', ['-xOf', tarball, 'package/package.json'])
+    .catch((error) => { throw new Error(`Unable to read package metadata from ${tarball}: ${error.message}`); });
+
+  validatePackageMetadata(JSON.parse(packageJson), tarball);
+  validatePackedAssets(await tarballEntries(tarball), tarball);
+}
+
+export function validatePackageMetadata(metadata, source) {
   if (metadata.name !== packageName) {
     throw new Error(`Expected ${packageName}, received ${metadata.name ?? 'an unnamed package'} in ${source}.`);
   }
@@ -58,11 +84,27 @@ function validatePackageMetadata(metadata, source) {
   }
 }
 
-async function validateInstalledPackage() {
+async function validateInstalledPackage({ requireAssets = false } = {}) {
   const packageRoot = resolve('node_modules/@frillab/copc-adapter');
   const metadata = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
   validatePackageMetadata(metadata, packageRoot);
+  if (requireAssets) {
+    const entries = [];
+    async function collect(directory, relative = '') {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const path = join(directory, entry.name);
+        const childRelative = relative ? `${relative}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) await collect(path, childRelative);
+        else entries.push(`package/${childRelative}`);
+      }
+    }
+    await collect(packageRoot);
+    validatePackedAssets(entries, packageRoot);
+  }
+  return packageRoot;
 }
+
+export { validateInstalledPackage, validateTarball };
 
 /** Install the same adapter package name from npm or an externally packed TGZ. */
 export async function installAdapterSource() {

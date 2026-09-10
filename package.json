@@ -7,15 +7,18 @@
     "dev": "npm run dev --workspace apps/vite-vanillajs --",
     "bootstrap": "node tools/matrix/cli.mjs bootstrap",
     "build": "npm run build:matrix",
+    "build:bundlers": "npm run matrix -- build --apps webpack-three,rollup-cesium,esbuild-three,parcel-three",
     "preview": "npm run preview --workspace apps/vite-vanillajs --",
     "build:matrix": "node tools/matrix/cli.mjs build",
     "typecheck:matrix": "node tools/matrix/cli.mjs typecheck",
+    "typecheck:bundlers": "npm run matrix -- typecheck --apps webpack-three,rollup-cesium,esbuild-three,parcel-three",
     "test:contract": "npm run test --workspace @copc-test/test-contract",
     "test:fixtures": "npm run test --workspace @copc-test/fixture-server",
     "test:matrix": "npm run test:contract && npm run test:fixtures && npm run typecheck:matrix",
     "e2e": "playwright test",
     "e2e:fast": "COPC_E2E_MODE=fast playwright test",
     "e2e:full": "COPC_E2E_MODE=full playwright test",
+    "e2e:bundlers": "COPC_E2E_APPS=webpack-three,rollup-cesium,esbuild-three,parcel-three playwright test",
     "e2e:preview": "npm run build:matrix && COPC_E2E_TARGET=preview COPC_E2E_MODE=fast playwright test",
     "e2e:install": "playwright install chromium firefox webkit",
     "matrix": "node tools/matrix/cli.mjs",
@@ -54,6 +57,10 @@
     "apps/next-cesium",
     "apps/next-three",
     "apps/next-r3f",
+    "apps/webpack-three",
+    "apps/rollup-cesium",
+    "apps/esbuild-three",
+    "apps/parcel-three",
     "apps/angular-cesium",
     "apps/angular-three"
   ],
@@ -61,5 +68,8 @@
     "@playwright/test": "^1.63.0",
     "@angular/cli": "^22.1.7",
     "@angular/build": "^22.1.7"
+  },
+  "@parcel/resolver-default": {
+    "packageExports": true
   }
 }

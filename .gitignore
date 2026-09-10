@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 .next
+.parcel-cache
 .env
 .env.*
 !.env.example
@@ -33,3 +34,5 @@ test-results
 
 public/
 .cache/copc-fixtures/
+test-results/
+playwright-report/

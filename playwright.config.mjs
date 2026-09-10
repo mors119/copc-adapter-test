@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { selectMatrix } from './tools/matrix/manifest.mjs';
 
-const FAST_APPS = 'vite-vanillajs-cesium,vite-vanilla-three,vite-react-cesium,vite-react-three,vite-r3f,vite-vue-cesium,vite-vue-three,vite-svelte-cesium,vite-svelte-three,angular-cesium,angular-three';
+const FAST_APPS = 'vite-vanillajs-cesium,vite-vanilla-three,vite-react-cesium,vite-react-three,vite-r3f,vite-vue-cesium,vite-vue-three,vite-svelte-cesium,vite-svelte-three,webpack-three,rollup-cesium,angular-cesium,angular-three';
 const mode = process.env.COPC_E2E_MODE ?? 'fast';
 const appSelector = process.env.COPC_E2E_APPS ?? (mode === 'full' ? undefined : FAST_APPS);
 const apps = selectMatrix(appSelector);
@@ -77,6 +77,7 @@ export default defineConfig({
       appId: app.appId,
       host: app.host,
       renderer: app.renderer,
+      bundler: app.bundler ?? app.host,
       entry: app.entry,
       backend: 'copc-js',
       fixtureId: 'small-valid-copc',

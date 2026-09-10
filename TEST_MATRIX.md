@@ -22,6 +22,8 @@
 | `rollup-cesium` | Rollup | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev --workspace apps/rollup-cesium` |
 | `esbuild-three` | esbuild | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/esbuild-three` |
 | `parcel-three` | Parcel | Three.js | `@frillab/copc-adapter/three` | `npm run dev --workspace apps/parcel-three` |
+| `angular-cesium` | Angular | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:angular-cesium` |
+| `angular-three` | Angular | Three.js | `@frillab/copc-adapter/three` | `npm run dev:angular-three` |
 
 ## 설치 및 package source
 
@@ -171,6 +173,15 @@ Vite는 `apps/shared/viteFixtureServer.ts`가 `/fixtures/*`와 `/cesium/*`를 �
 Next는 각 앱의 `app/api/fixtures/[...path]/route.ts`가 `/api/fixtures/*`를 제공한다.
 그래서 2GB fixture를 앱별 `public` 또는 build output으로 복사하지 않는다.
 
+Angular 앱은 표준 Angular CLI workspace의 standalone component로 구성한다.
+`apps/angular-shared/proxy.conf.json`이 개발 서버의 fixture/diagnostics 요청을
+공용 `packages/fixture-server` 프로세스(`127.0.0.1:8787`)로 전달하며, Cesium 정적
+자산은 Angular production build의 `assets` 설정으로 패키지에서 복사한다.
+`npm run dev:angular-cesium`과 `npm run dev:angular-three`는 공용 fixture server와
+해당 Angular dev server를 함께 실행한다. Playwright도 Angular E2E 실행 시 공용
+fixture server를 함께 시작하므로 Angular 전용 fixture server나 fixture/diagnostics
+구현을 추가하지 않는다.
+
 기본 fixture는 Vite에서 `/fixtures/small-valid-copc`, Next에서
 `/api/fixtures/small-valid-copc`다. 실제 브라우저 smoke와 backend/fixture 조합은
 후속 E2E matrix에서 이 ID와 manifest를 재사용한다.
@@ -208,7 +219,8 @@ npm run e2e:full
 COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e
 ```
 
-Fast mode uses Chromium and `vite-react-cesium`, `vite-react-three`, and `next-r3f`.
+Fast mode uses Chromium and `vite-react-cesium`, `vite-react-three`, `next-r3f`,
+`angular-cesium`, and `angular-three`.
 Full mode selects all apps in the matrix and all three Playwright browser projects.
 `COPC_E2E_APPS` and `COPC_E2E_BROWSERS` override either selection. Each project starts
 its own dev server and reports the app identity, host, renderer, backend, fixture, and

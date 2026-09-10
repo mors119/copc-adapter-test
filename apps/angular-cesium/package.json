@@ -1,0 +1,28 @@
+{
+  "name": "copc-matrix-angular-cesium",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ng serve angular-cesium",
+    "build": "ng build angular-cesium",
+    "typecheck": "ngc -p tsconfig.app.json --noEmit"
+  },
+  "dependencies": {
+    "@angular/common": "^22.1.6",
+    "@angular/compiler": "^22.1.6",
+    "@angular/core": "^22.1.6",
+    "@angular/platform-browser": "^22.1.6",
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
+    "@frillab/copc-adapter": "^0.3.0",
+    "cesium": "^1.144.0",
+    "rxjs": "^7.8.2",
+    "zone.js": "~0.16.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.1.7",
+    "@angular/cli": "^22.1.7",
+    "@angular/compiler-cli": "^22.1.6",
+    "typescript": "~6.0.2"
+  }
+}

@@ -15,6 +15,7 @@ dist-ssr
 .env.*
 !.env.example
 *.local
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*

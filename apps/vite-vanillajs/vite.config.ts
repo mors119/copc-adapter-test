@@ -6,6 +6,6 @@ export default defineConfig({
   publicDir: false,
   plugins: [viteFixtureServer()],
   optimizeDeps: {
-    exclude: ['@frillab/copc-adapter', '@frillab/copc-adapter-local'],
+    exclude: ['@frillab/copc-adapter'],
   },
 });

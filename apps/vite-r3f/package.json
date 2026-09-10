@@ -5,10 +5,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@frillab/copc-adapter-local": "file:../../../copc-adapter/apps/viewer-web/frillab-copc-adapter-0.3.0.tgz",
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
+    "@frillab/copc-adapter": "^0.3.0",
     "@react-three/fiber": "^9.7.0",
     "@types/three": "^0.185.4",
     "react": "^19.2.8",

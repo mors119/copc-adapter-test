@@ -5,9 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "npm run dev --workspace apps/vite-vanillajs --",
+    "bootstrap": "node tools/matrix/cli.mjs bootstrap",
     "build": "npm run build:matrix",
     "preview": "npm run preview --workspace apps/vite-vanillajs --",
-    "build:matrix": "npm run build --workspace apps/vite-vanillajs && npm run build --workspace apps/vite-react-cesium && npm run build --workspace apps/vite-react-three && npm run build --workspace apps/vite-r3f && npm run build --workspace apps/next-cesium && npm run build --workspace apps/next-three && npm run build --workspace apps/next-r3f",
+    "build:matrix": "node tools/matrix/cli.mjs build",
+    "typecheck:matrix": "node tools/matrix/cli.mjs typecheck",
+    "test:contract": "npm run test --workspace @copc-test/test-contract",
+    "test:matrix": "npm run test:contract && npm run typecheck:matrix",
+    "matrix": "node tools/matrix/cli.mjs",
     "dev:vite-vanillajs": "npm run dev --workspace apps/vite-vanillajs --",
     "dev:vite-react-cesium": "npm run dev --workspace apps/vite-react-cesium --",
     "dev:vite-react-three": "npm run dev --workspace apps/vite-react-three --",
@@ -17,6 +22,7 @@
     "dev:next-r3f": "npm run dev --workspace apps/next-r3f --"
   },
   "workspaces": [
+    "packages/*",
     "apps/vite-vanillajs",
     "apps/vite-react-cesium",
     "apps/vite-react-three",

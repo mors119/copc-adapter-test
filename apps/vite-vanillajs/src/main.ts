@@ -1,24 +1,33 @@
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './style.css';
 
+import { DEFAULT_FIXTURE_PATH } from '@copc-test/fixture-client';
+import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import { CopcLayerManager } from './app/CopcLayerManager';
-import { COPC_ADAPTERS } from './app/copcAdapters';
+import { COPC_ADAPTER } from './app/copcAdapters';
 import { ControlPanel } from './app/ControlPanel';
 import { createViewer } from './app/createViewer';
 import { DemoController } from './app/DemoController';
 import { loadSampleCatalog } from './app/sampleCatalog';
 import {
   DEFAULT_SETTINGS,
-  type AdapterTrack,
   type AppSettings,
 } from './app/types';
 
+const harnessConfig = createHarnessConfig({
+  appId: 'vite-vanillajs-cesium',
+  host: 'vite',
+  renderer: 'cesium',
+  fixtureUrl: DEFAULT_FIXTURE_PATH,
+  backend: 'rust',
+  scenario: 'camera-stream',
+}, import.meta.env, 'VITE_');
+const testContract = createTestContract(harnessConfig);
 const appBaseUrl = import.meta.env.BASE_URL;
 const viewer = createViewer();
-const manager = new CopcLayerManager(viewer, COPC_ADAPTERS.published);
+const manager = new CopcLayerManager(viewer, COPC_ADAPTER);
 
 let applyGeneration = 0;
-let currentSettings: AppSettings = { ...DEFAULT_SETTINGS };
 let panel: ControlPanel;
 
 const demo = new DemoController({
@@ -31,9 +40,6 @@ panel = new ControlPanel({
   onApply: (settings) => {
     void applySettings(settings);
   },
-  onAdapterChange: (track) => {
-    void switchAdapter(track);
-  },
   onRun: (settings) => {
     demo.start(settings.demoMode, true);
   },
@@ -43,22 +49,31 @@ panel = new ControlPanel({
       console.error('Camera movement failed:', error);
     });
   },
-});
+}, harnessConfig.packageSource);
 
 manager.onStateChange((state) => {
   panel.setLayerState(state);
   panel.setBusy(state.status === 'loading');
+  if (state.snapshot !== undefined) testContract.setSnapshot(state.snapshot);
+  if (state.status === 'loading') testContract.markLoading();
+  else if (state.status === 'ready') testContract.markReady();
+  else if (state.status === 'error') testContract.markError(state.message ?? 'Layer failed to load.');
 });
 
 window.setInterval(() => {
-  panel.updateDiagnostics(manager.getSnapshot());
+  const snapshot = manager.getSnapshot();
+  panel.updateDiagnostics(snapshot);
+  if (snapshot !== undefined) testContract.setSnapshot(snapshot);
 }, 250);
 
 async function applySettings(settings: AppSettings): Promise<void> {
   const requestGeneration = ++applyGeneration;
-  currentSettings = settings;
   demo.stop();
-  manager.setAdapter(COPC_ADAPTERS[settings.adapterTrack]);
+  testContract.setConfig({
+    fixtureUrl: settings.sampleUrl,
+    backend: settings.backend,
+    packageSource: settings.packageSource,
+  });
 
   const ready = await manager.apply(settings, settings.sampleUrl);
 
@@ -67,17 +82,6 @@ async function applySettings(settings: AppSettings): Promise<void> {
   }
 
   demo.start(settings.demoMode, settings.autoplay);
-}
-
-async function switchAdapter(track: AdapterTrack): Promise<void> {
-  if (track === currentSettings.adapterTrack) {
-    return;
-  }
-
-  await applySettings({
-    ...panel.getSettings(),
-    adapterTrack: track,
-  });
 }
 
 async function bootstrap(): Promise<void> {
@@ -95,10 +99,13 @@ async function bootstrap(): Promise<void> {
     await applySettings({
       ...DEFAULT_SETTINGS,
       sampleUrl: defaultSample.url,
+      backend: harnessConfig.backend,
+      packageSource: harnessConfig.packageSource,
     });
   } catch (error: unknown) {
     console.error('Failed to load COPC sample catalog:', error);
     const message = error instanceof Error ? error.message : String(error);
+    testContract.markError(error);
     panel.setLayerState({ status: 'error', message });
     panel.setBusy(false);
   }
@@ -109,6 +116,7 @@ void bootstrap();
 window.addEventListener('beforeunload', () => {
   demo.stop();
   manager.destroy();
+  testContract.markDestroyed();
 
   if (!viewer.isDestroyed()) {
     viewer.destroy();

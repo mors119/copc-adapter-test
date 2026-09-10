@@ -1,11 +1,9 @@
-import * as LocalCopcAdapter from '@frillab/copc-adapter-local';
 import * as PublishedCopcAdapter from '@frillab/copc-adapter';
 import type {
   CopcCesiumLayer,
   CopcCesiumLayerOptions,
   CopcCesiumLayerSnapshot,
 } from '@frillab/copc-adapter';
-import type { AdapterTrack } from './types';
 
 export type CopcAdapterLayer = Pick<
   CopcCesiumLayer,
@@ -18,7 +16,4 @@ export type CopcAdapterModule = {
 
 export type { CopcCesiumLayerSnapshot };
 
-export const COPC_ADAPTERS: Record<AdapterTrack, CopcAdapterModule> = {
-  published: PublishedCopcAdapter,
-  local: LocalCopcAdapter,
-};
+export const COPC_ADAPTER: CopcAdapterModule = PublishedCopcAdapter;

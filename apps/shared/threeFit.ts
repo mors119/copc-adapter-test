@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { type CopcThreeLayer } from '@frillab/copc-adapter-local/three';
+import { type CopcThreeLayer } from '@frillab/copc-adapter/three';
 
 export function fitThreeCamera(
   layer: CopcThreeLayer,

@@ -1,14 +1,24 @@
 import '../../../apps/shared/styles.css';
 
-import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter-local/three';
+import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
+import { DEFAULT_FIXTURE_PATH } from '@copc-test/fixture-client';
+import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { StrictMode, useEffect, useState, type ReactNode } from 'react';
+import { StrictMode, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HarnessPanel } from '../../../apps/shared/HarnessPanel';
 import { fitThreeCamera } from '../../../apps/shared/threeFit';
 
-const SAMPLE_URL = '/samples/sofi.copc.laz';
+const harnessConfig = createHarnessConfig({
+  appId: 'vite-react-three',
+  host: 'vite',
+  renderer: 'three',
+  fixtureUrl: DEFAULT_FIXTURE_PATH,
+  backend: 'copc-js',
+  scenario: 'load-and-stream',
+}, import.meta.env, 'VITE_');
+const testContract = createTestContract(harnessConfig);
 
 type ViewportProps = {
   url: string;
@@ -32,7 +42,7 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
     const layer = new CopcThreeLayer({
       url,
       colorMode: 'elevation',
-      backend: 'copc-js',
+      backend: harnessConfig.backend,
       pointSize: 3,
       maxRenderedPoints: 1_000_000,
       streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
@@ -66,6 +76,7 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
     void (async (): Promise<void> => {
       try {
         layer.attachTo({ scene, camera, renderer });
+        testContract.markAttached();
         await layer.load();
         if (disposed) return;
         await layer.update();
@@ -78,7 +89,10 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
         onSnapshot(layer.getSnapshot());
         onStatus('ready');
       } catch (error: unknown) {
-        if (!disposed) onStatus(error instanceof Error ? error.message : String(error));
+        if (!disposed) {
+          testContract.markError(error);
+          onStatus(error instanceof Error ? error.message : String(error));
+        }
       }
     })();
 
@@ -92,6 +106,7 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
       renderer.dispose();
       renderer.domElement.remove();
       container.remove();
+      testContract.markDestroyed();
       onSnapshot(undefined);
     };
   }, [onSnapshot, onStatus, url]);
@@ -103,24 +118,34 @@ function App(): ReactNode {
   const [reloadKey, setReloadKey] = useState(0);
   const [status, setStatus] = useState('idle');
   const [snapshot, setSnapshot] = useState<CopcThreeLayerSnapshot>();
+  const reportStatus = useCallback((value: string): void => {
+    setStatus(value);
+    if (value === 'loading') testContract.markLoading();
+    else if (value === 'ready') testContract.markReady();
+    else if (value !== 'idle') testContract.markError(value);
+  }, []);
+  const reportSnapshot = useCallback((value: CopcThreeLayerSnapshot | undefined): void => {
+    setSnapshot(value);
+    testContract.setSnapshot(value);
+  }, []);
 
   return (
     <main className="harness-root">
       <ThreeViewport
-        key={`${SAMPLE_URL}:${reloadKey}`}
-        url={SAMPLE_URL}
-        onStatus={setStatus}
-        onSnapshot={setSnapshot}
+        key={`${harnessConfig.fixtureUrl}:${reloadKey}`}
+        url={harnessConfig.fixtureUrl}
+        onStatus={reportStatus}
+        onSnapshot={reportSnapshot}
       />
       <HarnessPanel
+        config={harnessConfig}
         framework="Vite + React"
         renderer="Three.js"
         status={status}
-        sampleUrl={SAMPLE_URL}
         snapshot={snapshot}
         onReload={() => setReloadKey((value) => value + 1)}
       >
-        <p className="hint">로컬 TGZ의 <code>@frillab/copc-adapter-local/three</code> entry를 사용합니다. 드래그/휠로 카메라를 움직이면 LoD update가 실행됩니다.</p>
+        <p className="hint"><code>@frillab/copc-adapter/three</code> 공개 entry를 사용합니다. 드래그/휠로 카메라를 움직이면 LoD update가 실행됩니다.</p>
       </HarnessPanel>
     </main>
   );

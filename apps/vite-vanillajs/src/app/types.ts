@@ -2,12 +2,11 @@ import type {
   CopcColorMode,
   CopcCesiumLayerSnapshot,
 } from '@frillab/copc-adapter';
+import type { HarnessPackageSource } from '@copc-test/harness-core';
 
 export type CopcBackendName = 'copc-js' | 'rust';
 
 export type DemoMode = 'streaming' | 'static';
-
-export type AdapterTrack = 'published' | 'local';
 
 export type LayerSettings = {
   colorMode: CopcColorMode;
@@ -20,7 +19,7 @@ export type LayerSettings = {
 };
 
 export type AppSettings = LayerSettings & {
-  adapterTrack: AdapterTrack;
+  packageSource: HarnessPackageSource;
   sampleUrl: string;
   demoMode: DemoMode;
   autoplay: boolean;
@@ -35,7 +34,7 @@ export type LayerState = {
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  adapterTrack: 'published',
+  packageSource: 'npm',
   sampleUrl: '',
   colorMode: 'elevation',
   backend: 'rust',

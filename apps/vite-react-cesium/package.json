@@ -5,9 +5,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@copc-test/fixture-client": "0.0.0",
+    "@copc-test/harness-core": "0.0.0",
     "@frillab/copc-adapter": "^0.3.0",
     "cesium": "^1.144.0",
     "react": "^19.2.8",

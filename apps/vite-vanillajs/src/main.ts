@@ -1,7 +1,7 @@
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './style.css';
 
-import { DEFAULT_FIXTURE_PATH } from '@copc-test/fixture-client';
+import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import { CopcLayerManager } from './app/CopcLayerManager';
 import { COPC_ADAPTER } from './app/copcAdapters';
@@ -18,7 +18,7 @@ const harnessConfig = createHarnessConfig({
   appId: 'vite-vanillajs-cesium',
   host: 'vite',
   renderer: 'cesium',
-  fixtureUrl: DEFAULT_FIXTURE_PATH,
+  fixtureUrl: fixtureUrlForId(DEFAULT_FIXTURE_ID),
   backend: 'rust',
   scenario: 'camera-stream',
 }, import.meta.env, 'VITE_');
@@ -89,11 +89,11 @@ async function bootstrap(): Promise<void> {
     const samples = await loadSampleCatalog(appBaseUrl);
 
     if (samples.length === 0) {
-      throw new Error('samples 폴더에서 COPC 샘플을 찾지 못했습니다.');
+      throw new Error('fixture catalog에서 COPC fixture를 찾지 못했습니다.');
     }
 
     const defaultSample =
-      samples.find((sample) => sample.name.toLowerCase() === 'sofi.copc.laz') ?? samples[0];
+      samples.find((sample) => sample.id === DEFAULT_FIXTURE_ID) ?? samples[0];
     panel.setSamples(samples, defaultSample.url);
 
     await applySettings({

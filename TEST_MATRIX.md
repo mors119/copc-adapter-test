@@ -73,13 +73,57 @@ window.__COPC_TEST__ = {
 설정은 앱의 기본값에 build 환경, `window.__COPC_HARNESS_CONFIG__`, URL query
 순서로 적용된다. Vite는 `VITE_COPC_*`, Next는 `NEXT_PUBLIC_COPC_*`를 사용한다.
 브라우저에서 빠르게 바꿔 볼 때는 `?backend=copc-js`,
-`?scenario=camera-stream`, `?fixture=/samples/other.copc.laz`,
+`?scenario=camera-stream`, `?fixture=/fixtures/point-format-7-rgb`,
 `?packageSource=tarball`을 사용할 수 있다.
 
 지원하는 공통 설정 값은 fixture URL, backend(`copc-js|rust`), renderer,
 scenario(`load-and-stream|camera-stream|static`), package source(`npm|tarball`),
 app identity다. viewer/scene/camera/renderer 생성과 mount/unmount는 각 consumer가
 소유하며 공통 계약은 이를 숨기지 않는다.
+
+## Shared fixture catalog and server
+
+fixture metadata is kept in [`fixtures/catalog.json`](fixtures/catalog.json). The catalog
+contains stable IDs, expected capabilities, source/provenance/license, checksum slots, and
+the cache path. The downloaded files are deliberately kept outside git in
+`.cache/copc-fixtures/`, so one cache can be used by every Vite and Next consumer.
+
+```bash
+# List IDs, capabilities, source URLs, and cache status.
+npm run fixtures:list
+
+# Fetch the small smoke fixture (use --all only when the large datasets are needed).
+npm run fixtures:fetch
+npm run fixtures:fetch -- point-format-7-rgb
+npm run fixtures:fetch -- --all
+
+# Verify cached files. --strict also fails entries whose publisher has not supplied a SHA-256.
+npm run fixtures:verify
+npm run fixtures:verify -- --all --strict
+
+# Serve the shared cache and inspect Range requests from E2E tests.
+npm run fixtures:serve
+curl http://127.0.0.1:8787/__fixture__/stats
+curl -H 'Range: bytes=0-63' http://127.0.0.1:8787/fixtures/small-valid-copc
+
+# Remove downloaded files only.
+npm run fixtures:clean
+```
+
+The server supports `GET`, `HEAD`, `OPTIONS`, byte ranges, `Content-Range`,
+`Accept-Ranges`, configurable CORS, and these deterministic behaviors selected with
+`?fixtureScenario=...` or `X-COPC-Fixture-Scenario`:
+
+`default`, `no-range`, `ignore-range`, `malformed-range`, `not-found`, `truncated`,
+`delayed`, and `transient-failure`. `?delayMs=250` controls an artificial delay and
+`COPC_FIXTURE_ROOT`, `COPC_FIXTURE_CATALOG`, `COPC_FIXTURE_PORT`, and
+`COPC_FIXTURE_CORS_ORIGIN` configure the process. Request logs include request count,
+requested ranges, bytes served, status, scenario, and failure details at
+`/__fixture__/stats`; `POST /__fixture__/reset` clears them.
+
+Vite's middleware and every Next route now delegate to `packages/fixture-server`, so
+framework-specific routes only adapt the request/response shape. The canonical browser URL
+is `/fixtures/<fixture-id>`; `/samples/*` remains as a compatibility alias.
 
 ## 검증 명령
 
@@ -97,11 +141,10 @@ npm run matrix -- typecheck --apps vite-react-three,next-r3f
 npm run matrix -- build --apps vite-react-cesium
 ```
 
-Vite는 `apps/shared/viteFixtureServer.ts`가 `/samples/*`와 `/cesium/*`를
-Range-aware로 제공한다. Next는 각 앱의 `app/api/*/[...path]/route.ts`가 같은
-역할을 한다. 그래서 2GB fixture를 앱별 `public` 또는 build output으로 복사하지
-않는다.
+Vite는 `apps/shared/viteFixtureServer.ts`가 `/fixtures/*`와 `/cesium/*`를 제공한다.
+Next는 각 앱의 `app/api/fixtures/[...path]/route.ts`가 `/api/fixtures/*`를 제공한다.
+그래서 2GB fixture를 앱별 `public` 또는 build output으로 복사하지 않는다.
 
-기본 fixture는 Vite에서 `/samples/sofi.copc.laz`, Next에서
-`/api/samples/sofi.copc.laz`다. 실제 브라우저 smoke와 backend/fixture 조합은
-후속 E2E matrix에서 이 계약과 manifest를 재사용한다.
+기본 fixture는 Vite에서 `/fixtures/small-valid-copc`, Next에서
+`/api/fixtures/small-valid-copc`다. 실제 브라우저 smoke와 backend/fixture 조합은
+후속 E2E matrix에서 이 ID와 manifest를 재사용한다.

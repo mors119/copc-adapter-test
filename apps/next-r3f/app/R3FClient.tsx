@@ -1,6 +1,7 @@
 'use client';
 
 import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
+import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -12,7 +13,7 @@ const harnessConfig = createHarnessConfig({
   appId: 'next-r3f',
   host: 'next',
   renderer: 'r3f',
-  fixtureUrl: '/api/samples/sofi.copc.laz',
+  fixtureUrl: fixtureUrlForId(DEFAULT_FIXTURE_ID, '/api'),
   backend: 'copc-js',
   scenario: 'camera-stream',
 }, process.env, 'NEXT_PUBLIC_');

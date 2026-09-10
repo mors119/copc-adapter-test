@@ -1,7 +1,7 @@
 import '../../../apps/shared/styles.css';
 
 import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
-import { DEFAULT_FIXTURE_PATH } from '@copc-test/fixture-client';
+import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -14,7 +14,7 @@ const harnessConfig = createHarnessConfig({
   appId: 'vite-react-three',
   host: 'vite',
   renderer: 'three',
-  fixtureUrl: DEFAULT_FIXTURE_PATH,
+  fixtureUrl: fixtureUrlForId(DEFAULT_FIXTURE_ID),
   backend: 'copc-js',
   scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');

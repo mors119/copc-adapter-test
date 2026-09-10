@@ -1,6 +1,7 @@
 'use client';
 
 import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
+import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -12,7 +13,7 @@ const harnessConfig = createHarnessConfig({
   appId: 'next-three',
   host: 'next',
   renderer: 'three',
-  fixtureUrl: '/api/samples/sofi.copc.laz',
+  fixtureUrl: fixtureUrlForId(DEFAULT_FIXTURE_ID, '/api'),
   backend: 'copc-js',
   scenario: 'load-and-stream',
 }, process.env, 'NEXT_PUBLIC_');

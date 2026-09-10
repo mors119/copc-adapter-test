@@ -161,7 +161,8 @@ Next는 각 앱의 `app/api/fixtures/[...path]/route.ts`가 `/api/fixtures/*`를
 `camera-streaming-update`, `equivalent-view-is-stable`, `reload-to-ready`,
 `detach-preserves-host-resources`, `unload-releases-point-state`,
 `destroy-releases-layer-resources`, `color-mode-change`, `point-picking`,
-`diagnostics-observable`, `source-error-is-visible`, `rust-failure-is-not-retried`.
+`diagnostics-observable`, `api-lifecycle`, `source-probe`, `source-error-is-visible`,
+`rust-failure-is-not-retried`.
 
 현재 구현된 consumer가 제공하는 공통 smoke subset은 matrix manifest에 선언한다.
 현재 공개 Cesium layer를 직접 사용하는 Vanilla consumer는 detach/unload/destroy도
@@ -186,6 +187,22 @@ Full mode selects all apps in the matrix and all three Playwright browser projec
 `COPC_E2E_APPS` and `COPC_E2E_BROWSERS` override either selection. Each project starts
 its own dev server and reports the app identity, host, renderer, backend, fixture, and
 browser in failure artifacts.
+
+## Public API coverage
+
+The `vite-react-three` consumer enables the extended `api-lifecycle` scenario. It
+uses the published `/three` entry directly to exercise the layer lifecycle and
+diagnostics (`getMetadata()`, hierarchy/cache counters, snapshots), all documented
+color-mode constructor options, `pick(...)`, `probeCopcSource(...)`, and the
+renderer-neutral `CopcStreamingCore` load contract. The same consumer also runs the
+`source-probe` scenario against the fixture server's ignored-Range mode. Its normal
+camera-streaming scenario performs the renderer-neutral view update; the API-focused
+URL skips that expensive render pass so API assertions remain a fast, deterministic
+PR check.
+
+```bash
+COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e -- --grep 'api-lifecycle|source-probe'
+```
 
 On failure Playwright retains the trace/video and attaches a screenshot, browser console
 log, page errors, harness result JSON, and request summary. The request summary includes

@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
-import { selectTier } from './manifest.mjs';
+import { selectMatrix, selectTier } from './manifest.mjs';
 import { installAdapterSource, validateInstalledPackage, validateTarball } from './package-source.mjs';
 import { runMatrix } from './runner.mjs';
 
@@ -97,17 +97,14 @@ async function allFiles(directory) {
   return files;
 }
 
-async function verifyBuildOutputs(checkout) {
+async function verifyBuildOutputs(checkout, appSelector) {
   const forbidden = [
     checkout,
     'copc-adapter-local',
     'file:../../../copc-adapter',
     'file:../../copc-adapter',
   ].filter(Boolean);
-  const roots = [
-    ...['vite-react-cesium', 'vite-react-three', 'vite-r3f'].map((app) => resolve(`apps/${app}/dist`)),
-    ...['next-cesium', 'next-three', 'next-r3f'].map((app) => resolve(`apps/${app}/.next`)),
-  ];
+  const roots = selectMatrix(appSelector).map((app) => resolve(app.workspace, app.host === 'next' ? '.next' : 'dist'));
   const builtFiles = [];
   for (const root of roots) builtFiles.push(...await readTextFiles(root));
   const outputPaths = [];
@@ -185,6 +182,8 @@ export async function runReleaseGate(options = {}) {
       VITE_COPC_PACKAGE_VERSION: 'packed-checkout',
       NEXT_PUBLIC_COPC_PACKAGE_SOURCE: 'tarball',
       NEXT_PUBLIC_COPC_PACKAGE_VERSION: 'packed-checkout',
+      COPC_E2E_PACKAGE_SOURCE: 'tarball',
+      COPC_E2E_PACKAGE_VERSION: 'packed-checkout',
     };
     const matrixOptions = {
       apps,
@@ -195,7 +194,7 @@ export async function runReleaseGate(options = {}) {
     };
     await runMatrix('typecheck', matrixOptions);
     await runMatrix('build', matrixOptions);
-    await verifyBuildOutputs(checkout);
+    await verifyBuildOutputs(checkout, apps);
     if (!options.skipE2E) await command('npm', ['run', 'e2e'], { env: runtimeEnvironment });
     console.log(`Release gate passed: ${tarball}`);
   } finally {

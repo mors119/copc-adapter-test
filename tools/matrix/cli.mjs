@@ -75,6 +75,8 @@ async function runTier(tier) {
     VITE_COPC_PACKAGE_VERSION: options.packageVersion,
     NEXT_PUBLIC_COPC_PACKAGE_SOURCE: options.packageSource,
     NEXT_PUBLIC_COPC_PACKAGE_VERSION: options.packageVersion,
+    COPC_E2E_PACKAGE_SOURCE: options.packageSource,
+    COPC_E2E_PACKAGE_VERSION: options.packageVersion,
   };
   await npmCommand(['run', 'e2e'], e2eEnv);
 }

@@ -16,7 +16,7 @@ const harnessConfig = createHarnessConfig({
   renderer: 'r3f',
   fixtureUrl: fixtureUrlForId(DEFAULT_FIXTURE_ID),
   backend: 'copc-js',
-  scenario: 'camera-stream',
+  scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');
 const testContract = createTestContract(harnessConfig);
 
@@ -41,8 +41,8 @@ function CopcPointCloud({ url, onStatus, onSnapshot }: PointCloudProps): ReactNo
       colorMode: 'elevation',
       backend: harnessConfig.backend,
       pointSize: 3,
-      maxRenderedPoints: 1_000_000,
-      streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
+      maxRenderedPoints: 100_000,
+      streaming: { maxNodes: 4, maxDepth: 5, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
       debug: true,
     });
     layerRef.current = layer;

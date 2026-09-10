@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { selectMatrix } from './tools/matrix/manifest.mjs';
 
-const FAST_APPS = 'vite-react-cesium,vite-react-three,next-r3f';
+const FAST_APPS = 'vite-vanillajs-cesium,vite-vanilla-three,vite-react-cesium,vite-react-three,vite-r3f,vite-vue-cesium,vite-vue-three,vite-svelte-cesium,vite-svelte-three';
 const mode = process.env.COPC_E2E_MODE ?? 'fast';
 const appSelector = process.env.COPC_E2E_APPS ?? (mode === 'full' ? undefined : FAST_APPS);
 const apps = selectMatrix(appSelector);
@@ -30,6 +30,10 @@ const baseUrlFor = (app) => `http://${host}:${appPorts.get(app.appId)}`;
 function devCommand(app) {
   const port = appPorts.get(app.appId);
   const hostFlag = app.host === 'next' ? `--hostname ${host}` : `--host ${host}`;
+  if (process.env.COPC_E2E_TARGET === 'preview') {
+    const command = app.host === 'next' ? 'start' : 'preview';
+    return `npm run ${command} --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
+  }
   return `npm run dev --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
 }
 

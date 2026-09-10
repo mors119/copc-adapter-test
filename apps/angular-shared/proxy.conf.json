@@ -1,0 +1,32 @@
+{
+  "/fixtures": {
+    "target": "http://127.0.0.1:8787",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/samples": {
+    "target": "http://127.0.0.1:8787",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/fixtures.json": {
+    "target": "http://127.0.0.1:8787",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/samples.json": {
+    "target": "http://127.0.0.1:8787",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/__fixture__": {
+    "target": "http://127.0.0.1:8787",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/cesium": {
+    "target": "http://127.0.0.1:8787",
+    "secure": false,
+    "changeOrigin": true
+  }
+}

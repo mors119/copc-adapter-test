@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { selectMatrix } from './tools/matrix/manifest.mjs';
 
-const FAST_APPS = 'vite-react-cesium,vite-react-three,next-r3f';
+const FAST_APPS = 'vite-react-cesium,vite-react-three,next-r3f,angular-cesium,angular-three';
 const mode = process.env.COPC_E2E_MODE ?? 'fast';
 const appSelector = process.env.COPC_E2E_APPS ?? (mode === 'full' ? undefined : FAST_APPS);
 const apps = selectMatrix(appSelector);
@@ -33,6 +33,18 @@ function devCommand(app) {
   return `npm run dev --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
 }
 
+const sharedFixtureServer = apps.some((app) => app.host === 'angular')
+  ? [{
+    command: 'npm run fixtures:serve -- --host 127.0.0.1 --port 8787',
+    url: 'http://127.0.0.1:8787/__fixture__/stats',
+    cwd: process.cwd(),
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  }]
+  : [];
+
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
@@ -44,7 +56,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : [['list']],
   outputDir: 'test-results',
-  webServer: apps.map((app) => ({
+  webServer: [...sharedFixtureServer, ...apps.map((app) => ({
     command: devCommand(app),
     url: `${baseUrlFor(app)}/`,
     cwd: process.cwd(),
@@ -52,7 +64,7 @@ export default defineConfig({
     timeout: 180_000,
     stdout: 'pipe',
     stderr: 'pipe',
-  })),
+  }))],
   projects: apps.flatMap((app) => selectedBrowsers.map((browser) => ({
     name: `${app.appId}-${browser}`,
     metadata: {

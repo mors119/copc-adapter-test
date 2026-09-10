@@ -113,13 +113,14 @@ export function assertRuntimeScenario(
       return;
 
     case 'source-error-is-visible':
-      if (result.status !== 'error' || !result.error?.message) {
+      if (result.status !== 'error' || !result.error?.message || result.error.message === 'error') {
         fail(scenario, 'source failure is not visible in project-owned error state');
       }
       return;
 
     case 'rust-failure-is-not-retried':
-      if (result.config.backend !== 'rust' || result.status !== 'error' || !result.error?.message) {
+      if (result.config.backend !== 'rust' || result.status !== 'error'
+        || !result.error?.message || result.error.message === 'error') {
         fail(scenario, 'Rust/backend failure was not preserved as a visible failure');
       }
       return;

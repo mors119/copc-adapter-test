@@ -18,6 +18,7 @@ const VANILLA_RUNTIME_SCENARIOS = [
 const NEXT_TURBOPACK_WASM_EXPECTED_FAILURE = {
   id: 'next-turbopack-adapter-wasm-url',
   reason: 'Next.js Turbopack cannot currently resolve the adapter package WASM URL modules (__wbindgen_* / ?url&no-inline). Remove this record when the upstream/package behavior is fixed.',
+  outputIncludes: ['copc_wasm.wasm_.loader.mjs', '?url&no-inline'],
 };
 
 export const MATRIX = [

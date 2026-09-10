@@ -27,7 +27,6 @@ function setStatus(value: string): void {
   }
   if (value === 'loading') contract.markLoading();
   else if (value === 'ready') contract.markReady();
-  else if (value !== 'idle') contract.markError(value);
 }
 
 const stop = startCesiumHarness({

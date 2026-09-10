@@ -23,7 +23,6 @@ function reportStatus(value: string): void {
   status.value = value;
   if (value === 'loading') contract.markLoading();
   else if (value === 'ready') contract.markReady();
-  else if (value !== 'idle') contract.markError(value);
 }
 
 function reportSnapshot(value: CopcThreeLayerSnapshot | undefined): void {

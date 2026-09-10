@@ -203,8 +203,10 @@ browser in failure artifacts.
 
 Next.js webpack and Turbopack are separate matrix identities. The current Turbopack entries are
 recorded expected build failures because the adapter's WASM URL modules are not yet resolvable by
-that bundler; the matrix runner fails if any of those builds unexpectedly start passing, so the
-record can be removed when the package or bundler behavior is fixed.
+that bundler; the matrix runner captures the build output and requires the recorded adapter WASM
+loader and `?url&no-inline` markers before accepting the failure. It also fails if any of those
+builds unexpectedly start passing, so the record can be removed when the package or bundler
+behavior is fixed.
 
 On failure Playwright retains the trace/video and attaches a screenshot, browser console
 log, page errors, harness result JSON, and request summary. The request summary includes

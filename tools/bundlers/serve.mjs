@@ -18,8 +18,7 @@ const fixturePath = (pathname) => pathname === '/fixtures.json'
   || pathname === '/__fixture__/stats'
   || pathname === '/__fixture__/reset'
   || pathname.startsWith('/fixtures/')
-  || pathname.startsWith('/samples/')
-  || pathname.startsWith('/cesium/');
+  || pathname.startsWith('/samples/');
 
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',

@@ -7,9 +7,14 @@
 | App identity | Host | Renderer | Public entry | 개발 명령 |
 | --- | --- | --- | --- | --- |
 | `vite-vanillajs-cesium` | Vite Vanilla JS | Cesium | `@frillab/copc-adapter` | `npm run dev:vite-vanillajs` |
+| `vite-vanilla-three` | Vite Vanilla JS | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-vanilla-three` |
 | `vite-react-cesium` | Vite + React | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-react-cesium` |
 | `vite-react-three` | Vite + React | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-react-three` |
 | `vite-r3f` | Vite | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:vite-r3f` |
+| `vite-vue-cesium` | Vite + Vue | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-vue-cesium` |
+| `vite-vue-three` | Vite + Vue | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-vue-three` |
+| `vite-svelte-cesium` | Vite + Svelte | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-svelte-cesium` |
+| `vite-svelte-three` | Vite + Svelte | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-svelte-three` |
 | `next-cesium` | Next.js | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:next-cesium` |
 | `next-three` | Next.js | Three.js | `@frillab/copc-adapter/three` | `npm run dev:next-three` |
 | `next-r3f` | Next.js | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:next-r3f` |
@@ -172,7 +177,8 @@ fixture server를 함께 시작하므로 Angular 전용 fixture server나 fixtur
 `camera-streaming-update`, `equivalent-view-is-stable`, `reload-to-ready`,
 `detach-preserves-host-resources`, `unload-releases-point-state`,
 `destroy-releases-layer-resources`, `color-mode-change`, `point-picking`,
-`diagnostics-observable`, `source-error-is-visible`, `rust-failure-is-not-retried`.
+`diagnostics-observable`, `api-lifecycle`, `source-probe`, `source-error-is-visible`,
+`rust-failure-is-not-retried`.
 
 현재 구현된 consumer가 제공하는 공통 smoke subset은 matrix manifest에 선언한다.
 현재 공개 Cesium layer를 직접 사용하는 Vanilla consumer는 detach/unload/destroy도
@@ -198,6 +204,25 @@ Full mode selects all apps in the matrix and all three Playwright browser projec
 `COPC_E2E_APPS` and `COPC_E2E_BROWSERS` override either selection. Each project starts
 its own dev server and reports the app identity, host, renderer, backend, fixture, and
 browser in failure artifacts.
+
+`npm run e2e:preview` builds the matrix first and runs the same Chromium scenarios
+against each Vite production preview server. This keeps the development-server and
+production-bundle paths under the same consumer contract.
+## Public API coverage
+
+The `vite-react-three` consumer enables the extended `api-lifecycle` scenario. It
+uses the published `/three` entry directly to exercise the layer lifecycle and
+diagnostics (`getMetadata()`, hierarchy/cache counters, snapshots), all documented
+color-mode constructor options, `pick(...)`, `probeCopcSource(...)`, and the
+renderer-neutral `CopcStreamingCore` load and view-update contract. The same consumer also runs the
+`source-probe` scenario against the fixture server's ignored-Range mode. Its normal
+camera-streaming scenario still verifies the integrated layer update, while the
+API-focused URL skips only the initial active-layer render pass; its explicit core and
+color-mode candidates still load and update against the fixture.
+
+```bash
+COPC_E2E_APPS=vite-react-three COPC_E2E_BROWSERS=chromium npm run e2e -- --grep 'api-lifecycle|source-probe'
+```
 
 On failure Playwright retains the trace/video and attaches a screenshot, browser console
 log, page errors, harness result JSON, and request summary. The request summary includes

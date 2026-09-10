@@ -1,6 +1,12 @@
 import '../../../apps/shared/styles.css';
 
-import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
+import {
+  CopcStreamingCore,
+  CopcThreeLayer,
+  createThreeStreamingView,
+  probeCopcSource,
+  type CopcThreeLayerSnapshot,
+} from '@frillab/copc-adapter/three';
 import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import * as THREE from 'three';
@@ -23,10 +29,57 @@ const testContract = createTestContract(harnessConfig);
 type ViewportProps = {
   url: string;
   onStatus: (status: string) => void;
-  onSnapshot: (snapshot: CopcThreeLayerSnapshot | undefined) => void;
+  onSnapshot: (snapshot: PublishedSnapshot | undefined) => void;
+  onHandle: (handle: ThreeApiHandle | undefined) => void;
 };
 
-function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode {
+type ThreeApiHandle = {
+  reload(): Promise<void>;
+  detach(): void;
+  unload(): void;
+  destroy(): void;
+  pick(x: number, y: number): void;
+  runApiCoverage(): Promise<void>;
+  probeSource(label: string, source: string): Promise<void>;
+};
+
+type Operation = { status: 'passed' | 'unsupported' | 'error'; message?: string };
+type CopcColorMode = 'fixed' | 'elevation' | 'rgb' | 'intensity' | 'classification';
+type PublishedSnapshot = CopcThreeLayerSnapshot & {
+  selectedPoint?: ReturnType<CopcThreeLayer['getSelectedPoint']>;
+};
+
+let activeThreeHandle: ThreeApiHandle | undefined;
+
+testContract.registerCommand('reload', () => activeThreeHandle?.reload());
+testContract.registerCommand('detach', () => activeThreeHandle?.detach());
+testContract.registerCommand('unload', () => activeThreeHandle?.unload());
+testContract.registerCommand('destroy', () => activeThreeHandle?.destroy());
+testContract.registerCommand('pick', (x = 0, y = 0) => { activeThreeHandle?.pick(x, y); });
+testContract.registerCommand('runApiCoverage', () => activeThreeHandle?.runApiCoverage());
+testContract.registerCommand('probeSource', (label, source) => activeThreeHandle?.probeSource(label, source));
+
+const STREAMING_OPTIONS = {
+  maxNodes: 8,
+  maxDepth: 6,
+  maxScreenSpaceError: 8,
+  maxRenderDistanceMeters: 20_000,
+  maxRenderedPoints: 1_000_000,
+};
+
+function layerOptions(url: string, colorMode: CopcColorMode): ConstructorParameters<typeof CopcThreeLayer>[0] {
+  return {
+    url,
+    colorMode,
+    backend: harnessConfig.backend,
+    pointSize: 3,
+    maxRenderedPoints: STREAMING_OPTIONS.maxRenderedPoints,
+    streaming: STREAMING_OPTIONS,
+    debug: true,
+  };
+}
+
+function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): ReactNode {
   useEffect(() => {
     const container = document.createElement('div');
     container.className = 'harness-canvas';
@@ -38,22 +91,19 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
-
-    const layer = new CopcThreeLayer({
-      url,
-      colorMode: 'elevation',
-      backend: harnessConfig.backend,
-      pointSize: 3,
-      maxRenderedPoints: 1_000_000,
-      streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
-      debug: true,
-    });
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.addEventListener('change', () => { void layer.update(); });
+
+    let layer = new CopcThreeLayer(layerOptions(url, 'elevation'));
     let disposed = false;
     let animationFrame = 0;
-    onStatus('loading');
+    const apiCoverageOnly = new URLSearchParams(window.location.search).get('apiCoverage') === '1';
+
+    const publishSnapshot = (): void => {
+      const snapshot = layer.getSnapshot();
+      const selectedPoint = layer.getSelectedPoint();
+      onSnapshot(selectedPoint ? { ...snapshot, selectedPoint } : snapshot);
+    };
 
     const resize = (): void => {
       const width = container.clientWidth || window.innerWidth;
@@ -71,33 +121,245 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
       animationFrame = window.requestAnimationFrame(render);
     };
     render();
+    controls.addEventListener('change', () => { void layer.update(); });
 
-    const timer = window.setInterval(() => onSnapshot(layer.getSnapshot()), 250);
-    void (async (): Promise<void> => {
-      try {
-        layer.attachTo({ scene, camera, renderer });
-        testContract.markAttached();
-        await layer.load();
-        if (disposed) return;
-        await layer.update();
-        if (disposed) return;
-        if (!fitThreeCamera(layer, camera, controls.target)) {
-          throw new Error('COPC loaded, but no Three.js points were rendered.');
-        }
-        controls.update();
-        await layer.update();
-        onSnapshot(layer.getSnapshot());
+    const loadLayer = async (nextLayer: CopcThreeLayer, fitCamera: boolean): Promise<void> => {
+      layer = nextLayer;
+      layer.attachTo({ scene, camera, renderer });
+      testContract.markAttached();
+      await layer.load();
+      if (disposed) return;
+      if (apiCoverageOnly) {
+        publishSnapshot();
         onStatus('ready');
+        return;
+      }
+      await layer.update();
+      if (disposed) return;
+      if (fitCamera && !fitThreeCamera(layer, camera, controls.target)) {
+        throw new Error('COPC loaded, but no Three.js points were rendered.');
+      }
+      controls.update();
+      await layer.update();
+      publishSnapshot();
+      onStatus('ready');
+    };
+
+    const runApiCoverage = async (): Promise<void> => {
+      const operations: Record<string, Operation> = {};
+      const colorModes: Record<string, Operation> = {};
+      const operation = (name: string, status: Operation['status'], message?: string): void => {
+        operations[name] = { status, ...(message ? { message } : {}) };
+      };
+
+      const metadata = layer.getMetadata();
+      operation('load', metadata ? 'passed' : 'error', metadata ? undefined : 'metadata was not loaded');
+      operation('getMetadata', metadata ? 'passed' : 'error', metadata ? undefined : 'metadata was not loaded');
+      const hierarchy = layer.getHierarchyDiagnostics();
+      operation('getHierarchyDiagnostics', hierarchy ? 'passed' : 'error', hierarchy ? undefined : 'diagnostics were not available');
+      const cache = layer.getPointCacheDiagnostics();
+      operation('getPointCacheDiagnostics', cache ? 'passed' : 'error');
+      operation('getSnapshot', layer.getSnapshot() ? 'passed' : 'error');
+      operation('attachTo', layer.getSnapshot().attached ? 'passed' : 'error');
+      testContract.setApiDiagnostics({
+        entrypoints: ['@frillab/copc-adapter/three'],
+        operations,
+        metadata: metadata ? {
+          pointCount: metadata.pointCount,
+          hasBounds: Boolean(metadata.bounds),
+          hasCrs: Boolean(metadata.wkt),
+        } : undefined,
+        ...(hierarchy ? {
+          hierarchy: {
+            requestCount: hierarchy.pageRequests,
+            cacheHitCount: hierarchy.pageCacheHits,
+            cacheMissCount: hierarchy.pageRequests - hierarchy.pageCacheHits,
+          },
+        } : {}),
+      });
+
+      const probe = await probeCopcSource(url);
+      operation('probeCopcSource', probe.reachable && probe.corsReadable === true ? 'passed' : 'error');
+      testContract.setApiDiagnostics({
+        operations,
+        probes: {
+          default: {
+            reachable: probe.reachable,
+            rangeSupported: probe.rangeSupported,
+            corsReadable: probe.corsReadable,
+            copcDetected: probe.copcDetected,
+            ...(probe.status === undefined ? {} : { status: probe.status }),
+            ...(probe.partialStatus === undefined ? {} : { partialStatus: probe.partialStatus }),
+            warnings: [...probe.warnings],
+          },
+        },
+      });
+
+      const core = new CopcStreamingCore({
+        url,
+        backend: harnessConfig.backend,
+        maxRenderedPoints: STREAMING_OPTIONS.maxRenderedPoints,
+        streaming: STREAMING_OPTIONS,
+      });
+      try {
+        await core.load();
+        const frame = layer.getLocalFrame();
+        if (!frame) throw new Error('Three layer did not expose a loaded local frame');
+        let streamingSnapshot = core.getSnapshot();
+        operation('CopcStreamingCore.load', streamingSnapshot.lifecycle === 'ready' ? 'passed' : 'error');
+        const view = createThreeStreamingView({ camera, frame, renderer });
+        await core.updateView(view);
+        streamingSnapshot = core.getSnapshot();
+        operation('CopcStreamingCore.updateView', streamingSnapshot.streamingUpdateCount > 0 ? 'passed' : 'error');
+        testContract.setApiDiagnostics({
+          operations,
+          streaming: {
+            lifecycle: streamingSnapshot.lifecycle,
+            updateCount: streamingSnapshot.streamingUpdateCount,
+            selectedNodeCount: streamingSnapshot.selectedNodeKeys.length,
+          },
+        });
       } catch (error: unknown) {
-        if (!disposed) {
-          testContract.markError(error);
-          onStatus(error instanceof Error ? error.message : String(error));
+        operation('CopcStreamingCore.load', 'error', error instanceof Error ? error.message : String(error));
+        testContract.setApiDiagnostics({ operations });
+      } finally {
+        core.destroy();
+      }
+
+      let colorMatrixCameraFitted = !apiCoverageOnly;
+      for (const colorMode of ['fixed', 'elevation', 'rgb', 'intensity', 'classification'] as const) {
+        const candidate = new CopcThreeLayer(layerOptions(url, colorMode));
+        try {
+          candidate.attachTo({ scene, camera, renderer });
+          await candidate.load();
+          await candidate.update();
+          if (!colorMatrixCameraFitted) {
+            if (!fitThreeCamera(candidate, camera, controls.target)) {
+              throw new Error(`No points rendered for color mode ${colorMode}`);
+            }
+            colorMatrixCameraFitted = true;
+            controls.update();
+            await candidate.update();
+          }
+          if ((candidate.getSnapshot().renderedPointCount ?? 0) <= 0) {
+            throw new Error(`Color mode ${colorMode} did not render any points`);
+          }
+          // The small point-format-6 fixture intentionally has no RGB fields;
+          // loading and updating the candidate still exercises the public
+          // option and renderer fallback before reporting that limitation.
+          colorModes[colorMode] = colorMode === 'rgb'
+            ? { status: 'unsupported', message: 'small-valid-copc is point format 6 and has no RGB attributes.' }
+            : { status: 'passed' };
+        } catch (error: unknown) {
+          colorModes[colorMode] = {
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+          };
+        } finally {
+          candidate.destroy();
         }
       }
-    })();
+      testContract.setApiDiagnostics({ operations, colorModes });
 
+      await layer.reload();
+      if (!apiCoverageOnly) await layer.update();
+      operation('reload', layer.getSnapshot().lifecycle === 'ready' ? 'passed' : 'error');
+      layer.detachFrom();
+      operation('detachFrom', layer.getSnapshot().attached === false ? 'passed' : 'error');
+      layer.attachTo({ scene, camera, renderer });
+      if (!apiCoverageOnly) await layer.update();
+      layer.unload();
+      operation('unload', layer.getMetadata() === undefined && layer.getSnapshot().renderedPointCount === 0 ? 'passed' : 'error');
+      layer.destroy();
+      operation('destroy', layer.getSnapshot().lifecycle === 'destroyed' ? 'passed' : 'error');
+      testContract.setApiDiagnostics({ operations, colorModes });
+      testContract.markDestroyed();
+      publishSnapshot();
+    };
+
+    const handle: ThreeApiHandle = {
+      async reload(): Promise<void> {
+        testContract.markLoading();
+        onStatus('loading');
+        await layer.reload();
+        await layer.update();
+        publishSnapshot();
+        testContract.markReady();
+        onStatus('ready');
+      },
+      detach(): void {
+        layer.detachFrom();
+        publishSnapshot();
+      },
+      unload(): void {
+        layer.unload();
+        publishSnapshot();
+      },
+      destroy(): void {
+        layer.destroy();
+        publishSnapshot();
+        testContract.markDestroyed();
+        onStatus('destroyed');
+      },
+      pick(x: number, y: number): void {
+        camera.updateMatrixWorld(true);
+        let pickPosition: THREE.Vector3 | undefined;
+        layer.getRoot().traverse((object) => {
+          if (pickPosition || object.type !== 'Points') return;
+          const points = object as THREE.Points;
+          const positions = points.geometry.getAttribute('position');
+          if (!positions || positions.count === 0) return;
+          pickPosition = new THREE.Vector3(
+            positions.getX(0),
+            positions.getY(0),
+            positions.getZ(0),
+          ).applyMatrix4(points.matrixWorld).project(camera);
+        });
+        const rect = renderer.domElement.getBoundingClientRect();
+        const screenPosition = pickPosition
+          ? {
+              x: rect.left + ((pickPosition.x + 1) / 2) * rect.width,
+              y: rect.top + ((1 - pickPosition.y) / 2) * rect.height,
+            }
+          : { x, y };
+        layer.pick({
+          x: ((screenPosition.x - rect.left) / Math.max(rect.width, 1)) * 2 - 1,
+          y: -(((screenPosition.y - rect.top) / Math.max(rect.height, 1)) * 2 - 1),
+        });
+        publishSnapshot();
+      },
+      runApiCoverage,
+      async probeSource(label: string, source: string): Promise<void> {
+        const probe = await probeCopcSource(source);
+        testContract.setApiDiagnostics({
+          probes: {
+            [label]: {
+              reachable: probe.reachable,
+              rangeSupported: probe.rangeSupported,
+              corsReadable: probe.corsReadable,
+              copcDetected: probe.copcDetected,
+              ...(probe.status === undefined ? {} : { status: probe.status }),
+              ...(probe.partialStatus === undefined ? {} : { partialStatus: probe.partialStatus }),
+              warnings: [...probe.warnings],
+            },
+          },
+        });
+      },
+    };
+    onHandle(handle);
+    onStatus('loading');
+    testContract.markLoading();
+    void loadLayer(layer, true).catch((error: unknown) => {
+      if (!disposed) {
+        testContract.markError(error);
+        onStatus(error instanceof Error ? error.message : String(error));
+      }
+    });
+
+    const timer = window.setInterval(publishSnapshot, 250);
     return () => {
       disposed = true;
+      onHandle(undefined);
       window.clearInterval(timer);
       window.cancelAnimationFrame(animationFrame);
       window.removeEventListener('resize', resize);
@@ -109,23 +371,26 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
       testContract.markDestroyed();
       onSnapshot(undefined);
     };
-  }, [onSnapshot, onStatus, url]);
+  }, [onHandle, onSnapshot, onStatus, url]);
 
   return null;
 }
 
 function App(): ReactNode {
-  const [reloadKey, setReloadKey] = useState(0);
   const [status, setStatus] = useState('idle');
-  const [snapshot, setSnapshot] = useState<CopcThreeLayerSnapshot>();
-  useEffect(() => {
-    testContract.registerCommand('reload', () => setReloadKey((value) => value + 1));
-    return () => testContract.unregisterCommand('reload');
+  const [snapshot, setSnapshot] = useState<PublishedSnapshot>();
+  const [handle, setHandle] = useState<ThreeApiHandle>();
+
+  const assignHandle = useCallback((value: ThreeApiHandle | undefined): void => {
+    activeThreeHandle = value;
+    setHandle(value);
   }, []);
+
   const reportStatus = useCallback((value: string): void => {
     setStatus(value);
     if (value === 'loading') testContract.markLoading();
     else if (value === 'ready') testContract.markReady();
+    else if (value === 'destroyed') testContract.markDestroyed();
     else if (value !== 'idle') testContract.markError(value);
   }, []);
   const reportSnapshot = useCallback((value: CopcThreeLayerSnapshot | undefined): void => {
@@ -136,10 +401,10 @@ function App(): ReactNode {
   return (
     <main className="harness-root">
       <ThreeViewport
-        key={`${harnessConfig.fixtureUrl}:${reloadKey}`}
         url={harnessConfig.fixtureUrl}
         onStatus={reportStatus}
         onSnapshot={reportSnapshot}
+        onHandle={assignHandle}
       />
       <HarnessPanel
         config={harnessConfig}
@@ -147,9 +412,9 @@ function App(): ReactNode {
         renderer="Three.js"
         status={status}
         snapshot={snapshot}
-        onReload={() => setReloadKey((value) => value + 1)}
+        onReload={() => { void handle?.reload(); }}
       >
-        <p className="hint"><code>@frillab/copc-adapter/three</code> 공개 entry를 사용합니다. 드래그/휠로 카메라를 움직이면 LoD update가 실행됩니다.</p>
+        <p className="hint"><code>@frillab/copc-adapter/three</code> 공개 entry와 renderer-neutral streaming core를 실제 소비자 코드에서 호출합니다.</p>
       </HarnessPanel>
     </main>
   );

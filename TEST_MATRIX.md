@@ -7,9 +7,14 @@
 | App identity | Host | Renderer | Public entry | 개발 명령 |
 | --- | --- | --- | --- | --- |
 | `vite-vanillajs-cesium` | Vite Vanilla JS | Cesium | `@frillab/copc-adapter` | `npm run dev:vite-vanillajs` |
+| `vite-vanilla-three` | Vite Vanilla JS | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-vanilla-three` |
 | `vite-react-cesium` | Vite + React | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-react-cesium` |
 | `vite-react-three` | Vite + React | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-react-three` |
 | `vite-r3f` | Vite | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:vite-r3f` |
+| `vite-vue-cesium` | Vite + Vue | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-vue-cesium` |
+| `vite-vue-three` | Vite + Vue | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-vue-three` |
+| `vite-svelte-cesium` | Vite + Svelte | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:vite-svelte-cesium` |
+| `vite-svelte-three` | Vite + Svelte | Three.js | `@frillab/copc-adapter/three` | `npm run dev:vite-svelte-three` |
 | `next-cesium` | Next.js | Cesium | `@frillab/copc-adapter/cesium` | `npm run dev:next-cesium` |
 | `next-three` | Next.js | Three.js | `@frillab/copc-adapter/three` | `npm run dev:next-three` |
 | `next-r3f` | Next.js | React Three Fiber | `@frillab/copc-adapter/three` | `npm run dev:next-r3f` |
@@ -188,6 +193,9 @@ Full mode selects all apps in the matrix and all three Playwright browser projec
 its own dev server and reports the app identity, host, renderer, backend, fixture, and
 browser in failure artifacts.
 
+`npm run e2e:preview` builds the matrix first and runs the same Chromium scenarios
+against each Vite production preview server. This keeps the development-server and
+production-bundle paths under the same consumer contract.
 ## Public API coverage
 
 The `vite-react-three` consumer enables the extended `api-lifecycle` scenario. It

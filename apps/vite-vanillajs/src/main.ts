@@ -20,7 +20,7 @@ const harnessConfig = createHarnessConfig({
   renderer: 'cesium',
   fixtureUrl: fixtureUrlForId(DEFAULT_FIXTURE_ID),
   backend: 'rust',
-  scenario: 'camera-stream',
+  scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');
 const testContract = createTestContract(harnessConfig);
 const appBaseUrl = import.meta.env.BASE_URL;

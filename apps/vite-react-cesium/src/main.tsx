@@ -3,7 +3,7 @@ import '../../../apps/shared/styles.css';
 
 import * as Cesium from 'cesium';
 import { CopcCesiumLayer, type CopcCesiumLayerSnapshot } from '@frillab/copc-adapter/cesium';
-import { DEFAULT_FIXTURE_PATH } from '@copc-test/fixture-client';
+import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import { StrictMode, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -13,7 +13,7 @@ const harnessConfig = createHarnessConfig({
   appId: 'vite-react-cesium',
   host: 'vite',
   renderer: 'cesium',
-  fixtureUrl: DEFAULT_FIXTURE_PATH,
+  fixtureUrl: fixtureUrlForId(DEFAULT_FIXTURE_ID),
   backend: 'copc-js',
   scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');

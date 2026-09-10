@@ -1,0 +1,12 @@
+{
+  "name": "@copc-test/fixture-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/index.test.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

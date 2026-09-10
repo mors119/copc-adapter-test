@@ -2,6 +2,7 @@
 
 import type * as CesiumTypes from 'cesium';
 import type { CopcCesiumLayer, CopcCesiumLayerSnapshot } from '@frillab/copc-adapter/cesium';
+import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { HarnessPanel } from '../../../apps/shared/HarnessPanel';
@@ -10,7 +11,7 @@ const harnessConfig = createHarnessConfig({
   appId: 'next-cesium',
   host: 'next',
   renderer: 'cesium',
-  fixtureUrl: '/api/samples/sofi.copc.laz',
+  fixtureUrl: fixtureUrlForId(DEFAULT_FIXTURE_ID, '/api'),
   backend: 'copc-js',
   scenario: 'load-and-stream',
 }, process.env, 'NEXT_PUBLIC_');

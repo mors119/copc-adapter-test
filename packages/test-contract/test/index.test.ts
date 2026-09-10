@@ -44,6 +44,7 @@ test('normalizes adapter snapshots into the renderer-neutral diagnostics shape',
 test('publishes lifecycle, error, and config transitions through one contract', () => {
   const contract = createTestContract(config);
   assert.equal(contract.result.status, 'idle');
+  assert.equal(contract.result.diagnostics.backend, 'copc-js');
 
   contract.markLoading();
   contract.setSnapshot({ lifecycle: 'loading', renderedNodeKeys: [], selectedNodeKeys: [] });
@@ -53,6 +54,7 @@ test('publishes lifecycle, error, and config transitions through one contract', 
   contract.setConfig({ backend: 'rust', packageSource: 'tarball' });
   assert.equal(contract.result.config.backend, 'rust');
   assert.equal(contract.result.config.packageSource, 'tarball');
+  assert.equal(contract.result.diagnostics.backend, 'rust');
 
   contract.markError(new Error('fixture unavailable'));
   assert.equal(contract.result.status, 'error');

@@ -48,18 +48,41 @@ async function waitForRenderedPoints(page: Page): Promise<HarnessResult> {
   return current;
 }
 
+function fixturePathForHost(host: ProjectMetadata['host']): string {
+  return host === 'next' ? '/api/fixtures/small-valid-copc' : fixturePath;
+}
+
 function fixtureStatsPath(host: ProjectMetadata['host']): string {
   return host === 'next' ? '/api/__fixture__/stats' : '/__fixture__/stats';
 }
 
-async function fixtureStats(page: Page, host: ProjectMetadata['host']): Promise<{ requestedRanges?: string[] }> {
+function fixtureResetPath(host: ProjectMetadata['host']): string {
+  return host === 'next' ? '/api/__fixture__/reset' : '/__fixture__/reset';
+}
+
+type FixtureStats = {
+  requestCount?: number;
+  failures?: number;
+  requestedRanges?: string[];
+  requests?: Array<{ fixtureId?: string; status?: number; scenario?: string; range?: string }>;
+};
+
+async function fixtureStats(page: Page, host: ProjectMetadata['host']): Promise<FixtureStats> {
   return page.evaluate(async (path) => {
     const response = await fetch(path, { cache: 'no-store' });
-    return response.json() as Promise<{ requestedRanges?: string[] }>;
+    return response.json() as Promise<FixtureStats>;
   }, fixtureStatsPath(host));
 }
 
-async function openConsumer(page: Page, query = ''): Promise<void> {
+async function openConsumer(
+  page: Page,
+  query = '',
+  resetHost?: ProjectMetadata['host'],
+): Promise<void> {
+  if (resetHost) {
+    const response = await page.request.post(fixtureResetPath(resetHost));
+    if (!response.ok()) throw new Error(`Unable to reset fixture stats (${response.status()}).`);
+  }
   await page.goto(`/${query}`, { waitUntil: 'domcontentloaded' });
 }
 
@@ -89,9 +112,13 @@ async function invokeHarnessCommand(
   }, { commandName: name, commandArgs: args });
 }
 
-function withFixtureScenario(scenario: string, backend?: 'copc-js' | 'rust'): string {
+function withFixtureScenario(
+  scenario: string,
+  host: ProjectMetadata['host'],
+  backend?: 'copc-js' | 'rust',
+): string {
   const params = new URLSearchParams();
-  params.set('fixture', `${fixturePath}?fixtureScenario=${scenario}`);
+  params.set('fixture', `${fixturePathForHost(host)}?fixtureScenario=${scenario}`);
   if (backend) params.set('backend', backend);
   return `?${params.toString()}`;
 }
@@ -114,6 +141,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   {
     id: 'initial-point-rendering',
     run: async (page, info) => {
+      await openConsumer(page, '', info.host);
       const current = await waitForRenderedPoints(page);
       assertRuntimeScenario('initial-point-rendering', current);
       const stats = await fixtureStats(page, info.host);
@@ -224,8 +252,8 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   },
   {
     id: 'source-error-is-visible',
-    run: async (page) => {
-      await openConsumer(page, withFixtureScenario('not-found'));
+    run: async (page, info) => {
+      await openConsumer(page, withFixtureScenario('not-found', info.host), info.host);
       await expect.poll(async () => (await result(page))?.status, { timeout: READY_TIMEOUT }).toBe('error');
       const current = await result(page);
       if (!current) throw new Error('Missing source failure result.');
@@ -234,12 +262,18 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   },
   {
     id: 'rust-failure-is-not-retried',
-    run: async (page) => {
-      await openConsumer(page, withFixtureScenario('not-found', 'rust'));
+    run: async (page, info) => {
+      await openConsumer(page, withFixtureScenario('not-found', info.host, 'rust'), info.host);
       await expect.poll(async () => (await result(page))?.status, { timeout: READY_TIMEOUT }).toBe('error');
       const current = await result(page);
       if (!current) throw new Error('Missing Rust failure result.');
       assertRuntimeScenario('rust-failure-is-not-retried', current);
+      expect(current.diagnostics.backend).toBe('rust');
+      const stats = await fixtureStats(page, info.host);
+      const fixtureRequests = stats.requests?.filter((request) => request.fixtureId === info.fixtureId) ?? [];
+      expect(fixtureRequests.length, JSON.stringify(stats)).toBe(1);
+      expect(fixtureRequests[0]?.status).toBe(404);
+      expect(fixtureRequests[0]?.range).toBeDefined();
     },
   },
 ];
@@ -248,7 +282,10 @@ for (const scenario of scenarios) {
   test(scenario.id, async ({ page }, testInfo) => {
     const info = projectMetadata(testInfo);
     test.skip(!info.appScenarios.includes(scenario.id), `Scenario is not enabled for ${info.appId}.`);
-    await openConsumer(page);
+    const resetsFixtureStats = scenario.id === 'initial-point-rendering'
+      || scenario.id === 'source-error-is-visible'
+      || scenario.id === 'rust-failure-is-not-retried';
+    if (!resetsFixtureStats) await openConsumer(page);
     await scenario.run(page, info);
   });
 }

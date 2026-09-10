@@ -249,7 +249,7 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
     config,
     status: 'idle',
     lifecycle: 'idle',
-    diagnostics: normalizeSnapshot(undefined),
+    diagnostics: { ...normalizeSnapshot(undefined), backend: config.backend },
     updatedAt: now(),
   };
 
@@ -268,13 +268,19 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
       return current;
     },
     setConfig(configPatch: Partial<HarnessConfig>): void {
+      const nextConfig = { ...current.config, ...configPatch };
       publish({
         ...current,
-        config: { ...current.config, ...configPatch },
+        config: nextConfig,
+        diagnostics: { ...current.diagnostics, backend: nextConfig.backend },
       });
     },
     setSnapshot(snapshot: unknown): void {
-      const diagnostics = normalizeSnapshot(snapshot);
+      const normalized = normalizeSnapshot(snapshot);
+      const diagnostics = {
+        ...normalized,
+        backend: normalized.backend ?? current.config.backend,
+      };
       publish({
         ...current,
         lifecycle: diagnostics.lifecycle ?? current.lifecycle,

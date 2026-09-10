@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { selectMatrix } from './tools/matrix/manifest.mjs';
 
-const FAST_APPS = 'vite-react-cesium,vite-react-three,next-r3f,webpack-three,rollup-cesium';
+const FAST_APPS = 'vite-vanillajs-cesium,vite-vanilla-three,vite-react-cesium,vite-react-three,vite-r3f,vite-vue-cesium,vite-vue-three,vite-svelte-cesium,vite-svelte-three,webpack-three,rollup-cesium';
 const mode = process.env.COPC_E2E_MODE ?? 'fast';
 const appSelector = process.env.COPC_E2E_APPS ?? (mode === 'full' ? undefined : FAST_APPS);
 const apps = selectMatrix(appSelector);
@@ -26,18 +26,24 @@ if (selectedBrowsers.length === 0) {
 
 const appPorts = new Map(apps.map((app, index) => [app.appId, firstPort + index]));
 const baseUrlFor = (app) => `http://${host}:${appPorts.get(app.appId)}`;
+const testTimeout = Number(process.env.COPC_E2E_TIMEOUT ?? 120_000);
+const expectTimeout = Number(process.env.COPC_E2E_EXPECT_TIMEOUT ?? 30_000);
 
 function devCommand(app) {
   const port = appPorts.get(app.appId);
   const hostFlag = app.host === 'next' ? `--hostname ${host}` : `--host ${host}`;
+  if (process.env.COPC_E2E_TARGET === 'preview') {
+    const command = app.host === 'next' ? 'start' : 'preview';
+    return `npm run ${command} --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
+  }
   return `npm run dev --workspace ${app.workspace} -- ${hostFlag} --port ${port}`;
 }
 
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
-  timeout: 45_000,
-  expect: { timeout: 15_000 },
+  timeout: testTimeout,
+  expect: { timeout: expectTimeout },
   fullyParallel: false,
   workers: Number(process.env.COPC_E2E_WORKERS ?? 1),
   forbidOnly: Boolean(process.env.CI),

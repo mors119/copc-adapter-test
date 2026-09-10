@@ -98,6 +98,55 @@ export function assertRuntimeScenario(
       requireReady(result, scenario);
       return;
 
+    case 'public-entrypoints': {
+      const entrypoints = result.diagnostics.api?.entrypoints ?? [];
+      if (!entrypoints.includes('@frillab/copc-adapter/cesium')
+        && !entrypoints.includes('@frillab/copc-adapter/three')) {
+        fail(scenario, 'the consumer did not report its renderer-specific public entrypoint');
+      }
+      return;
+    }
+
+    case 'api-lifecycle': {
+      const operations = result.diagnostics.api?.operations ?? {};
+      const required = ['load', 'attachTo', 'reload', 'detachFrom', 'unload', 'destroy'];
+      for (const operation of required) {
+        if (operations[operation]?.status !== 'passed') {
+          fail(scenario, `public operation ${operation} was not exercised successfully`);
+        }
+      }
+      return;
+    }
+
+    case 'color-mode-matrix': {
+      const colorModes = result.diagnostics.api?.colorModes ?? {};
+      const required = ['fixed', 'elevation', 'rgb', 'intensity', 'classification'];
+      for (const mode of required) {
+        if (!['passed', 'unsupported'].includes(colorModes[mode]?.status ?? '')) {
+          fail(scenario, `color mode ${mode} was not exercised or reported`);
+        }
+      }
+      return;
+    }
+
+    case 'source-probe': {
+      const probe = result.diagnostics.api?.probes?.default;
+      if (!probe || !probe.reachable || probe.corsReadable !== true || probe.copcDetected !== true) {
+        fail(scenario, 'valid source probe did not confirm a readable COPC source');
+      }
+      return;
+    }
+
+    case 'renderer-neutral-streaming': {
+      const streaming = result.diagnostics.api?.streaming;
+      const update = result.diagnostics.api?.operations['CopcStreamingCore.updateView'];
+      if (streaming?.lifecycle !== 'ready'
+        || update?.status !== 'passed') {
+        fail(scenario, 'renderer-neutral streaming did not complete a public core view update');
+      }
+      return;
+    }
+
     case 'point-picking':
       requireReady(result, scenario);
       if (!result.diagnostics.selectedPoint) {

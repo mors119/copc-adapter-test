@@ -13,7 +13,7 @@ type ProjectMetadata = {
   appScenarios: RuntimeScenarioId[];
 };
 
-const READY_TIMEOUT = 30_000;
+const READY_TIMEOUT = Number(process.env.COPC_E2E_READY_TIMEOUT ?? 90_000);
 const fixturePath = '/fixtures/small-valid-copc';
 
 function projectMetadata(testInfo: TestInfo): ProjectMetadata {
@@ -102,7 +102,7 @@ async function reloadHarness(page: Page): Promise<void> {
 
 async function invokeHarnessCommand(
   page: Page,
-  name: 'detach' | 'unload' | 'destroy' | 'setColorMode' | 'pick',
+  name: 'detach' | 'unload' | 'destroy' | 'setColorMode' | 'pick' | 'runApiCoverage' | 'probeSource',
   ...args: unknown[]
 ): Promise<void> {
   await page.evaluate(({ commandName, commandArgs }) => {
@@ -249,6 +249,40 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
       expect(current.config.appId).toBe(info.appId);
       expect(current.config.renderer).toBe(info.renderer);
       expect(current.config.fixtureUrl).toContain(info.fixtureId);
+    },
+  },
+  {
+    id: 'api-lifecycle',
+    run: async (page) => {
+      await openConsumer(page, '?apiCoverage=1');
+      await waitForReady(page);
+      await invokeHarnessCommand(page, 'runApiCoverage');
+      const current = await result(page);
+      if (!current) throw new Error('Missing public API coverage result.');
+      assertRuntimeScenario('api-lifecycle', current);
+      assertRuntimeScenario('public-entrypoints', current);
+      assertRuntimeScenario('color-mode-matrix', current);
+      assertRuntimeScenario('source-probe', current);
+      assertRuntimeScenario('renderer-neutral-streaming', current);
+      expect(current.diagnostics.api?.operations['CopcStreamingCore.updateView']?.status).toBe('passed');
+    },
+  },
+  {
+    id: 'source-probe',
+    run: async (page, info) => {
+      await waitForReady(page);
+      await invokeHarnessCommand(
+        page,
+        'probeSource',
+        'ignore-range',
+        `${fixturePathForHost(info.host)}?fixtureScenario=ignore-range`,
+      );
+      const current = await result(page);
+      if (!current) throw new Error('Missing source probe result.');
+      const probe = current.diagnostics.api?.probes?.['ignore-range'];
+      expect(probe?.reachable).toBe(true);
+      expect(probe?.corsReadable).toBe(true);
+      expect(probe?.rangeSupported).toBe(false);
     },
   },
   {

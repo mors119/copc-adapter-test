@@ -361,11 +361,14 @@ export class FixtureServer {
     );
     const rangeHeader = headerValue(request.headers, 'range');
     const fixtureKey = target.id ?? target.filePath;
-    const requestedDelay = Number(url.searchParams.get('delayMs'));
-    const delayMs = Number.isFinite(requestedDelay) && requestedDelay >= 0
-      ? requestedDelay
-      : this.options.delayMs ?? 0;
-    if (delayMs > 0 || scenario === 'delayed') await new Promise((resolvePromise) => setTimeout(resolvePromise, scenario === 'delayed' && delayMs === 0 ? 100 : delayMs));
+    const delayParameter = url.searchParams.get('delayMs');
+    const requestedDelay = delayParameter === null ? undefined : Number(delayParameter);
+    const hasValidDelayOverride = requestedDelay !== undefined
+      && Number.isFinite(requestedDelay)
+      && requestedDelay >= 0;
+    const delayMs = hasValidDelayOverride ? requestedDelay : this.options.delayMs ?? 0;
+    const effectiveDelayMs = scenario === 'delayed' && !hasValidDelayOverride && delayMs === 0 ? 100 : delayMs;
+    if (effectiveDelayMs > 0) await new Promise((resolvePromise) => setTimeout(resolvePromise, effectiveDelayMs));
 
     if (target.invalid) {
       this.log(request, { fixtureId: target.id, range: rangeHeader, scenario, status: 400, bytesServed: 0, failure: 'invalid-path' });
@@ -410,6 +413,14 @@ export class FixtureServer {
     const configuredEnd = useRange ? parsedRange!.end : size - 1;
     const truncation = scenario === 'truncated' ? Math.max(1, Math.floor(size / 2)) : size;
     const end = Math.min(configuredEnd, truncation - 1);
+    if (scenario === 'truncated' && start >= truncation) {
+      this.log(request, { fixtureId: target.id, range: rangeHeader, scenario, status: 416, bytesServed: 0, failure: 'truncated-range' });
+      return {
+        status: 416,
+        headers: { ...baseHeaders(this.options), 'Content-Range': `bytes */${size}`, 'Content-Type': 'text/plain; charset=utf-8' },
+        body: Readable.from(['Range not satisfiable for truncated fixture']),
+      };
+    }
     const bytesServed = Math.max(end - start + 1, 0);
     const status = useRange ? 206 : 200;
     const headers: Record<string, string> = {
@@ -426,7 +437,8 @@ export class FixtureServer {
         : `bytes ${start}-${end}/${size}`;
     }
 
-    this.log(request, { fixtureId: target.id, range: rangeHeader, scenario, status, bytesServed });
+    const transferredBytes = request.method === 'HEAD' ? 0 : bytesServed;
+    this.log(request, { fixtureId: target.id, range: rangeHeader, scenario, status, bytesServed: transferredBytes });
     if (request.method === 'HEAD' || bytesServed === 0) return { status, headers };
     return { status, headers, body: createReadStream(target.filePath, { start, end }) };
   }

@@ -13,7 +13,7 @@ async function bodyText(body: NonNullable<FixtureResult['body']>): Promise<strin
   return Buffer.concat(chunks).toString('utf8');
 }
 
-async function createServer() {
+async function createServer(options: ConstructorParameters<typeof FixtureServer>[0] = {}) {
   const root = await mkdtemp(join(tmpdir(), 'copc-fixture-server-'));
   const catalogPath = join(root, 'catalog.json');
   const fixturePath = join(root, 'fixture.copc.laz');
@@ -34,7 +34,7 @@ async function createServer() {
   await writeFile(catalogPath, JSON.stringify(catalog));
   return {
     root,
-    server: new FixtureServer({ rootDir: root, catalogPath, corsOrigin: 'https://test.example' }),
+    server: new FixtureServer({ rootDir: root, catalogPath, corsOrigin: 'https://test.example', ...options }),
   };
 }
 
@@ -88,6 +88,49 @@ test('supports deterministic ignored-range and transient-failure scenarios', asy
     assert.ok(retry);
     assert.equal(retry.status, 200);
     assert.equal(server.getStats().failures, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('uses configured delay, rejects ranges beyond truncated content, and excludes HEAD bodies from stats', async () => {
+  const { root, server } = await createServer({ delayMs: 20 });
+  try {
+    const delayedStart = Date.now();
+    const delayed = await server.handle({
+      method: 'HEAD',
+      url: '/fixtures/test-fixture?fixtureScenario=delayed',
+    });
+    assert.ok(delayed);
+    assert.ok(Date.now() - delayedStart >= 15);
+
+    const ordinaryStart = Date.now();
+    const ordinary = await server.handle({
+      method: 'HEAD',
+      url: '/fixtures/test-fixture',
+    });
+    assert.ok(ordinary);
+    assert.ok(Date.now() - ordinaryStart >= 15);
+
+    const truncated = await server.handle({
+      url: '/fixtures/test-fixture?fixtureScenario=truncated',
+      headers: { range: 'bytes=7-8' },
+    });
+    assert.ok(truncated);
+    assert.equal(truncated.status, 416);
+    assert.equal(truncated.headers['Content-Range'], 'bytes */10');
+
+    const beforeHead = server.getStats();
+    const head = await server.handle({
+      method: 'HEAD',
+      url: '/fixtures/test-fixture',
+      headers: { range: 'bytes=2-5' },
+    });
+    assert.ok(head);
+    assert.equal(head.status, 206);
+    assert.equal(head.headers['Content-Length'], '4');
+    assert.equal(head.body, undefined);
+    assert.equal(server.getStats().bytesServed, beforeHead.bytesServed);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

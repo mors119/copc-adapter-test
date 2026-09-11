@@ -74,6 +74,12 @@ export type HarnessApiDiagnostics = {
     pointCount?: number;
     hasBounds?: boolean;
     hasCrs?: boolean;
+    lasVersion?: string;
+    pointFormat?: number;
+    crsFamily?: 'projected' | 'geographic' | 'unknown';
+    wktVariants?: string[];
+    scale?: [number, number, number];
+    offset?: [number, number, number];
   };
   hierarchy?: {
     requestCount?: number;
@@ -128,6 +134,8 @@ export type HarnessError = {
   message: string;
   stack?: string;
   category?: string;
+  stage?: string;
+  code?: string;
 };
 
 export type HarnessResult = {
@@ -300,6 +308,20 @@ function apiDiagnostics(value: unknown): HarnessApiDiagnostics | undefined {
               ? { pointCount: finiteNumber(value.metadata.pointCount) } : {}),
             ...(typeof value.metadata.hasBounds === 'boolean' ? { hasBounds: value.metadata.hasBounds } : {}),
             ...(typeof value.metadata.hasCrs === 'boolean' ? { hasCrs: value.metadata.hasCrs } : {}),
+            ...(typeof value.metadata.lasVersion === 'string' ? { lasVersion: value.metadata.lasVersion } : {}),
+            ...(finiteNumber(value.metadata.pointFormat) !== undefined
+              ? { pointFormat: finiteNumber(value.metadata.pointFormat) } : {}),
+            ...(typeof value.metadata.crsFamily === 'string'
+              && ['projected', 'geographic', 'unknown'].includes(value.metadata.crsFamily)
+              ? { crsFamily: value.metadata.crsFamily as 'projected' | 'geographic' | 'unknown' } : {}),
+            ...(Array.isArray(value.metadata.wktVariants)
+              ? { wktVariants: stringArray(value.metadata.wktVariants) } : {}),
+            ...(Array.isArray(value.metadata.scale) && value.metadata.scale.length === 3
+              && value.metadata.scale.every((item) => finiteNumber(item) !== undefined)
+              ? { scale: value.metadata.scale as [number, number, number] } : {}),
+            ...(Array.isArray(value.metadata.offset) && value.metadata.offset.length === 3
+              && value.metadata.offset.every((item) => finiteNumber(item) !== undefined)
+              ? { offset: value.metadata.offset as [number, number, number] } : {}),
           },
         }
       : {}),
@@ -366,12 +388,14 @@ export function normalizeSnapshot(snapshot: unknown): HarnessDiagnostics {
 
 function toError(error: unknown): HarnessError {
   if (error instanceof Error) {
-    const errorWithCategory = error as Error & { category?: unknown };
+    const errorWithDetails = error as Error & { category?: unknown; stage?: unknown; code?: unknown };
     return {
       name: error.name,
       message: error.message,
       ...(error.stack ? { stack: error.stack } : {}),
-      ...(typeof errorWithCategory.category === 'string' ? { category: errorWithCategory.category } : {}),
+      ...(typeof errorWithDetails.category === 'string' ? { category: errorWithDetails.category } : {}),
+      ...(typeof errorWithDetails.stage === 'string' ? { stage: errorWithDetails.stage } : {}),
+      ...(typeof errorWithDetails.code === 'string' ? { code: errorWithDetails.code } : {}),
     };
   }
 
@@ -499,6 +523,12 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
       });
     },
     markError(error: unknown, category?: string): void {
+      // Consumer status callbacks may report the same failure as a message
+      // immediately after publishing the original Error. Preserve structured
+      // backend details instead of replacing them with `name: Error`.
+      if (typeof error === 'string' && current.status === 'error' && current.error) {
+        return;
+      }
       const normalized = toError(error);
       publish({
         ...current,

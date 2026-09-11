@@ -33,7 +33,11 @@ const NEXT_TURBOPACK_WASM_EXPECTED_FAILURE = {
 
 export const MATRIX_BACKENDS = ['copc-js', 'rust'];
 export const MATRIX_BROWSERS = ['chromium', 'firefox', 'webkit'];
-export const MATRIX_FIXTURES = ['small-valid-copc', 'point-format-7-rgb'];
+// Runnable fixtures are intentionally kept separate from documented gaps. The
+// full/scheduled tier must exercise every available dataset without turning a
+// known unavailable public URL into a red build.
+export const MATRIX_FIXTURES = ['small-valid-copc', 'point-format-7-rgb', 'geographic-crs'];
+export const MATRIX_FIXTURE_GAPS = ['point-format-8-rgb-nir'];
 
 export const MATRIX = [
   { appId: 'vite-vanillajs-cesium', workspace: 'apps/vite-vanillajs', host: 'vite', renderer: 'cesium', entry: '@frillab/copc-adapter', scenario: 'load-and-stream', backends: MATRIX_BACKENDS, runtimeScenarios: VANILLA_RUNTIME_SCENARIOS },
@@ -146,6 +150,12 @@ export function selectMatrixCases(tier = 'fast', options = {}) {
   }
   for (const backend of backends) {
     if (!MATRIX_BACKENDS.includes(backend)) throw new Error(`Unsupported backend "${backend}".`);
+  }
+  for (const fixture of fixtures) {
+    if (!MATRIX_FIXTURES.includes(fixture)) {
+      const gap = MATRIX_FIXTURE_GAPS.includes(fixture) ? ' It is recorded as a fixture gap.' : '';
+      throw new Error(`Unsupported or unavailable fixture "${fixture}".${gap}`);
+    }
   }
 
   return apps.flatMap((app) => browsers.flatMap((browser) => backends.flatMap((backend) => fixtures.map((fixtureId) => ({

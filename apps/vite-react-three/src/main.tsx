@@ -49,6 +49,30 @@ type PublishedSnapshot = CopcThreeLayerSnapshot & {
   selectedPoint?: ReturnType<CopcThreeLayer['getSelectedPoint']>;
 };
 
+function selectedPointForContract(
+  point: NonNullable<PublishedSnapshot['selectedPoint']>,
+): {
+  index: number;
+  nodeKey: string;
+  position: [number, number, number];
+  attributes?: Record<string, number>;
+} {
+  const attributes: Record<string, number> = {};
+  if (point.intensity !== undefined) attributes.intensity = point.intensity;
+  if (point.classification !== undefined) attributes.classification = point.classification;
+  if (point.rgb) {
+    attributes.red = point.rgb.red;
+    attributes.green = point.rgb.green;
+    attributes.blue = point.rgb.blue;
+  }
+  return {
+    index: point.pointIndex,
+    nodeKey: point.nodeKey,
+    position: [point.longitude, point.latitude, point.height],
+    ...(Object.keys(attributes).length > 0 ? { attributes } : {}),
+  };
+}
+
 let activeThreeHandle: ThreeApiHandle | undefined;
 
 testContract.registerCommand('reload', () => activeThreeHandle?.reload());
@@ -244,11 +268,11 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
           if ((candidate.getSnapshot().renderedPointCount ?? 0) <= 0) {
             throw new Error(`Color mode ${colorMode} did not render any points`);
           }
-          // The small point-format-6 fixture intentionally has no RGB fields;
+          // The small point-format-7 fixture intentionally has no RGB fields;
           // loading and updating the candidate still exercises the public
           // option and renderer fallback before reporting that limitation.
           colorModes[colorMode] = colorMode === 'rgb'
-            ? { status: 'unsupported', message: 'small-valid-copc is point format 6 and has no RGB attributes.' }
+            ? { status: 'unsupported', message: 'small-valid-copc is point format 7 and has no RGB attributes.' }
             : { status: 'passed' };
         } catch (error: unknown) {
           colorModes[colorMode] = {
@@ -393,9 +417,11 @@ function App(): ReactNode {
     else if (value === 'destroyed') testContract.markDestroyed();
     else if (value !== 'idle') testContract.markError(value);
   }, []);
-  const reportSnapshot = useCallback((value: CopcThreeLayerSnapshot | undefined): void => {
+  const reportSnapshot = useCallback((value: PublishedSnapshot | undefined): void => {
     setSnapshot(value);
-    testContract.setSnapshot(value);
+    testContract.setSnapshot(value?.selectedPoint
+      ? { ...value, selectedPoint: selectedPointForContract(value.selectedPoint) }
+      : value);
   }, []);
 
   return (

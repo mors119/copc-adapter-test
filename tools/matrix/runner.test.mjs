@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { MATRIX_FIXTURE_GAPS, selectMatrixCases } from './manifest.mjs';
 import { matchesExpectedFailure } from './runner.mjs';
 
 const expectedFailure = {
@@ -22,4 +23,19 @@ test('rejects an unrelated failure even when the matrix entry expects a failure'
 
 test('rejects an expected-failure record without an output signature', () => {
   assert.equal(matchesExpectedFailure('any failure', {}), false);
+});
+
+test('selects runnable CRS coverage and keeps the documented PDRF 8 gap out of the matrix', () => {
+  const cases = selectMatrixCases('full', {
+    apps: 'vite-react-three',
+    browsers: 'chromium',
+    backends: 'rust',
+  });
+  assert.deepEqual([...new Set(cases.map((entry) => entry.fixtureId))], [
+    'small-valid-copc',
+    'point-format-7-rgb',
+    'geographic-crs',
+  ]);
+  assert.deepEqual(MATRIX_FIXTURE_GAPS, ['point-format-8-rgb-nir']);
+  assert.throws(() => selectMatrixCases('full', { fixtures: 'point-format-8-rgb-nir' }), /fixture gap/);
 });

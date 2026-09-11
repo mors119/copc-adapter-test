@@ -36,14 +36,24 @@ function readCatalog() {
 
 function selectFixtures(catalog) {
   const requested = args.filter((value) => !value.startsWith('--'));
-  if (hasFlag('--all')) return catalog.fixtures;
-  if (requested.length === 0) return [catalog.fixtures.find((fixture) => fixture.id === catalog.defaultFixtureId)];
+  const candidates = hasFlag('--all')
+    ? catalog.fixtures
+    : requested.length === 0
+      ? [catalog.fixtures.find((fixture) => fixture.id === catalog.defaultFixtureId)]
+      : requested.map((id) => {
+        const fixture = catalog.fixtures.find((candidate) => candidate.id === id);
+        if (!fixture) throw new Error(`Unknown fixture ID "${id}".`);
+        return fixture;
+      });
 
-  return requested.map((id) => {
-    const fixture = catalog.fixtures.find((candidate) => candidate.id === id);
-    if (!fixture) throw new Error(`Unknown fixture ID "${id}".`);
-    return fixture;
-  });
+  const gaps = candidates.filter((fixture) => fixture?.coverage?.status === 'gap');
+  if (gaps.length > 0 && !hasFlag('--include-gaps')) {
+    if (requested.length > 0) {
+      throw new Error(`${gaps.map((fixture) => fixture.id).join(', ')} is a documented fixture gap. Use --include-gaps only to attempt it explicitly.`);
+    }
+    return candidates.filter((fixture) => fixture?.coverage?.status !== 'gap');
+  }
+  return candidates;
 }
 
 async function isFile(path) {
@@ -95,6 +105,8 @@ async function listFixtures() {
     console.log(`${fixture.id}${fixture.id === catalog.defaultFixtureId ? ' (default)' : ''}`);
     console.log(`  ${fixture.title}`);
     console.log(`  capabilities: ${fixture.capabilities.join(', ')}`);
+    console.log(`  coverage: ${fixture.coverage?.status ?? 'covered'}${fixture.coverage?.gapReason ? ` (${fixture.coverage.gapReason})` : ''}`);
+    if (fixture.sizeBytes) console.log(`  size: ${fixture.sizeBytes} bytes`);
     console.log(`  cache: ${cached ? 'ready' : 'missing'} (${fixture.cachePath})`);
     console.log(`  source: ${fixture.source.url}`);
   }
@@ -112,6 +124,11 @@ async function verifyFixtures() {
       continue;
     }
     const digest = await sha256(path);
+    if (fixture.sizeBytes && (await stat(path)).size !== fixture.sizeBytes) {
+      console.error(`${fixture.id}: size mismatch (expected ${fixture.sizeBytes}, received ${(await stat(path)).size})`);
+      failures += 1;
+      continue;
+    }
     if (!fixture.checksum.value) {
       console.log(`${fixture.id}: ${digest} (no publisher checksum recorded)`);
     } else if (fixture.checksum.value === digest) {

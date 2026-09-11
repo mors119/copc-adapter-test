@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "defaultFixtureId": "small-valid-copc",
   "fixtures": [
     {
@@ -9,7 +9,7 @@
       "capabilities": [
         "valid-copc",
         "las-1.4",
-        "point-format-6",
+        "point-format-7",
         "intensity",
         "classification",
         "projected-crs",
@@ -23,6 +23,22 @@
       "checksum": {
         "algorithm": "sha256",
         "value": "db2d56cdfa058bffccdc5d6019dae2fc9c6a551df10a5523c06c76a3e25a27fa"
+      },
+      "sizeBytes": 81123042,
+      "coverage": {
+        "status": "covered",
+        "lasVersion": "1.4",
+        "pointFormat": 7,
+        "crsFamily": "projected",
+        "wktVariants": ["WKT1"],
+        "attributes": ["intensity", "classification"],
+        "scaleOffset": true,
+        "nestedHierarchy": true,
+        "coordinateTolerance": 0.01
+      },
+      "rangePolicy": {
+        "maxSingleRequestBytes": 67108864,
+        "maxTotalBytesRatio": 0.98
       },
       "cachePath": "small-valid-copc/autzen-classified.copc.laz"
     },
@@ -47,6 +63,22 @@
       "checksum": {
         "algorithm": "sha256",
         "value": null
+      },
+      "sizeBytes": 2029696615,
+      "coverage": {
+        "status": "covered",
+        "lasVersion": "1.4",
+        "pointFormat": 7,
+        "crsFamily": "projected",
+        "wktVariants": ["WKT1"],
+        "attributes": ["intensity", "classification", "rgb"],
+        "scaleOffset": true,
+        "nestedHierarchy": true,
+        "coordinateTolerance": 0.01
+      },
+      "rangePolicy": {
+        "maxSingleRequestBytes": 268435456,
+        "maxTotalBytesRatio": 0.25
       },
       "cachePath": "point-format-7-rgb/sofi.copc.laz"
     },
@@ -73,6 +105,18 @@
         "algorithm": "sha256",
         "value": null
       },
+      "sizeBytes": null,
+      "coverage": {
+        "status": "gap",
+        "lasVersion": "1.4",
+        "pointFormat": 8,
+        "crsFamily": "projected",
+        "attributes": ["intensity", "classification", "rgb", "nir"],
+        "scaleOffset": true,
+        "nestedHierarchy": true,
+        "coordinateTolerance": 0.01,
+        "gapReason": "The COPC specification lists Millsite at this URL, but the publisher currently returns HTTP 404. Keep the point-format-8 row documented until a valid generated or public fixture is available."
+      },
       "cachePath": "point-format-8-rgb-nir/millsite.copc.laz"
     },
     {
@@ -94,6 +138,22 @@
         "algorithm": "sha256",
         "value": null
       },
+      "sizeBytes": 275062474,
+      "coverage": {
+        "status": "covered",
+        "lasVersion": "1.4",
+        "pointFormat": 6,
+        "crsFamily": "geographic",
+        "wktVariants": ["WKT2"],
+        "attributes": ["intensity", "classification"],
+        "scaleOffset": true,
+        "nestedHierarchy": true,
+        "coordinateTolerance": 0.000001
+      },
+      "rangePolicy": {
+        "maxSingleRequestBytes": 67108864,
+        "maxTotalBytesRatio": 0.5
+      },
       "cachePath": "geographic-crs/76104.copc.laz"
     },
     {
@@ -113,6 +173,15 @@
       "checksum": {
         "algorithm": "sha256",
         "value": null
+      },
+      "sizeBytes": 81123042,
+      "coverage": {
+        "status": "negative",
+        "lasVersion": "1.4",
+        "pointFormat": 7,
+        "crsFamily": "projected",
+        "attributes": ["intensity", "classification"],
+        "nestedHierarchy": true
       },
       "cachePath": "small-valid-copc/autzen-classified.copc.laz"
     }

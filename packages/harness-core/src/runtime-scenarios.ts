@@ -16,6 +16,12 @@ function requireReady(result: HarnessResult, scenario: RuntimeScenarioId): void 
   if (result.status !== 'ready') {
     fail(scenario, `expected ready status, received ${result.status}`);
   }
+  if (result.diagnostics.backend !== result.config.backend) {
+    fail(
+      scenario,
+      `requested backend ${result.config.backend}, but diagnostics reported ${result.diagnostics.backend ?? 'unknown'}`,
+    );
+  }
 }
 
 /**

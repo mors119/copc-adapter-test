@@ -34,6 +34,24 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Check out adapter source
+        uses: actions/checkout@v4
+        with:
+          repository: mors119/copc-adapter
+          # 0.3.0 predates the public /cesium and /three entrypoints. Keep
+          # compatibility runs reproducible until that artifact is republished.
+          ref: 73ec063cfac915ae2c0013f603f46102ae731012
+          path: .copc-adapter
+      - name: Install Rust WASM target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Pack adapter source
+        working-directory: .copc-adapter/apps/viewer-web
+        run: |
+          npm install --ignore-scripts --legacy-peer-deps
+          npm pack --pack-destination "$RUNNER_TEMP"
+          echo "COPC_ADAPTER_SOURCE=tarball" >> "$GITHUB_ENV"
+          echo "COPC_ADAPTER_VERSION=0.3.0-ci" >> "$GITHUB_ENV"
+          echo "COPC_ADAPTER_TARBALL=$(find "$RUNNER_TEMP" -maxdepth 1 -name 'frillab-copc-adapter-*.tgz' -print -quit)" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: .cache/copc-fixtures
@@ -62,6 +80,23 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Check out adapter source
+        uses: actions/checkout@v4
+        with:
+          repository: mors119/copc-adapter
+          # Keep the full scheduled matrix on the same source artifact as PR validation.
+          ref: 73ec063cfac915ae2c0013f603f46102ae731012
+          path: .copc-adapter
+      - name: Install Rust WASM target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Pack adapter source
+        working-directory: .copc-adapter/apps/viewer-web
+        run: |
+          npm install --ignore-scripts --legacy-peer-deps
+          npm pack --pack-destination "$RUNNER_TEMP"
+          echo "COPC_ADAPTER_SOURCE=tarball" >> "$GITHUB_ENV"
+          echo "COPC_ADAPTER_VERSION=0.3.0-ci" >> "$GITHUB_ENV"
+          echo "COPC_ADAPTER_TARBALL=$(find "$RUNNER_TEMP" -maxdepth 1 -name 'frillab-copc-adapter-*.tgz' -print -quit)" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: .cache/copc-fixtures

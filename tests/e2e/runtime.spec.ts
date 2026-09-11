@@ -83,6 +83,7 @@ function fixtureResetPath(host: ProjectMetadata['host']): string {
 }
 
 type FixtureStats = {
+  bytesServed?: number;
   requestCount?: number;
   failures?: number;
   requestedRanges?: string[];

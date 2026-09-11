@@ -38,6 +38,7 @@ test('rejects a whole-file or over-budget streaming load', () => {
     requests: [{ fixtureId: 'fixture', range: 'bytes=0-600', bytesServed: 601 }],
   }, fixture), /one range/);
   assert.throws(() => assertBoundedRangeStreaming({
-    requests: [{ fixtureId: 'fixture', range: 'bytes=0-400', bytesServed: 950 }],
+    bytesServed: 950,
+    requests: [{ fixtureId: 'fixture', range: 'bytes=0-400', bytesServed: 100 }],
   }, fixture), /served 950 bytes/);
 });

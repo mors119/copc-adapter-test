@@ -7,7 +7,12 @@ import {
   probeCopcSource,
   type CopcThreeLayerSnapshot,
 } from '@frillab/copc-adapter/three';
-import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
+import {
+  DEFAULT_FIXTURE_ID,
+  FIXTURE_CATALOG_PATH,
+  fixtureUrlForId,
+  type FixtureCatalog,
+} from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -101,6 +106,19 @@ function layerOptions(url: string, colorMode: CopcColorMode): ConstructorParamet
     streaming: STREAMING_OPTIONS,
     debug: true,
   };
+}
+
+async function fixtureRecordForUrl(url: string): Promise<FixtureCatalog['fixtures'][number]> {
+  const response = await fetch(FIXTURE_CATALOG_PATH, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Unable to load fixture catalog (${response.status}).`);
+
+  const catalog = await response.json() as FixtureCatalog;
+  const fixtureId = decodeURIComponent(
+    new URL(url, window.location.origin).pathname.split('/').filter(Boolean).at(-1) ?? '',
+  );
+  const fixture = catalog.fixtures.find((candidate) => candidate.id === fixtureId);
+  if (!fixture) throw new Error(`Fixture ${fixtureId || '<unknown>'} is missing from the served catalog.`);
+  return fixture;
 }
 
 function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): ReactNode {
@@ -219,6 +237,9 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
         },
       });
 
+      const activeFixture = await fixtureRecordForUrl(url);
+      const sourceAttributes = new Set(activeFixture.coverage.attributes ?? []);
+
       const core = new CopcStreamingCore({
         url,
         backend: harnessConfig.backend,
@@ -268,11 +289,8 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
           if ((candidate.getSnapshot().renderedPointCount ?? 0) <= 0) {
             throw new Error(`Color mode ${colorMode} did not render any points`);
           }
-          // The small point-format-7 fixture intentionally has no RGB fields;
-          // loading and updating the candidate still exercises the public
-          // option and renderer fallback before reporting that limitation.
-          colorModes[colorMode] = colorMode === 'rgb'
-            ? { status: 'unsupported', message: 'small-valid-copc is point format 7 and has no RGB attributes.' }
+          colorModes[colorMode] = colorMode === 'rgb' && !sourceAttributes.has('rgb')
+            ? { status: 'unsupported', message: `${activeFixture.id} has no RGB attributes.` }
             : { status: 'passed' };
         } catch (error: unknown) {
           colorModes[colorMode] = {

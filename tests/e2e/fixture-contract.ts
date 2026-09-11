@@ -109,7 +109,8 @@ export function assertBoundedRangeStreaming(
   }
 
   if (fixture.sizeBytes && fixture.rangePolicy?.maxTotalBytesRatio !== undefined) {
-    const bytesServed = requests.reduce((total, request) => total + (request.bytesServed ?? 0), 0);
+    const bytesServed = stats.bytesServed
+      ?? requests.reduce((total, request) => total + (request.bytesServed ?? 0), 0);
     const budget = fixture.sizeBytes * fixture.rangePolicy.maxTotalBytesRatio;
     if (bytesServed > budget) {
       throw new Error(`Fixture ${fixture.id} served ${bytesServed} bytes; budget is ${Math.floor(budget)}.`);

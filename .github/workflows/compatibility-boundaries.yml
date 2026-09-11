@@ -75,7 +75,10 @@ jobs:
           path: adapter-package
       - name: Locate packed adapter
         shell: bash
-        run: echo "COPC_ADAPTER_TARBALL=$(find "$GITHUB_WORKSPACE/adapter-package" -name '*.tgz' -print -quit)" >> "$GITHUB_ENV"
+        run: |
+          tarball=$(find "$GITHUB_WORKSPACE/adapter-package" -name '*.tgz' -print -quit)
+          test -n "$tarball"
+          echo "COPC_ADAPTER_TARBALL=$tarball" >> "$GITHUB_ENV"
       - name: Build clean packed consumer
         run: npm run compatibility:consumer -- --cases ${{ matrix.case }} --package-managers npm
 
@@ -112,7 +115,10 @@ jobs:
           path: adapter-package
       - name: Locate packed adapter
         shell: bash
-        run: echo "COPC_ADAPTER_TARBALL=$(find "$GITHUB_WORKSPACE/adapter-package" -name '*.tgz' -print -quit)" >> "$GITHUB_ENV"
+        run: |
+          tarball=$(find "$GITHUB_WORKSPACE/adapter-package" -name '*.tgz' -print -quit)
+          test -n "$tarball"
+          echo "COPC_ADAPTER_TARBALL=$tarball" >> "$GITHUB_ENV"
       - name: Build clean packed consumer
         run: npm run compatibility:consumer -- --cases ${{ matrix.case }} --package-managers ${{ matrix.package_manager }}
 
@@ -137,6 +143,9 @@ jobs:
           path: adapter-package
       - name: Locate packed adapter
         shell: bash
-        run: echo "COPC_ADAPTER_TARBALL=$(find "$GITHUB_WORKSPACE/adapter-package" -name '*.tgz' -print -quit)" >> "$GITHUB_ENV"
+        run: |
+          tarball=$(find "$GITHUB_WORKSPACE/adapter-package" -name '*.tgz' -print -quit)
+          test -n "$tarball"
+          echo "COPC_ADAPTER_TARBALL=$tarball" >> "$GITHUB_ENV"
       - name: Build clean packed consumers
         run: npm run compatibility:consumer -- --cases cesium-current,three-current --package-managers npm

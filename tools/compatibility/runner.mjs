@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import {
   BUILD_TOOL_VERSIONS,
   selectCompatibilityCases,
@@ -53,7 +54,10 @@ function packageManagerBuildArgs() {
 
 function adapterSpec() {
   const tarball = process.env.COPC_ADAPTER_TARBALL;
-  if (tarball) return `file:${resolve(tarball)}`;
+  if (tarball !== undefined) {
+    if (!tarball) throw new Error('COPC_ADAPTER_TARBALL cannot be empty. Refusing to fall back to a registry package.');
+    return `file:${resolve(tarball)}`;
+  }
 
   const configured = process.env.COPC_ADAPTER_SPEC;
   if (configured) {
@@ -133,11 +137,11 @@ function context(testCase, packageManager, adapterVersion) {
 
 export async function runCompatibilityCase(testCase, packageManager, { keepTemp = false } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'copc-adapter-compat-'));
-  const adapter = adapterSpec();
-  const requestedAdapterVersion = configuredAdapterVersion();
-  await writeConsumer(root, testCase, adapter);
 
   try {
+    const adapter = adapterSpec();
+    const requestedAdapterVersion = configuredAdapterVersion();
+    await writeConsumer(root, testCase, adapter);
     console.log(`\n→ ${context(testCase, packageManager, requestedAdapterVersion)} install`);
     await runCommand(packageManager, packageManagerInstallArgs(packageManager), root);
     const installedVersion = await installedAdapterVersion(root);
@@ -166,6 +170,10 @@ export async function runCompatibility(options = {}) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+export function isCliEntry(moduleUrl, argvPath) {
+  return Boolean(argvPath) && moduleUrl === pathToFileURL(argvPath).href;
+}
+
+if (isCliEntry(import.meta.url, process.argv[1])) {
   await runCompatibility();
 }

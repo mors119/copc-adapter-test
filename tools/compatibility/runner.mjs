@@ -16,24 +16,21 @@ function option(name) {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
-function commandFor(packageManager) {
-  if (process.platform !== 'win32') return packageManager;
-  return `${packageManager}.cmd`;
-}
-
 function runCommand(packageManager, args, cwd) {
   return new Promise((resolvePromise, reject) => {
-    const command = commandFor(packageManager);
-    const child = spawn(command, args, {
+    // npm/pnpm/Yarn expose .cmd shims on Windows. Let cmd.exe resolve the
+    // package-manager command instead of trying to spawn a .cmd file directly,
+    // which raises EINVAL with shell:false on current Windows runners.
+    const child = spawn(packageManager, args, {
       cwd,
       env: process.env,
       stdio: 'inherit',
-      shell: false,
+      shell: process.platform === 'win32',
     });
     child.once('error', reject);
     child.once('exit', (code, signal) => {
       if (code === 0) resolvePromise();
-      else reject(new Error(`${command} ${args.join(' ')} failed (${signal ?? code})`));
+      else reject(new Error(`${packageManager} ${args.join(' ')} failed (${signal ?? code})`));
     });
   });
 }

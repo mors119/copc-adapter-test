@@ -56,6 +56,8 @@ jobs:
         with:
           path: .cache/copc-fixtures
           key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+          restore-keys: |
+            copc-fixtures-${{ runner.os }}-
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run matrix:fast
@@ -101,6 +103,8 @@ jobs:
         with:
           path: .cache/copc-fixtures
           key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+          restore-keys: |
+            copc-fixtures-${{ runner.os }}-
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run matrix:full

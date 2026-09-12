@@ -10,6 +10,27 @@ export type FixtureChecksum = {
   value: string | null;
 };
 
+export type FixtureCoverageStatus = 'covered' | 'gap' | 'negative';
+export type FixtureCrsFamily = 'projected' | 'geographic' | 'unknown';
+
+export type FixtureCoverage = {
+  status: FixtureCoverageStatus;
+  lasVersion?: '1.4';
+  pointFormat?: 6 | 7 | 8;
+  crsFamily?: FixtureCrsFamily;
+  wktVariants?: Array<'WKT1' | 'WKT2'>;
+  attributes?: string[];
+  scaleOffset?: boolean;
+  nestedHierarchy?: boolean;
+  coordinateTolerance?: number;
+  gapReason?: string;
+};
+
+export type FixtureRangePolicy = {
+  maxSingleRequestBytes: number;
+  maxTotalBytesRatio: number;
+};
+
 export type FixtureCatalogEntry = {
   id: string;
   title: string;
@@ -21,6 +42,9 @@ export type FixtureCatalogEntry = {
     license: string;
   };
   checksum: FixtureChecksum;
+  sizeBytes: number | null;
+  coverage: FixtureCoverage;
+  rangePolicy?: FixtureRangePolicy;
   cachePath: string;
 };
 

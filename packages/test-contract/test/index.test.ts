@@ -66,6 +66,27 @@ test('publishes lifecycle, error, and config transitions through one contract', 
   assert.equal(contract.result.lifecycle, 'destroyed');
 });
 
+test('preserves backend error stage and code for external failure assertions', () => {
+  const contract = createTestContract(config);
+  const error = Object.assign(new Error('Rust backend rejected the source'), {
+    name: 'CopcBackendError',
+    stage: 'metadata',
+    code: 'unsupported',
+  });
+  contract.markError(error);
+  assert.deepEqual(contract.result.error, {
+    name: 'CopcBackendError',
+    message: 'Rust backend rejected the source',
+    stack: error.stack,
+    stage: 'metadata',
+    code: 'unsupported',
+  });
+
+  contract.markError(error.message);
+  assert.equal(contract.result.error?.name, 'CopcBackendError');
+  assert.equal(contract.result.error?.stage, 'metadata');
+});
+
 test('normalizes optional picking and cache diagnostics without exposing decoder internals', () => {
   assert.deepEqual(normalizeSnapshot({
     lifecycle: 'ready',

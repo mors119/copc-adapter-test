@@ -1,7 +1,15 @@
 import type { HarnessResult, RuntimeScenarioId } from '@copc-test/test-contract';
+import type { FixtureCatalog } from '@copc-test/fixture-client';
 import type { Page, TestInfo } from '@playwright/test';
 import { assertRuntimeScenario } from '@copc-test/harness-core';
 import { test, expect } from './fixtures.ts';
+import {
+  assertBackendIdentity,
+  assertBoundedRangeStreaming,
+  assertCopcHeader,
+  assertSelectedPoint,
+  parseCopcHeader,
+} from './fixture-contract.ts';
 
 type ProjectMetadata = {
   appId: string;
@@ -62,6 +70,12 @@ function fixtureStatsPath(host: ProjectMetadata['host']): string {
   return '/__fixture__/stats';
 }
 
+function fixtureCatalogPath(host: ProjectMetadata['host']): string {
+  return ['next', 'nuxt', 'sveltekit', 'astro'].includes(host)
+    ? '/api/fixtures.json'
+    : '/fixtures.json';
+}
+
 function fixtureResetPath(host: ProjectMetadata['host']): string {
   if (host === 'next') return '/api/fixture-control/reset';
   if (['nuxt', 'sveltekit', 'astro'].includes(host)) return '/api/__fixture__/reset';
@@ -69,10 +83,11 @@ function fixtureResetPath(host: ProjectMetadata['host']): string {
 }
 
 type FixtureStats = {
+  bytesServed?: number;
   requestCount?: number;
   failures?: number;
   requestedRanges?: string[];
-  requests?: Array<{ fixtureId?: string; status?: number; scenario?: string; range?: string }>;
+  requests?: Array<{ fixtureId?: string; status?: number; scenario?: string; range?: string; bytesServed?: number }>;
 };
 
 async function fixtureStats(page: Page, host: ProjectMetadata['host']): Promise<FixtureStats> {
@@ -80,6 +95,23 @@ async function fixtureStats(page: Page, host: ProjectMetadata['host']): Promise<
     const response = await fetch(path, { cache: 'no-store' });
     return response.json() as Promise<FixtureStats>;
   }, fixtureStatsPath(host));
+}
+
+async function fixtureRecord(page: Page, info: ProjectMetadata) {
+  const response = await page.request.get(fixtureCatalogPath(info.host));
+  if (!response.ok()) throw new Error(`Unable to load fixture catalog (${response.status()}).`);
+  const catalog = await response.json() as FixtureCatalog;
+  const fixture = catalog.fixtures.find((candidate) => candidate.id === info.fixtureId);
+  if (!fixture) throw new Error(`Fixture ${info.fixtureId} is missing from the served catalog.`);
+  return fixture;
+}
+
+async function fixtureHeader(page: Page, info: ProjectMetadata) {
+  const response = await page.request.get(fixturePathForHost(info.host, info.fixtureId), {
+    headers: { Range: 'bytes=0-588' },
+  });
+  if (!response.ok()) throw new Error(`Unable to probe fixture header (${response.status()}).`);
+  return parseCopcHeader(new Uint8Array(await response.body()));
 }
 
 async function openConsumer(
@@ -180,8 +212,11 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
       await openConsumer(page, '', info.host, info);
       const current = await waitForRenderedPoints(page);
       assertRuntimeScenario('initial-point-rendering', current);
+      assertBackendIdentity(current, info.backend);
+      const fixture = await fixtureRecord(page, info);
+      assertCopcHeader(await fixtureHeader(page, info), fixture);
       const stats = await fixtureStats(page, info.host);
-      expect(stats.requestedRanges?.length ?? 0, 'runtime test must observe byte-range streaming').toBeGreaterThan(0);
+      assertBoundedRangeStreaming(stats, fixture);
       if (info.appId === 'angular-cesium') {
         const cesiumWorker = await page.request.get('/cesium/Workers/createTaskProcessorWorker.js');
         expect(cesiumWorker.ok(), 'Angular must serve Cesium worker assets from its build output').toBeTruthy();
@@ -271,12 +306,13 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
   },
   {
     id: 'point-picking',
-    run: async (page) => {
+    run: async (page, info) => {
       await waitForRenderedPoints(page);
       await invokeHarnessCommand(page, 'pick', 640, 360);
       const current = await result(page);
       if (!current) throw new Error('Missing result after point picking.');
       assertRuntimeScenario('point-picking', current);
+      assertSelectedPoint(current, await fixtureRecord(page, info));
     },
   },
   {
@@ -284,6 +320,7 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
     run: async (page, info) => {
       const current = await waitForReady(page);
       assertRuntimeScenario('diagnostics-observable', current);
+      assertBackendIdentity(current, info.backend);
       expect(current.config.appId).toBe(info.appId);
       expect(current.config.renderer).toBe(info.renderer);
       expect(current.config.fixtureUrl).toContain(info.fixtureId);
@@ -342,11 +379,17 @@ const scenarios: Array<{ id: RuntimeScenarioId; run: (page: Page, info: ProjectM
       if (!current) throw new Error('Missing Rust failure result.');
       assertRuntimeScenario('rust-failure-is-not-retried', current);
       expect(current.diagnostics.backend).toBe('rust');
+      expect(current.error?.name).toBe('CopcSourceError');
+      expect(current.error?.stage).toBe('source');
       const stats = await fixtureStats(page, info.host);
       const fixtureRequests = stats.requests?.filter((request) => request.fixtureId === info.fixtureId) ?? [];
-      expect(fixtureRequests.length, JSON.stringify(stats)).toBe(1);
-      expect(fixtureRequests[0]?.status).toBe(404);
-      expect(fixtureRequests[0]?.range).toBeDefined();
+      // React StrictMode may mount a development consumer twice. Every
+      // observed Rust attempt must still be the requested 404; a successful
+      // second request would indicate fallback or retry behavior.
+      expect(fixtureRequests.length, JSON.stringify(stats)).toBeGreaterThan(0);
+      expect(fixtureRequests.length, JSON.stringify(stats)).toBeLessThanOrEqual(2);
+      expect(fixtureRequests.every((request) => request.status === 404)).toBe(true);
+      expect(fixtureRequests.every((request) => request.range !== undefined)).toBe(true);
     },
   },
 ];

@@ -142,8 +142,8 @@ app identity다. viewer/scene/camera/renderer 생성과 mount/unmount는 각 con
 ## Shared fixture catalog and server
 
 fixture metadata is kept in [`fixtures/catalog.json`](fixtures/catalog.json). The catalog
-contains stable IDs, expected capabilities, source/provenance/license, checksum slots, and
-the cache path. The downloaded files are deliberately kept outside git in
+contains stable IDs, LAS/COPC coverage metadata, source/provenance/license, checksums,
+byte-size and Range budgets, and the cache path. The downloaded files are deliberately kept outside git in
 `.cache/copc-fixtures/`, so one cache can be used by every consumer.
 
 ```bash
@@ -167,6 +167,13 @@ curl -H 'Range: bytes=0-63' http://127.0.0.1:8787/fixtures/small-valid-copc
 # Remove downloaded files only.
 npm run fixtures:clean
 ```
+
+The catalog records runnable coverage for LAS 1.4 point formats 6 and 7 and a
+geographic-CRS dataset. Point format 8 is currently a documented fixture gap:
+the Millsite URL listed by the COPC specification returns 404, so it is not
+silently included in the runnable matrix. `npm run fixtures:list` prints this
+status and reason. A generated valid PDRF 8 fixture can be added later by
+changing that catalog row to `covered` and adding it to `MATRIX_FIXTURES`.
 
 The server supports `GET`, `HEAD`, `OPTIONS`, byte ranges, `Content-Range`,
 `Accept-Ranges`, configurable CORS, and these deterministic behaviors selected with
@@ -294,7 +301,8 @@ so the same selectors are used locally and in GitHub Actions.
 # Every consumer typecheck/build + representative Chromium runtime rows.
 npm run matrix:fast
 
-# Every consumer, Chromium/Firefox/WebKit, copc-js/Rust, and smoke/PF7 rows.
+# Every consumer, Chromium/Firefox/WebKit, copc-js/Rust, and all runnable
+# catalog rows (PF6, PF7, and geographic CRS).
 npm run matrix:full
 
 # Pack and test a local copc-adapter checkout or prepared tarball.

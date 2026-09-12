@@ -37,6 +37,25 @@ export type FixtureChecksum = {
   value: string | null;
 };
 
+export type FixtureCoverageStatus = 'covered' | 'gap' | 'negative';
+export type FixtureCrsFamily = 'projected' | 'geographic' | 'unknown';
+export type FixtureCoverage = {
+  status: FixtureCoverageStatus;
+  lasVersion?: '1.4';
+  pointFormat?: 6 | 7 | 8;
+  crsFamily?: FixtureCrsFamily;
+  wktVariants?: Array<'WKT1' | 'WKT2'>;
+  attributes?: string[];
+  scaleOffset?: boolean;
+  nestedHierarchy?: boolean;
+  coordinateTolerance?: number;
+  gapReason?: string;
+};
+export type FixtureRangePolicy = {
+  maxSingleRequestBytes: number;
+  maxTotalBytesRatio: number;
+};
+
 export type FixtureSource = {
   url: string;
   provenance: string;
@@ -50,6 +69,9 @@ export type FixtureRecord = {
   capabilities: string[];
   source: FixtureSource;
   checksum: FixtureChecksum;
+  sizeBytes?: number | null;
+  coverage?: FixtureCoverage;
+  rangePolicy?: FixtureRangePolicy;
   cachePath: string;
 };
 
@@ -122,6 +144,14 @@ function parseCatalog(value: unknown, source: string): FixtureCatalog {
     const record = asRecord(item);
     const sourceValue = asRecord(record?.source);
     const checksum = asRecord(record?.checksum);
+    const coverage = asRecord(record?.coverage);
+    const rangePolicy = asRecord(record?.rangePolicy);
+    const coverageStatus = coverage?.status;
+    const pointFormat = coverage?.pointFormat;
+    const crsFamily = coverage?.crsFamily;
+    const sizeBytes = record?.sizeBytes;
+    const maxSingleRequestBytes = rangePolicy?.maxSingleRequestBytes;
+    const maxTotalBytesRatio = rangePolicy?.maxTotalBytesRatio;
     if (
       !record ||
       typeof record.id !== 'string' ||
@@ -135,7 +165,19 @@ function parseCatalog(value: unknown, source: string): FixtureCatalog {
       !checksum ||
       checksum.algorithm !== 'sha256' ||
       (checksum.value !== null && typeof checksum.value !== 'string') ||
-      typeof record.cachePath !== 'string'
+      typeof record.cachePath !== 'string' ||
+      (sizeBytes !== undefined
+        && sizeBytes !== null
+        && (typeof sizeBytes !== 'number' || !Number.isSafeInteger(sizeBytes) || sizeBytes <= 0)) ||
+      (coverage && (!['covered', 'gap', 'negative'].includes(String(coverageStatus))
+        || (pointFormat !== undefined && ![6, 7, 8].includes(Number(pointFormat)))
+        || (crsFamily !== undefined && !['projected', 'geographic', 'unknown'].includes(String(crsFamily))))) ||
+      (rangePolicy && (typeof maxSingleRequestBytes !== 'number'
+        || !Number.isSafeInteger(maxSingleRequestBytes)
+        || maxSingleRequestBytes <= 0
+        || typeof maxTotalBytesRatio !== 'number'
+        || maxTotalBytesRatio <= 0
+        || maxTotalBytesRatio > 1))
     ) {
       return [];
     }
@@ -151,6 +193,27 @@ function parseCatalog(value: unknown, source: string): FixtureCatalog {
         license: sourceValue.license,
       },
       checksum: { algorithm: 'sha256', value: checksum.value as string | null },
+      ...(record.sizeBytes === undefined ? {} : { sizeBytes: record.sizeBytes as number | null }),
+      ...(coverage ? {
+        coverage: {
+          status: coverageStatus as FixtureCoverageStatus,
+          ...(coverage.lasVersion === undefined ? {} : { lasVersion: coverage.lasVersion as '1.4' }),
+          ...(pointFormat === undefined ? {} : { pointFormat: Number(pointFormat) as 6 | 7 | 8 }),
+          ...(crsFamily === undefined ? {} : { crsFamily: crsFamily as FixtureCrsFamily }),
+          ...(Array.isArray(coverage.wktVariants) ? { wktVariants: coverage.wktVariants.filter((value): value is 'WKT1' | 'WKT2' => value === 'WKT1' || value === 'WKT2') } : {}),
+          ...(Array.isArray(coverage.attributes) ? { attributes: coverage.attributes.filter((value): value is string => typeof value === 'string') } : {}),
+          ...(typeof coverage.scaleOffset === 'boolean' ? { scaleOffset: coverage.scaleOffset } : {}),
+          ...(typeof coverage.nestedHierarchy === 'boolean' ? { nestedHierarchy: coverage.nestedHierarchy } : {}),
+          ...(typeof coverage.coordinateTolerance === 'number' ? { coordinateTolerance: coverage.coordinateTolerance } : {}),
+          ...(typeof coverage.gapReason === 'string' ? { gapReason: coverage.gapReason } : {}),
+        },
+      } : {}),
+      ...(rangePolicy ? {
+        rangePolicy: {
+          maxSingleRequestBytes: rangePolicy.maxSingleRequestBytes as number,
+          maxTotalBytesRatio: rangePolicy.maxTotalBytesRatio as number,
+        },
+      } : {}),
       cachePath: record.cachePath,
     }];
   });

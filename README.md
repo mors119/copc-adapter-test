@@ -85,6 +85,9 @@ Boundary checks cover minimum/current renderer peers, supported Node.js versions
 
 ## Common commands
 
+Run `npm ci`, then choose an adapter source below before running matrix build commands.
+Bare npm mode requires the exact 0.4.0 version to be published.
+
 ```bash
 npm ci
 npm run build:matrix
@@ -98,6 +101,42 @@ npm run fixtures:list
 npm run fixtures:fetch
 npm run fixtures:verify
 ```
+
+## Adapter package sources
+
+The canonical compatibility target is `@frillab/copc-adapter@0.4.0`. The app manifests
+declare that version as an optional peer so a fresh clone can run `npm ci` even while
+0.4.0 is not published. `bootstrap` then installs one exact package source into the
+workspace. Checkout mode always runs the adapter's real `npm pack`/`prepack` path and
+consumers import the resulting package; no consumer imports adapter source directly.
+Checkout packing requires the adapter repository's Rust toolchain with the
+`wasm32-unknown-unknown` target; CI installs that target before packing.
+
+The sibling layout works without manually creating a tarball:
+
+```bash
+# ../copc-adapter is the default checkout path
+npm run test:local
+
+# Or select a checkout explicitly
+COPC_ADAPTER_SOURCE=checkout \
+COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter \
+npm run matrix:fast
+
+# Focused Three.js validation against the sibling checkout
+npm run test:local:three
+npm run matrix:three -- --skip-e2e
+
+# Use an already packed 0.4.0 artifact
+COPC_ADAPTER_SOURCE=tarball \
+COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter-0.4.0.tgz \
+npm run matrix:fast
+```
+
+Supported package sources are `checkout`, `tarball`, and `npm`. npm mode requests the
+specified version (0.4.0 by default) and fails clearly if that version is unavailable;
+it never falls back to an older release. Three consumers use the public
+`@frillab/copc-adapter/three` entrypoint.
 
 Run individual consumers with the `dev:*` scripts in the root `package.json`, for example:
 

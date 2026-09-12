@@ -52,7 +52,11 @@ async function runTier(tier) {
   const fixtures = options.fixtures ?? definition.fixtures.join(',');
 
   if (!hasFlag('--skip-bootstrap') && !process.env.COPC_MATRIX_SKIP_BOOTSTRAP) {
-    await npmCommand(['run', 'bootstrap']);
+    await npmCommand(['run', 'bootstrap'], {
+      ...process.env,
+      COPC_ADAPTER_SOURCE: options.packageSource,
+      COPC_ADAPTER_VERSION: options.packageVersion,
+    });
   }
   await npmCommand(['run', 'test:contract']);
   await npmCommand(['run', 'test:fixtures']);
@@ -88,7 +92,7 @@ if (command === 'bootstrap') {
   await runMatrix('build');
 } else if (command === 'typecheck') {
   await runMatrix('typecheck');
-} else if (command === 'fast' || command === 'full') {
+} else if (command === 'fast' || command === 'full' || command === 'local' || command === 'three') {
   await runTier(command);
 } else if (command === 'release' || command === 'release-gate') {
   await runReleaseGate({
@@ -100,5 +104,5 @@ if (command === 'bootstrap') {
     skipFixtures: hasFlag('--skip-fixtures') || Boolean(process.env.COPC_MATRIX_SKIP_FIXTURES),
   });
 } else {
-  throw new Error(`Unknown command "${command}". Use bootstrap, build, typecheck, fast, full, or release.`);
+  throw new Error(`Unknown command "${command}". Use bootstrap, build, typecheck, fast, full, local, three, or release.`);
 }

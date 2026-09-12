@@ -132,7 +132,7 @@ onUnmounted(() => cleanup());
       <p class="muted">Vue mounted/unmounted lifecycle에서 caller-owned Three scene을 검증합니다.</p>
       <div class="tag-row">
         <span>Vite + Vue</span><span>Three.js</span>
-        <span>{{ harnessConfig.packageSource === 'tarball' ? 'Packed TGZ' : `npm ${harnessConfig.packageVersion}` }}</span>
+        <span>{{ harnessConfig.packageSource === 'npm' ? `npm ${harnessConfig.packageVersion}` : harnessConfig.packageSource === 'checkout' ? 'Packed checkout' : 'Packed TGZ' }}</span>
       </div>
       <div class="status-row"><span>status</span><strong :data-status="status">{{ status }}</strong></div>
       <div class="status-row"><span>fixture</span><strong>{{ fixtureName(harnessConfig.fixtureUrl) }}</strong></div>

@@ -17,7 +17,7 @@ on:
       adapter-ref:
         description: Branch, tag, or commit to pack when source is checkout
         required: true
-        default: main
+        default: 552fee21c78945a940a156f9e07d6954a13c00c2
         type: string
       adapter-tarball-url:
         description: HTTPS URL for a prepared @frillab/copc-adapter .tgz when source is tarball
@@ -26,6 +26,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  COPC_ADAPTER_VERSION: 0.4.0
 
 jobs:
   release:
@@ -56,6 +59,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Install Rust WASM target
+        run: rustup target add wasm32-unknown-unknown
       - uses: actions/cache@v4
         with:
           path: .cache/copc-fixtures

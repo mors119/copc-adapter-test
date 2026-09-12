@@ -20,7 +20,7 @@ type ProjectMetadata = {
   backend: 'copc-js' | 'rust';
   fixtureId: string;
   browser: 'chromium' | 'firefox' | 'webkit';
-  packageSource: 'npm' | 'tarball';
+  packageSource: 'checkout' | 'tarball' | 'npm';
   packageVersion: string;
   appScenarios: RuntimeScenarioId[];
 };

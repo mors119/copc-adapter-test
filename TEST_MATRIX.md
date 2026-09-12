@@ -36,29 +36,47 @@
 
 ## 설치 및 package source
 
-기본 설치는 npm에 게시된 버전을 사용한다.
+정식 호환성 대상은 `@frillab/copc-adapter@0.4.0`이다. 앱 manifest는 adapter를
+0.4.0 optional peer로 선언하므로 0.4.0이 아직 npm에 게시되지 않아도 새 clone에서
+`npm ci`로 harness 의존성을 먼저 설치할 수 있다. `bootstrap`은 그 다음 정확히 하나의
+package source를 `node_modules`에 설치한다.
 
 ```bash
 npm run bootstrap
 ```
 
-`copc-adapter` checkout에서 만든 packed artifact를 같은 패키지명으로 검증하려면
-저장소 상대경로를 package manifest에 기록하지 않고 다음처럼 설치한다.
+형제 checkout은 tarball을 수동으로 만들 필요 없이 adapter의 실제 `npm pack`/`prepack`
+경로를 실행한 뒤 packed artifact만 소비한다. consumer가 adapter source를 직접 import하는
+경우는 없다.
+checkout packing에는 adapter repository가 요구하는 Rust toolchain과
+`wasm32-unknown-unknown` target이 필요하다.
+
+```bash
+# projects/copc-adapter 와 projects/copc-adapter-test/oscar 같은 sibling layout
+npm run test:local
+
+# 명시적 checkout
+COPC_ADAPTER_SOURCE=checkout \
+COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter \
+npm run matrix:fast
+
+# Three.js 집중 검증
+npm run test:local:three
+npm run matrix:three -- --skip-e2e
+```
+
+이미 만든 0.4.0 packed artifact를 같은 패키지명으로 검증할 수도 있다.
 
 ```bash
 COPC_ADAPTER_SOURCE=tarball \
-COPC_ADAPTER_TARBALL=/path/to/copc-adapter/apps/viewer-web/frillab-copc-adapter-0.3.0.tgz \
-npm run bootstrap
+COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter-0.4.0.tgz \
+npm run matrix:fast
 ```
 
-`bootstrap`은 `COPC_ADAPTER_SOURCE=npm|tarball`을 지원한다. npm 경로는
-`COPC_ADAPTER_VERSION`(기본 `0.3.0`)으로 버전을 선택하고, tarball 경로는 모든
-consumer workspace에 `@frillab/copc-adapter@file:<absolute-path>`를 일시 설치한다.
-bootstrap은 설치된 artifact가 root, `/cesium`, `/three` public export를 모두 갖는지도
-검사한다. registry에 이 export가 아직 없는 오래된 artifact만 보이는 경우에는
-tarball 경로로 해당 entry를 포함한 `copc-adapter` checkout을 지정한다.
-두 경로 모두 앱의 import는 `@frillab/copc-adapter` 또는 공개 `/cesium`, `/three`
-entry로 동일하다.
+지원 source는 `checkout|tarball|npm`이다. npm source는 `COPC_ADAPTER_VERSION`(기본
+`0.4.0`)을 정확히 요청하며 registry에 없으면 명확히 실패하고 오래된 버전으로
+downgrade하지 않는다. 모든 source는 설치된 artifact의 package metadata, `.`,
+`./cesium`, `./three` export, Worker/WASM asset을 검사한다.
 
 ## Boundary compatibility consumers
 
@@ -75,7 +93,8 @@ entry로 동일하다.
 
 각 케이스는 저장소 workspace 밖의 clean temporary directory에 작은 Vite consumer를
 생성한다. consumer의 `@frillab/copc-adapter`는 npm의 고정 버전 또는 외부 tarball로
-설치되며 workspace 경로를 참조하지 않는다. 설치와 production build가 모두 통과해야 한다.
+설치되며 workspace 경로를 참조하지 않는다. 현재 기본 target은 `0.4.0`이며, 설치와
+production build가 모두 통과해야 한다.
 
 ```bash
 # The boundary cases use the public renderer entrypoints from a packed artifact.
@@ -135,7 +154,7 @@ window.__COPC_TEST__ = {
 `?packageSource=tarball`을 사용할 수 있다.
 
 지원하는 공통 설정 값은 fixture URL, backend(`copc-js|rust`), renderer,
-scenario(`load-and-stream|camera-stream|static`), package source(`npm|tarball`),
+scenario(`load-and-stream|camera-stream|static`), package source(`checkout|tarball|npm`),
 app identity다. viewer/scene/camera/renderer 생성과 mount/unmount는 각 consumer가
 소유하며 공통 계약은 이를 숨기지 않는다.
 
@@ -339,7 +358,7 @@ npm run matrix:full
 # Pack and test a local copc-adapter checkout or prepared tarball.
 COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter npm run matrix:release
 # or
-COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter.tgz npm run matrix:release
+COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter-0.4.0.tgz npm run matrix:release
 ```
 
 All matrix commands accept the same narrow selectors, for example

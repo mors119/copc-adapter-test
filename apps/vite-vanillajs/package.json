@@ -9,11 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@frillab/copc-adapter": "^0.3.0",
     "@copc-test/fixture-client": "0.0.0",
     "@copc-test/harness-core": "0.0.0",
     "cesium": "^1.144.0"
   },
+  "peerDependencies": { "@frillab/copc-adapter": "0.4.0" },
+  "peerDependenciesMeta": { "@frillab/copc-adapter": { "optional": true } },
   "devDependencies": {
     "typescript": "~6.0.2",
     "vite": "^8.2.2"

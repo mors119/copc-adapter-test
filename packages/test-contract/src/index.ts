@@ -5,7 +5,7 @@ export type HarnessHost = 'vite' | 'next' | 'nuxt' | 'sveltekit' | 'astro' | 'an
 export type HarnessRenderer = 'cesium' | 'three' | 'r3f';
 export type HarnessBackend = 'copc-js' | 'rust';
 export type HarnessScenario = 'load-and-stream' | 'camera-stream' | 'static';
-export type HarnessPackageSource = 'npm' | 'tarball';
+export type HarnessPackageSource = 'checkout' | 'tarball' | 'npm';
 export type HarnessStatus = 'idle' | 'loading' | 'ready' | 'error' | 'destroyed';
 export const RUNTIME_SCENARIO_IDS = [
   'metadata-root-hierarchy',

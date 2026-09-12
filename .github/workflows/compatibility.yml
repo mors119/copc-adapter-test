@@ -20,7 +20,8 @@ permissions:
 
 env:
   COPC_ADAPTER_REPOSITORY: mors119/copc-adapter
-  COPC_ADAPTER_REF: main
+  # v0.4.0 release commit; keep package-source validation reproducible.
+  COPC_ADAPTER_REF: 552fee21c78945a940a156f9e07d6954a13c00c2
   COPC_ADAPTER_VERSION: 0.4.0
 
 concurrency:

@@ -17,7 +17,7 @@ on:
       adapter-ref:
         description: Branch, tag, or commit to pack when source is checkout
         required: true
-        default: main
+        default: 552fee21c78945a940a156f9e07d6954a13c00c2
         type: string
       adapter-tarball-url:
         description: HTTPS URL for a prepared @frillab/copc-adapter .tgz when source is tarball

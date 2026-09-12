@@ -5,6 +5,8 @@ import {
   type CopcCesiumLayerSnapshot,
 } from './copcAdapters';
 import type { LayerSettings, LayerState } from './types';
+import { benchmarkCacheOptions } from '../../../../apps/shared/benchmarkOptions';
+import { withPublicHierarchyDiagnostics } from '../../../../apps/shared/publicDiagnostics';
 
 type LayerStateListener = (state: LayerState) => void;
 
@@ -37,8 +39,11 @@ export class CopcLayerManager {
     return this.layer;
   }
 
-  getSnapshot(): CopcCesiumLayerSnapshot | undefined {
-    return this.layer?.getSnapshot();
+  getSnapshot(): (CopcCesiumLayerSnapshot & { hierarchy?: Record<string, number> }) | undefined {
+    const snapshot = this.layer?.getSnapshot();
+    return snapshot && this.layer
+      ? withPublicHierarchyDiagnostics(snapshot, this.layer)
+      : snapshot;
   }
 
   setAdapter(adapter: CopcAdapterModule): void {
@@ -72,6 +77,7 @@ export class CopcLayerManager {
         maxScreenSpaceError: settings.maxScreenSpaceError,
         maxRenderDistanceMeters: settings.maxRenderDistanceMeters,
       },
+      ...benchmarkCacheOptions(),
     });
 
     this.layer = layer;
@@ -88,7 +94,7 @@ export class CopcLayerManager {
       this.setState({
         status: 'ready',
         message: 'COPC 레이어가 연결되었습니다.',
-        snapshot: layer.getSnapshot(),
+        snapshot: this.getSnapshot(),
       });
 
       return true;

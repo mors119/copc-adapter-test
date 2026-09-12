@@ -1,0 +1,62 @@
+name: COPC adapter performance benchmarks
+
+on:
+  schedule:
+    - cron: '31 4 * * 6'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Benchmark profile
+        required: true
+        default: representative
+        type: choice
+        options: [quick, representative, full]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copc-performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: external streaming performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      COPC_ADAPTER_SOURCE: npm
+      COPC_ADAPTER_VERSION: 0.3.0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/copc-fixtures
+          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+          restore-keys: |
+            copc-fixtures-${{ runner.os }}-
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Run benchmark profile
+        run: >-
+          npm run benchmark --
+          --profile "${{ inputs.profile || 'representative' }}"
+          --output "benchmark-results/${{ github.sha }}.json"
+
+      - name: Upload benchmark JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copc-performance-${{ github.run_id }}
+          path: benchmark-results/
+          if-no-files-found: warn

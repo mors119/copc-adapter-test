@@ -45,6 +45,92 @@ export type HarnessCacheDiagnostics = {
   cacheBudgetBytes?: number;
   cacheHitCount?: number;
   cacheMissCount?: number;
+  evictionCount?: number;
+  bytesEvicted?: number;
+  largestCachedEntryBytes?: number;
+};
+
+export type HarnessHierarchyDiagnostics = {
+  requestCount?: number;
+  cacheHitCount?: number;
+  cacheMissCount?: number;
+  bytesFetched?: number;
+  loadedPageCount?: number;
+  loadedEntryCount?: number;
+};
+
+/** Public adapter performance counters, kept as diagnostics rather than memory claims. */
+export type HarnessPerformanceDiagnostics = {
+  updateDurationMs?: number;
+  nodeSelectionMs?: number;
+  selectedNodeCount?: number;
+  estimatedSelectedPointCount?: number;
+  configuredPointBudget?: number;
+  candidateSelectedPointCount?: number;
+  activeRenderedPointCount?: number;
+  deferredNodeCount?: number;
+  deferredPointCount?: number;
+  budgetDeferDropCount?: number;
+  budgetUtilizationPercent?: number;
+  candidatesBeforeCulling?: number;
+  frustumCulledCount?: number;
+  maxScreenSpaceError?: number;
+  screenSpaceErrorMin?: number;
+  screenSpaceErrorMax?: number;
+  refinedNodeCount?: number;
+  keptNodeCount?: number;
+  frontierNodeCount?: number;
+  frontierPointCount?: number;
+  acceptedRefinementCount?: number;
+  refinementRejectedByNodeBudgetCount?: number;
+  refinementRejectedByPointBudgetCount?: number;
+  refinementDeferredByIncompleteHierarchyCount?: number;
+  minimumFrontierExceedsNodeBudget?: boolean;
+  minimumFrontierExceedsPointBudget?: boolean;
+  centerWeightMin?: number;
+  centerWeightMax?: number;
+  acceptedRefinementPriorityMin?: number;
+  acceptedRefinementPriorityMax?: number;
+  candidatesWithCenterBoostCount?: number;
+  hysteresisHoldCount?: number;
+  refineDecisionCount?: number;
+  collapseDecisionCount?: number;
+  loadedNodeCount?: number;
+  loadedPointCount?: number;
+  rangeFetchDurationMs?: number;
+  rangeFetchBytes?: number;
+  decodeDurationMs?: number;
+  crsTransformDurationMs?: number;
+  geographicToCartesianDurationMs?: number;
+  pointStylePreparationDurationMs?: number;
+  pointCollectionCreationDurationMs?: number;
+  pointAddDurationMs?: number;
+  rendererPreparationDurationMs?: number;
+  nodeRemovalDurationMs?: number;
+  longestMainThreadBlockingSectionMs?: number;
+  visibleLevelRange?: { min: number; max: number };
+  cameraDirection?: [number, number, number];
+};
+
+export type HarnessTransitionDiagnostics = {
+  activeReplacementGroupCount?: number;
+  replacementGroupsWaitingCount?: number;
+  refinementReplacementCommitCount?: number;
+  collapseReplacementCommitCount?: number;
+  staleReplacementCancellationCount?: number;
+  coarseNodesRetainedForCoverageCount?: number;
+};
+
+export type HarnessWorkerDiagnostics = {
+  workerCount?: number;
+  activeCount?: number;
+  queuedCount?: number;
+  peakActiveCount?: number;
+  peakQueuedCount?: number;
+  submittedCount?: number;
+  completedCount?: number;
+  cancelledCount?: number;
+  failedCount?: number;
 };
 
 export type HarnessOperationStatus = 'passed' | 'unsupported' | 'error';
@@ -85,6 +171,9 @@ export type HarnessApiDiagnostics = {
     requestCount?: number;
     cacheHitCount?: number;
     cacheMissCount?: number;
+    bytesFetched?: number;
+    loadedPageCount?: number;
+    loadedEntryCount?: number;
   };
   streaming?: {
     lifecycle?: string;
@@ -125,6 +214,10 @@ export type HarnessDiagnostics = {
   hierarchyLoaded?: boolean;
   selectedPoint?: HarnessSelectedPoint;
   cache?: HarnessCacheDiagnostics;
+  hierarchy?: HarnessHierarchyDiagnostics;
+  performance?: HarnessPerformanceDiagnostics;
+  transition?: HarnessTransitionDiagnostics;
+  worker?: HarnessWorkerDiagnostics;
   sourceErrorCategory?: string;
   api?: HarnessApiDiagnostics;
 };
@@ -227,6 +320,9 @@ function cacheDiagnostics(value: unknown): HarnessCacheDiagnostics | undefined {
     cacheBudgetBytes: ['cacheBudgetBytes', 'cacheByteBudget'],
     cacheHitCount: ['cacheHitCount', 'hits'],
     cacheMissCount: ['cacheMissCount', 'misses'],
+    evictionCount: ['evictionCount'],
+    bytesEvicted: ['bytesEvicted'],
+    largestCachedEntryBytes: ['largestCachedEntryBytes'],
   } as const;
   const result = Object.fromEntries(
     Object.entries(aliases).flatMap(([field, candidates]) => {
@@ -236,6 +332,140 @@ function cacheDiagnostics(value: unknown): HarnessCacheDiagnostics | undefined {
       return number === undefined ? [] : [[field, number]];
     }),
   ) as HarnessCacheDiagnostics;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function hierarchyDiagnostics(value: unknown): HarnessHierarchyDiagnostics | undefined {
+  if (!isRecord(value)) return undefined;
+  const result = Object.fromEntries(
+    (['requestCount', 'cacheHitCount', 'cacheMissCount', 'bytesFetched', 'loadedPageCount', 'loadedEntryCount'] as const).flatMap((field) => {
+      const number = finiteNumber(value[field]);
+      return number === undefined ? [] : [[field, number]];
+    }),
+  ) as HarnessHierarchyDiagnostics;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+const PERFORMANCE_NUMBER_FIELDS = [
+  'updateDurationMs',
+  'nodeSelectionMs',
+  'selectedNodeCount',
+  'estimatedSelectedPointCount',
+  'configuredPointBudget',
+  'candidateSelectedPointCount',
+  'activeRenderedPointCount',
+  'deferredNodeCount',
+  'deferredPointCount',
+  'budgetDeferDropCount',
+  'budgetUtilizationPercent',
+  'candidatesBeforeCulling',
+  'frustumCulledCount',
+  'maxScreenSpaceError',
+  'screenSpaceErrorMin',
+  'screenSpaceErrorMax',
+  'refinedNodeCount',
+  'keptNodeCount',
+  'frontierNodeCount',
+  'frontierPointCount',
+  'acceptedRefinementCount',
+  'refinementRejectedByNodeBudgetCount',
+  'refinementRejectedByPointBudgetCount',
+  'refinementDeferredByIncompleteHierarchyCount',
+  'centerWeightMin',
+  'centerWeightMax',
+  'acceptedRefinementPriorityMin',
+  'acceptedRefinementPriorityMax',
+  'candidatesWithCenterBoostCount',
+  'hysteresisHoldCount',
+  'refineDecisionCount',
+  'collapseDecisionCount',
+  'loadedNodeCount',
+  'loadedPointCount',
+  'rangeFetchDurationMs',
+  'rangeFetchBytes',
+  'decodeDurationMs',
+  'crsTransformDurationMs',
+  'geographicToCartesianDurationMs',
+  'pointStylePreparationDurationMs',
+  'pointCollectionCreationDurationMs',
+  'pointAddDurationMs',
+  'rendererPreparationDurationMs',
+  'nodeRemovalDurationMs',
+  'longestMainThreadBlockingSectionMs',
+] as const;
+
+function vector3(value: unknown): [number, number, number] | undefined {
+  return Array.isArray(value) && value.length === 3
+    && value.every((item) => finiteNumber(item) !== undefined)
+    ? value as [number, number, number]
+    : undefined;
+}
+
+function performanceDiagnostics(value: unknown): HarnessPerformanceDiagnostics | undefined {
+  if (!isRecord(value)) return undefined;
+  const result = Object.fromEntries(
+    PERFORMANCE_NUMBER_FIELDS.flatMap((field) => {
+      const number = finiteNumber(value[field]);
+      return number === undefined ? [] : [[field, number]];
+    }),
+  ) as HarnessPerformanceDiagnostics;
+  for (const field of ['minimumFrontierExceedsNodeBudget', 'minimumFrontierExceedsPointBudget'] as const) {
+    if (typeof value[field] === 'boolean') result[field] = value[field];
+  }
+  const levelRange = isRecord(value.visibleLevelRange)
+    && finiteNumber(value.visibleLevelRange.min) !== undefined
+    && finiteNumber(value.visibleLevelRange.max) !== undefined
+    ? {
+        min: finiteNumber(value.visibleLevelRange.min) as number,
+        max: finiteNumber(value.visibleLevelRange.max) as number,
+      }
+    : undefined;
+  if (levelRange) result.visibleLevelRange = levelRange;
+  const direction = vector3(value.cameraDirection);
+  if (direction) result.cameraDirection = direction;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+const TRANSITION_FIELDS = [
+  'activeReplacementGroupCount',
+  'replacementGroupsWaitingCount',
+  'refinementReplacementCommitCount',
+  'collapseReplacementCommitCount',
+  'staleReplacementCancellationCount',
+  'coarseNodesRetainedForCoverageCount',
+] as const;
+
+function transitionDiagnostics(value: unknown): HarnessTransitionDiagnostics | undefined {
+  if (!isRecord(value)) return undefined;
+  const result = Object.fromEntries(
+    TRANSITION_FIELDS.flatMap((field) => {
+      const number = finiteNumber(value[field]);
+      return number === undefined ? [] : [[field, number]];
+    }),
+  ) as HarnessTransitionDiagnostics;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+const WORKER_FIELDS = [
+  'workerCount',
+  'activeCount',
+  'queuedCount',
+  'peakActiveCount',
+  'peakQueuedCount',
+  'submittedCount',
+  'completedCount',
+  'cancelledCount',
+  'failedCount',
+] as const;
+
+function workerDiagnostics(value: unknown): HarnessWorkerDiagnostics | undefined {
+  if (!isRecord(value)) return undefined;
+  const result = Object.fromEntries(
+    WORKER_FIELDS.flatMap((field) => {
+      const number = finiteNumber(value[field]);
+      return number === undefined ? [] : [[field, number]];
+    }),
+  ) as HarnessWorkerDiagnostics;
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
@@ -334,6 +564,12 @@ function apiDiagnostics(value: unknown): HarnessApiDiagnostics | undefined {
               ? { cacheHitCount: finiteNumber(value.hierarchy.cacheHitCount) } : {}),
             ...(finiteNumber(value.hierarchy.cacheMissCount) !== undefined
               ? { cacheMissCount: finiteNumber(value.hierarchy.cacheMissCount) } : {}),
+            ...(finiteNumber(value.hierarchy.bytesFetched) !== undefined
+              ? { bytesFetched: finiteNumber(value.hierarchy.bytesFetched) } : {}),
+            ...(finiteNumber(value.hierarchy.loadedPageCount) !== undefined
+              ? { loadedPageCount: finiteNumber(value.hierarchy.loadedPageCount) } : {}),
+            ...(finiteNumber(value.hierarchy.loadedEntryCount) !== undefined
+              ? { loadedEntryCount: finiteNumber(value.hierarchy.loadedEntryCount) } : {}),
           },
         }
       : {}),
@@ -378,6 +614,18 @@ export function normalizeSnapshot(snapshot: unknown): HarnessDiagnostics {
     ...(selectedPoint(source.selectedPoint) ? { selectedPoint: selectedPoint(source.selectedPoint) } : {}),
     ...(cacheDiagnostics(source.cache ?? source.pointCache)
       ? { cache: cacheDiagnostics(source.cache ?? source.pointCache) }
+      : {}),
+    ...(hierarchyDiagnostics(source.hierarchy)
+      ? { hierarchy: hierarchyDiagnostics(source.hierarchy) }
+      : {}),
+    ...(performanceDiagnostics(source.performance)
+      ? { performance: performanceDiagnostics(source.performance) }
+      : {}),
+    ...(transitionDiagnostics(source.transition)
+      ? { transition: transitionDiagnostics(source.transition) }
+      : {}),
+    ...(workerDiagnostics(source.worker)
+      ? { worker: workerDiagnostics(source.worker) }
       : {}),
     ...(typeof source.sourceErrorCategory === 'string'
       ? { sourceErrorCategory: source.sourceErrorCategory }

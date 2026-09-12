@@ -25,6 +25,7 @@ build
 .angular/
 test-results/
 playwright-report/
+benchmark-results/
 
 # Editor directories and files
 .vscode/*

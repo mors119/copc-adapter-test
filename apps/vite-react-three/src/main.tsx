@@ -20,6 +20,8 @@ import { StrictMode, useCallback, useEffect, useState, type ReactNode } from 're
 import { createRoot } from 'react-dom/client';
 import { HarnessPanel } from '../../../apps/shared/HarnessPanel';
 import { fitThreeCamera } from '../../../apps/shared/threeFit';
+import { benchmarkCacheOptions } from '../../../apps/shared/benchmarkOptions';
+import { withPublicHierarchyDiagnostics } from '../../../apps/shared/publicDiagnostics';
 
 const harnessConfig = createHarnessConfig({
   appId: 'vite-react-three',
@@ -104,6 +106,7 @@ function layerOptions(url: string, colorMode: CopcColorMode): ConstructorParamet
     pointSize: 3,
     maxRenderedPoints: STREAMING_OPTIONS.maxRenderedPoints,
     streaming: STREAMING_OPTIONS,
+    ...benchmarkCacheOptions(),
     debug: true,
   };
 }
@@ -144,7 +147,11 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
     const publishSnapshot = (): void => {
       const snapshot = layer.getSnapshot();
       const selectedPoint = layer.getSelectedPoint();
-      onSnapshot(selectedPoint ? { ...snapshot, selectedPoint } : snapshot);
+      const publicSnapshot = withPublicHierarchyDiagnostics(
+        selectedPoint ? { ...snapshot, selectedPoint } : snapshot,
+        layer,
+      );
+      onSnapshot(publicSnapshot);
     };
 
     const resize = (): void => {
@@ -215,7 +222,10 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
           hierarchy: {
             requestCount: hierarchy.pageRequests,
             cacheHitCount: hierarchy.pageCacheHits,
-            cacheMissCount: hierarchy.pageRequests - hierarchy.pageCacheHits,
+            cacheMissCount: hierarchy.pageRequests,
+            bytesFetched: hierarchy.hierarchyBytesFetched,
+            loadedPageCount: hierarchy.loadedPageCount,
+            loadedEntryCount: hierarchy.loadedEntryCount,
           },
         } : {}),
       });

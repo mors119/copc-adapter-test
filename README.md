@@ -97,6 +97,37 @@ npm run fixtures:fetch
 npm run fixtures:verify
 ```
 
+## Performance benchmarks
+
+The performance suite is intentionally separate from the correctness scenarios. It
+uses fixed browser view scripts and records machine-readable JSON for load and
+first-render timings, steady-view/streaming timings, Range request counts and
+bytes, rendered counts, public point-cache/hierarchy/worker diagnostics, and
+public streaming performance counters. Decoded point-cache bytes describe the
+adapter-owned CPU cache only; they are not browser or GPU memory measurements.
+
+```bash
+# Small, local-friendly smoke benchmark (one sample)
+npm run benchmark
+
+# Representative Cesium/Three + copc-js/Rust + small/large fixtures (two samples)
+npm run benchmark -- --profile representative
+
+# Compare two JSON reports. Timing differences remain informational by default.
+npm run benchmark:compare -- --current benchmark-results/latest.json --baseline /path/to/baseline.json
+```
+
+Profiles fetch the selected shared fixtures before running. Use `--no-fetch` when
+the fixture cache is already prepared. `--output`, `--apps`, `--browsers`,
+`--backends`, `--fixtures`, and `--repeat` can override a profile; `--baseline`
+adds a comparison against an existing report.
+The constrained-cache scenario defaults to an 8 MiB public point-cache budget;
+override it with `COPC_BENCHMARK_CACHE_BYTES` when a fixture needs a different
+working set.
+Only `--fail-on-regression` promotes repeatable, large request/byte/point-count
+changes to a non-zero comparison result; normal PR compatibility runs do not run
+this benchmark or fail on noisy absolute milliseconds.
+
 Run individual consumers with the `dev:*` scripts in the root `package.json`, for example:
 
 ```bash

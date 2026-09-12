@@ -1,0 +1,10 @@
+export const BENCHMARK_SCHEMA_VERSION: 1;
+export const BENCHMARK_SCENARIOS: readonly string[];
+export const BENCHMARK_KIND: 'copc-adapter-performance';
+export function median(values: number[]): number | undefined;
+export function percentile(values: number[], fraction: number): number | undefined;
+export function metricDefinitions(): Array<{ path: string; label: string; direction: 'lower' | 'higher' }>;
+export function benchmarkKey(record: Record<string, unknown>): string;
+export function summarizeRecord(record: Record<string, unknown>): Record<string, unknown>;
+export function compareReports(current: Record<string, unknown>, baseline: Record<string, unknown>, options?: Record<string, unknown>): Record<string, unknown>;
+export function formatComparison(comparison: Record<string, unknown>): string;

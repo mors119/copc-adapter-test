@@ -8,6 +8,8 @@ import { createHarnessConfig, createTestContract } from '@copc-test/harness-core
 import { StrictMode, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HarnessPanel } from '../../../apps/shared/HarnessPanel';
+import { benchmarkCacheOptions } from '../../../apps/shared/benchmarkOptions';
+import { withPublicHierarchyDiagnostics } from '../../../apps/shared/publicDiagnostics';
 
 const harnessConfig = createHarnessConfig({
   appId: 'vite-react-cesium',
@@ -55,17 +57,20 @@ function CesiumViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode
       pointSize: 2,
       debug: true,
       streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8 },
+      ...benchmarkCacheOptions(),
     });
 
     let disposed = false;
     onStatus('loading');
-    const timer = window.setInterval(() => onSnapshot(layer.getSnapshot()), 250);
+    const publicSnapshot = (): CopcCesiumLayerSnapshot & { hierarchy?: Record<string, number> } =>
+      withPublicHierarchyDiagnostics(layer.getSnapshot(), layer);
+    const timer = window.setInterval(() => onSnapshot(publicSnapshot()), 250);
 
     void layer.load().then(() => {
       if (disposed) return;
       layer.attachTo(viewer);
       testContract.markAttached();
-      onSnapshot(layer.getSnapshot());
+      onSnapshot(publicSnapshot());
       onStatus('ready');
     }).catch((error: unknown) => {
       if (disposed) return;

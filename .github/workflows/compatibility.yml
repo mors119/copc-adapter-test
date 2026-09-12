@@ -96,17 +96,26 @@ jobs:
     timeout-minutes: 25
 
     env:
-      COPC_ADAPTER_SOURCE: npm
-      COPC_ADAPTER_VERSION: 0.3.0
-      COPC_MATRIX_SKIP_BOOTSTRAP: '1'
+      COPC_ADAPTER_SOURCE: checkout
+      COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.copc-adapter
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check out adapter source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.COPC_ADAPTER_REPOSITORY }}
+          ref: ${{ env.COPC_ADAPTER_REF }}
+          path: .copc-adapter
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      - name: Install Rust WASM target
+        run: rustup target add wasm32-unknown-unknown
 
       - uses: actions/cache@v4
         with:
@@ -116,6 +125,8 @@ jobs:
             copc-fixtures-${{ runner.os }}-
 
       - run: npm ci
+
+      - run: npm run bootstrap
 
       - run: npx playwright install --with-deps chromium
 

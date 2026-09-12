@@ -318,6 +318,7 @@ when the larger fixture is available.
 Normal comparison never updates committed baselines:
 
 ```bash
+npm run bootstrap       # use the pinned sibling checkout or set COPC_ADAPTER_SOURCE explicitly
 npm run fixtures:fetch
 npm run e2e:install
 npm run e2e:visual
@@ -330,7 +331,8 @@ npm run e2e:visual:update
 ```
 
 Baselines live under `tests/e2e/__screenshots__/` and include fixture, renderer, color mode,
-viewport, package source, and package version in their names. On mismatch Playwright attaches
+viewport, package source, and package version in their names. The visual tier consumes the
+pinned `@frillab/copc-adapter@0.4.0` checkout artifact, matching the PR CI source. On mismatch Playwright attaches
 expected, actual, and diff images to the test result; the visual context attachment records the
 backend, browser, device scale factor, and software-rendering policy. The Chromium threshold is
 conservative (`64` pixels and `0.05%`) because visual checks supplement the runtime contract.

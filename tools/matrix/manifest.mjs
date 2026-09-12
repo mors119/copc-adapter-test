@@ -397,8 +397,8 @@ export const MATRIX_TIERS = {
     backends: ['copc-js'],
     fixtures: ['small-valid-copc'],
 
-    packageSource: 'npm',
-    packageVersion: '0.3.0',
+    packageSource: 'checkout',
+    packageVersion: ADAPTER_TARGET_VERSION,
   },
   full: {
     apps: ALL_APP_IDS,

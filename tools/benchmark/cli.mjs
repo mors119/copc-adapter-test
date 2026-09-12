@@ -19,7 +19,10 @@ const profiles = {
     repeat: '2',
   },
   full: {
-    apps: 'vite-react-cesium,vite-react-three,next-three',
+    // Keep the full benchmark matrix limited to consumers with the benchmark
+    // harness hooks required by every scenario. Framework coverage remains in
+    // the correctness matrix until its consumer-specific integration exists.
+    apps: 'vite-react-cesium,vite-react-three',
     browsers: 'chromium,firefox,webkit',
     backends: 'copc-js,rust',
     fixtures: 'small-valid-copc,point-format-7-rgb,geographic-crs',

@@ -1,3 +1,5 @@
+import { ADAPTER_TARGET_VERSION } from './package-source.mjs';
+
 const CORE_RUNTIME_SCENARIOS = [
   'metadata-root-hierarchy',
   'attach-to-caller-renderer',
@@ -9,6 +11,7 @@ const CORE_RUNTIME_SCENARIOS = [
   'source-error-is-visible',
   'rust-failure-is-not-retried',
 ];
+
 const VANILLA_RUNTIME_SCENARIOS = [
   ...CORE_RUNTIME_SCENARIOS,
   'detach-preserves-host-resources',
@@ -355,6 +358,9 @@ export const MATRIX = [
 ];
 
 const ALL_APP_IDS = [...new Set(MATRIX.map((entry) => entry.appId))];
+const THREE_MATRIX_IDS = MATRIX
+  .filter((entry) => entry.renderer === 'three' || entry.renderer === 'r3f')
+  .map((entry) => entry.matrixId ?? entry.appId);
 
 /**
  * These are the selectors used by local commands and CI. Build/typecheck
@@ -378,7 +384,7 @@ export const MATRIX_TIERS = {
     fixtures: ['small-valid-copc'],
 
     packageSource: 'npm',
-    packageVersion: '0.3.0',
+    packageVersion: ADAPTER_TARGET_VERSION,
   },
   full: {
     apps: ALL_APP_IDS,
@@ -387,7 +393,7 @@ export const MATRIX_TIERS = {
     backends: MATRIX_BACKENDS,
     fixtures: MATRIX_FIXTURES,
     packageSource: 'npm',
-    packageVersion: '0.3.0',
+    packageVersion: ADAPTER_TARGET_VERSION,
   },
   release: {
     apps: [
@@ -410,7 +416,31 @@ export const MATRIX_TIERS = {
     backends: ['copc-js'],
     fixtures: ['small-valid-copc'],
     packageSource: 'tarball',
-    packageVersion: 'packed-checkout',
+    packageVersion: ADAPTER_TARGET_VERSION,
+  },
+  local: {
+    apps: ['vite-vanillajs-cesium', 'vite-react-three'],
+    buildApps: [
+      'vite-vanillajs-cesium',
+      'vite-react-cesium',
+      'vite-react-three',
+      'next-cesium',
+      'next-three',
+    ],
+    browsers: ['chromium'],
+    backends: ['copc-js'],
+    fixtures: ['small-valid-copc'],
+    packageSource: 'checkout',
+    packageVersion: ADAPTER_TARGET_VERSION,
+  },
+  three: {
+    apps: THREE_MATRIX_IDS,
+    buildApps: THREE_MATRIX_IDS,
+    browsers: ['chromium'],
+    backends: ['copc-js'],
+    fixtures: ['small-valid-copc'],
+    packageSource: 'checkout',
+    packageVersion: ADAPTER_TARGET_VERSION,
   },
 };
 

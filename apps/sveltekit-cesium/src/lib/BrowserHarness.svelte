@@ -53,7 +53,7 @@
     <div class="eyebrow">COPC ADAPTER TEST MATRIX</div>
     <h1>SvelteKit / Cesium</h1>
     <p class="muted">SvelteKit의 <code>onMount</code> 경계에서 Cesium과 adapter를 동적으로 로드합니다.</p>
-    <div class="tag-row"><span>SvelteKit</span><span>Cesium</span><span>npm {config.packageVersion}</span></div>
+    <div class="tag-row"><span>SvelteKit</span><span>Cesium</span><span>{config.packageSource === 'npm' ? `npm ${config.packageVersion}` : config.packageSource === 'checkout' ? 'Packed checkout' : 'Packed TGZ'}</span></div>
     <div class="status-row"><span>status</span><strong data-status={status}>{status}</strong></div>
     <div class="status-row"><span>fixture</span><strong>{fixtureName}</strong></div>
     <div class="status-row"><span>scenario</span><strong>{config.scenario}</strong></div>

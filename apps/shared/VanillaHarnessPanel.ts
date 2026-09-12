@@ -48,9 +48,9 @@ export function createVanillaHarnessPanel(options: VanillaHarnessPanelOptions): 
   const tags = element.querySelectorAll<HTMLElement>('.tag-row span');
   tags[0].textContent = options.framework;
   tags[1].textContent = options.renderer;
-  tags[2].textContent = options.config.packageSource === 'tarball'
-    ? 'Packed TGZ'
-    : `npm ${options.config.packageVersion}`;
+  tags[2].textContent = options.config.packageSource === 'npm'
+    ? `npm ${options.config.packageVersion}`
+    : options.config.packageSource === 'checkout' ? 'Packed checkout' : 'Packed TGZ';
   text('[data-field="fixture"]').textContent = fixtureName(options.config.fixtureUrl);
   text('[data-field="scenario"]').textContent = options.config.scenario;
   text('[data-field="app"]').textContent = options.config.appId;

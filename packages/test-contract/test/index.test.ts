@@ -14,7 +14,7 @@ const config: HarnessConfig = {
   backend: 'copc-js',
   scenario: 'load-and-stream',
   packageSource: 'npm',
-  packageVersion: '0.3.0',
+  packageVersion: '0.4.0',
 };
 
 test('normalizes adapter snapshots into the renderer-neutral diagnostics shape', () => {

@@ -3,6 +3,11 @@ import type { HarnessResult } from '@copc-test/test-contract';
 import type { Page, TestInfo } from '@playwright/test';
 import { test, expect } from './fixtures.ts';
 
+test.skip(
+  process.env.COPC_E2E_MODE !== 'visual',
+  'Deterministic visual snapshots only run in the dedicated visual tier.',
+);
+
 const VIEWPORT = { width: 1280, height: 720 } as const;
 const READY_TIMEOUT = Number(process.env.COPC_E2E_READY_TIMEOUT ?? 90_000);
 

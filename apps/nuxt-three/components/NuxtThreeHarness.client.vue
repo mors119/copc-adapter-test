@@ -58,7 +58,7 @@ contract.registerCommand('reload', reload);
       <div class="eyebrow">COPC ADAPTER TEST MATRIX</div>
       <h1>Nuxt / Three.js</h1>
       <p class="muted">Nuxt의 <code>.client.vue</code> 경계에서 caller-owned Three scene을 연결합니다.</p>
-      <div class="tag-row"><span>Nuxt</span><span>Three.js</span><span>npm {{ config.packageVersion }}</span></div>
+      <div class="tag-row"><span>Nuxt</span><span>Three.js</span><span>{{ config.packageSource === 'npm' ? `npm ${config.packageVersion}` : config.packageSource === 'checkout' ? 'Packed checkout' : 'Packed TGZ' }}</span></div>
       <div class="status-row"><span>status</span><strong :data-status="status">{{ status }}</strong></div>
       <div class="status-row"><span>fixture</span><strong>{{ config.fixtureUrl.split('/').at(-1) }}</strong></div>
       <div class="status-row"><span>scenario</span><strong>{{ config.scenario }}</strong></div>

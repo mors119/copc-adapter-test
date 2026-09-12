@@ -1,23 +1,16 @@
-import { access, mkdir, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
-const packageName = '@frillab/copc-adapter';
+export const ADAPTER_PACKAGE = '@frillab/copc-adapter';
+export const ADAPTER_TARGET_VERSION = '0.4.0';
+const PUBLIC_ENTRYPOINTS = ['.', './cesium', './three'];
 
-function npmCommand(args, env = process.env) {
+function command(name, args, { cwd = process.cwd(), env = process.env } = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn('npm', args, { stdio: 'inherit', env });
-    child.once('error', reject);
-    child.once('exit', (code, signal) => {
-      if (code === 0) resolvePromise();
-      else reject(new Error(`npm ${args.join(' ')} failed (${signal ?? code})`));
-    });
-  });
-}
-
-function command(name, args) {
-  return new Promise((resolvePromise, reject) => {
-    const child = spawn(name, args, { stdio: 'inherit' });
+    const child = spawn(name, args, { cwd, env, stdio: 'inherit' });
     child.once('error', reject);
     child.once('exit', (code, signal) => {
       if (code === 0) resolvePromise();
@@ -26,9 +19,13 @@ function command(name, args) {
   });
 }
 
-function commandOutput(name, args) {
+function npmCommand(args, options = {}) {
+  return command('npm', args, options);
+}
+
+function commandOutput(name, args, { cwd = process.cwd(), env = process.env } = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(name, args);
+    const child = spawn(name, args, { cwd, env });
     let output = '';
     let error = '';
     child.stdout.on('data', (chunk) => { output += chunk; });
@@ -39,6 +36,14 @@ function commandOutput(name, args) {
       else reject(new Error(`${name} ${args.join(' ')} failed (${signal ?? code}): ${error}`));
     });
   });
+}
+
+async function isFile(path) {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
 }
 
 async function tarballEntries(tarball) {
@@ -61,33 +66,47 @@ function validatePackedAssets(entries, source) {
   }
 }
 
-async function validateTarball(tarball) {
-  await access(tarball);
-
-  const packageJson = await commandOutput('tar', ['-xOf', tarball, 'package/package.json'])
-    .catch((error) => { throw new Error(`Unable to read package metadata from ${tarball}: ${error.message}`); });
-
-  validatePackageMetadata(JSON.parse(packageJson), tarball);
-  validatePackedAssets(await tarballEntries(tarball), tarball);
+function validateAdapterVersion(version, source, expectedVersion = ADAPTER_TARGET_VERSION) {
+  if (version !== expectedVersion) {
+    throw new Error(`${source} contains ${ADAPTER_PACKAGE}@${version ?? 'unknown'}; expected ${ADAPTER_PACKAGE}@${expectedVersion}.`);
+  }
 }
 
-export function validatePackageMetadata(metadata, source) {
-  if (metadata.name !== packageName) {
-    throw new Error(`Expected ${packageName}, received ${metadata.name ?? 'an unnamed package'} in ${source}.`);
+export function validatePackageMetadata(metadata, source, expectedVersion = ADAPTER_TARGET_VERSION) {
+  if (metadata.name !== ADAPTER_PACKAGE) {
+    throw new Error(`Expected ${ADAPTER_PACKAGE}, received ${metadata.name ?? 'an unnamed package'} in ${source}.`);
   }
+  validateAdapterVersion(metadata.version, source, expectedVersion);
 
   const exports = metadata.exports ?? {};
-  for (const entry of ['.', './cesium', './three']) {
+  for (const entry of PUBLIC_ENTRYPOINTS) {
     if (!exports[entry]) {
-      throw new Error(`${source} does not expose ${packageName}/${entry === '.' ? '' : entry.slice(2)}. Use a 0.3.x artifact with the public renderer entrypoints.`);
+      const publicName = entry === '.' ? ADAPTER_PACKAGE : `${ADAPTER_PACKAGE}/${entry.slice(2)}`;
+      throw new Error(`${source} does not expose ${publicName}. The 0.4.x package must expose the root, /cesium, and /three entrypoints.`);
     }
   }
 }
 
-async function validateInstalledPackage({ requireAssets = false } = {}) {
+export async function validateTarball(tarball) {
+  await access(tarball);
+
+  const packageJson = await commandOutput('tar', ['-xOf', tarball, 'package/package.json'])
+    .catch((error) => { throw new Error(`Unable to read package metadata from ${tarball}: ${error.message}`); });
+  const metadata = JSON.parse(packageJson);
+  validatePackageMetadata(metadata, tarball);
+  validatePackedAssets(await tarballEntries(tarball), tarball);
+  return metadata;
+}
+
+async function installedPackageMetadata() {
   const packageRoot = resolve('node_modules/@frillab/copc-adapter');
   const metadata = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
-  validatePackageMetadata(metadata, packageRoot);
+  return { packageRoot, metadata };
+}
+
+export async function validateInstalledPackage({ requireAssets = false, expectedVersion = ADAPTER_TARGET_VERSION } = {}) {
+  const { packageRoot, metadata } = await installedPackageMetadata();
+  validatePackageMetadata(metadata, packageRoot, expectedVersion);
   if (requireAssets) {
     const entries = [];
     async function collect(directory, relative = '') {
@@ -104,21 +123,128 @@ async function validateInstalledPackage({ requireAssets = false } = {}) {
   return packageRoot;
 }
 
-export { validateInstalledPackage, validateTarball };
+export async function adapterPackageDirectory(checkout) {
+  const resolvedCheckout = resolve(checkout);
+  const configured = process.env.COPC_ADAPTER_PACKAGE_DIR;
+  const candidates = configured
+    ? [resolve(configured)]
+    : [join(resolvedCheckout, 'apps/viewer-web'), resolvedCheckout];
+  for (const candidate of candidates) {
+    const packageJsonPath = join(candidate, 'package.json');
+    if (!(await isFile(packageJsonPath))) continue;
+    const metadata = JSON.parse(await readFile(packageJsonPath, 'utf8'));
+    if (metadata.name === ADAPTER_PACKAGE) return candidate;
+  }
+  throw new Error(`Could not locate ${ADAPTER_PACKAGE} package below ${resolvedCheckout}. Expected apps/viewer-web/package.json.`);
+}
 
-/** Install the same adapter package name from npm or an externally packed TGZ. */
+export async function packAdapterCheckout(checkout = process.env.COPC_ADAPTER_CHECKOUT ?? '../copc-adapter', destination) {
+  const resolvedCheckout = resolve(checkout);
+  const packageDirectory = await adapterPackageDirectory(resolvedCheckout);
+  const packageJsonPath = join(packageDirectory, 'package.json');
+  const metadata = JSON.parse(await readFile(packageJsonPath, 'utf8'));
+  validatePackageMetadata(metadata, packageJsonPath);
+
+  const packDestination = resolve(destination ?? process.env.COPC_ADAPTER_PACK_DESTINATION
+    ?? await mkdtemp(join(tmpdir(), 'copc-adapter-pack-')));
+  await mkdir(packDestination, { recursive: true });
+  const before = new Set((await readdir(packDestination)).filter((file) => file.endsWith('.tgz')));
+
+  // npm pack runs the package's real prepack hook. For the current adapter this
+  // builds the library, generates the Rust/WASM assets, and then packs dist.
+  await npmCommand([
+    'install',
+    '--ignore-scripts',
+    '--legacy-peer-deps',
+    '--no-audit',
+    '--no-fund',
+  ], { cwd: packageDirectory });
+  await npmCommand(['pack', '--pack-destination', packDestination], { cwd: packageDirectory });
+
+  const files = (await readdir(packDestination))
+    .filter((file) => file.endsWith('.tgz') && !before.has(file));
+  if (files.length !== 1) {
+    throw new Error(`Expected exactly one new packed adapter tarball in ${packDestination}, found ${files.length}.`);
+  }
+  const tarball = join(packDestination, files[0]);
+  await validateTarball(tarball);
+  return { checkout: resolvedCheckout, packageDirectory, tarball, metadata };
+}
+
+async function installBaseWorkspace() {
+  // Consumer manifests intentionally keep the adapter as an optional peer so a
+  // clean clone does not ask npm for an unpublished 0.4.0 before bootstrap can
+  // pack a sibling checkout or install an explicit tarball.
+  await npmCommand([
+    'install',
+    '--ignore-scripts',
+    '--legacy-peer-deps',
+    '--package-lock=false',
+    '--no-audit',
+    '--no-fund',
+  ]);
+}
+
+async function installPackedArtifact(tarball) {
+  await installBaseWorkspace();
+  const extractionRoot = await mkdtemp(resolve('node_modules/.copc-adapter-source-'));
+  await command('tar', ['-xzf', tarball, '-C', extractionRoot]);
+  const installedPackage = resolve('node_modules/@frillab/copc-adapter');
+  await rm(installedPackage, { recursive: true, force: true });
+  await mkdir(dirname(installedPackage), { recursive: true });
+  // The consumer resolves the exact unpacked tarball below node_modules, not
+  // source files from the sibling checkout.
+  await symlink(join(extractionRoot, 'package'), installedPackage, 'dir');
+  await validateInstalledPackage({ requireAssets: true });
+}
+
+/**
+ * Install the same adapter package name from npm, an external TGZ, or a local
+ * checkout that is packed before it is consumed.
+ */
 export async function installAdapterSource() {
   const source = process.env.COPC_ADAPTER_SOURCE ?? 'npm';
-  const version = process.env.COPC_ADAPTER_VERSION ?? '0.3.0';
+  const version = process.env.COPC_ADAPTER_VERSION ?? ADAPTER_TARGET_VERSION;
 
   if (source === 'npm') {
-    await npmCommand(['install']);
-    await validateInstalledPackage();
-    return { source, spec: `${packageName}@${version}` };
+    try {
+      await npmCommand([
+        'install',
+        `${ADAPTER_PACKAGE}@${version}`,
+        '--ignore-scripts',
+        '--legacy-peer-deps',
+        '--package-lock=false',
+        '--no-save',
+        '--no-audit',
+        '--no-fund',
+      ]);
+    } catch (error) {
+      throw new Error(`Unable to install ${ADAPTER_PACKAGE}@${version} from the npm registry. npm mode never falls back to an older adapter version. ${error.message}`, { cause: error });
+    }
+    const packageRoot = await validateInstalledPackage({ requireAssets: true, expectedVersion: version });
+    return { source, spec: `${ADAPTER_PACKAGE}@${version}`, packageRoot, version };
+  }
+
+  if (source === 'checkout') {
+    const packDestination = await mkdtemp(join(tmpdir(), 'copc-adapter-checkout-pack-'));
+    try {
+      const packed = await packAdapterCheckout(undefined, packDestination);
+      await installPackedArtifact(packed.tarball);
+      return {
+        source,
+        spec: `packed-checkout:${packed.metadata.version}`,
+        packageRoot: resolve('node_modules/@frillab/copc-adapter'),
+        version: packed.metadata.version,
+      };
+    } finally {
+      // installPackedArtifact extracted the package into node_modules. The
+      // temporary tarball can be removed without changing the installed source.
+      await rm(packDestination, { recursive: true, force: true });
+    }
   }
 
   if (source !== 'tarball') {
-    throw new Error('COPC_ADAPTER_SOURCE must be "npm" or "tarball".');
+    throw new Error('COPC_ADAPTER_SOURCE must be "checkout", "tarball", or "npm".');
   }
 
   const configuredPath = process.env.COPC_ADAPTER_TARBALL;
@@ -127,25 +253,17 @@ export async function installAdapterSource() {
   }
 
   const tarball = resolve(configuredPath);
-  await validateTarball(tarball);
-
-  // npm's --no-save flag does not replace a matching workspace dependency on
-  // all npm versions. Install the normal dependency graph first, then overlay
-  // the exact packed artifact in node_modules without touching manifests or
-  // the lockfile.
-  await npmCommand(['install', '--ignore-scripts', '--legacy-peer-deps', '--package-lock=false']);
-  // Keep the extracted package below this repository's node_modules so its
-  // peer dependencies (cesium/three) resolve exactly like a registry install.
-  const extractionRoot = await mkdtemp(resolve('node_modules/.copc-adapter-source-'));
-  await command('tar', ['-xzf', tarball, '-C', extractionRoot]);
-  const installedPackage = resolve('node_modules/@frillab/copc-adapter');
-  await rm(installedPackage, { recursive: true, force: true });
-  await mkdir(dirname(installedPackage), { recursive: true });
-  await symlink(join(extractionRoot, 'package'), installedPackage, 'dir');
-  await validateInstalledPackage();
-  return { source, spec: `file:${tarball}` };
+  const metadata = await validateTarball(tarball);
+  await installPackedArtifact(tarball);
+  return { source, spec: `file:${tarball}`, packageRoot: resolve('node_modules/@frillab/copc-adapter'), version: metadata.version, tarball };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  await installAdapterSource();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv[2] === 'pack') {
+    const packed = await packAdapterCheckout();
+    console.log(`Packed adapter tarball: ${packed.tarball}`);
+  } else {
+    const result = await installAdapterSource();
+    console.log(`Adapter source: ${result.spec}`);
+  }
 }

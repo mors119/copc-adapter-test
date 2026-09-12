@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { ADAPTER_TARGET_VERSION } from '../matrix/package-source.mjs';
 import { compareReports, formatComparison } from './report.mjs';
 
 const profiles = {
@@ -56,6 +57,8 @@ const profile = profiles[profileName];
 if (!profile) throw new Error(`Unknown benchmark profile "${profileName}". Use quick, representative, or full.`);
 
 const outputFile = resolve(option('--output') ?? 'benchmark-results/latest.json');
+const packageSource = process.env.COPC_ADAPTER_SOURCE ?? 'npm';
+const packageVersion = process.env.COPC_ADAPTER_VERSION ?? ADAPTER_TARGET_VERSION;
 const selected = {
   apps: option('--apps') ?? profile.apps,
   browsers: option('--browsers') ?? profile.browsers,
@@ -70,6 +73,12 @@ const environment = {
   COPC_BENCHMARK_REPEAT: selected.repeat,
   COPC_BENCHMARK_CACHE_BYTES: process.env.COPC_BENCHMARK_CACHE_BYTES ?? '8388608',
   COPC_E2E_MODE: 'full',
+  COPC_E2E_PACKAGE_SOURCE: packageSource,
+  COPC_E2E_PACKAGE_VERSION: packageVersion,
+  VITE_COPC_PACKAGE_SOURCE: packageSource,
+  VITE_COPC_PACKAGE_VERSION: packageVersion,
+  NEXT_PUBLIC_COPC_PACKAGE_SOURCE: packageSource,
+  NEXT_PUBLIC_COPC_PACKAGE_VERSION: packageVersion,
   COPC_E2E_APPS: selected.apps,
   COPC_E2E_BROWSERS: selected.browsers,
   COPC_E2E_BACKENDS: selected.backends,

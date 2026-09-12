@@ -8,6 +8,7 @@ import {
   selectCompatibilityCases,
   selectPackageManagers,
 } from './manifest.mjs';
+import { ADAPTER_TARGET_VERSION } from '../matrix/package-source.mjs';
 
 const ADAPTER_PACKAGE = '@frillab/copc-adapter';
 
@@ -66,7 +67,7 @@ function adapterSpec() {
       : configured;
   }
 
-  return process.env.COPC_ADAPTER_VERSION ?? '0.3.0';
+  return process.env.COPC_ADAPTER_VERSION ?? ADAPTER_TARGET_VERSION;
 }
 
 function configuredAdapterVersion() {
@@ -79,7 +80,7 @@ function configuredAdapterVersion() {
 
   const tarball = process.env.COPC_ADAPTER_TARBALL;
   const match = tarball && basename(tarball).match(/^frillab-copc-adapter-(.+)\.tgz$/);
-  return match?.[1] ?? '0.3.0';
+  return match?.[1] ?? ADAPTER_TARGET_VERSION;
 }
 
 function sourceForCase(testCase) {

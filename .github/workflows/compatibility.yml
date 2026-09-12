@@ -25,42 +25,40 @@ concurrency:
 jobs:
   fast:
     name: fast compatibility gate
-    if: github.event_name != 'schedule' && (github.event_name != 'workflow_dispatch' || inputs.tier == 'fast')
+
+    if: >
+      github.event_name != 'schedule' &&
+      (github.event_name != 'workflow_dispatch' || inputs.tier == 'fast')
+
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+
+    env:
+      COPC_ADAPTER_SOURCE: npm
+      COPC_ADAPTER_VERSION: 0.3.0
+      COPC_MATRIX_SKIP_BOOTSTRAP: '1'
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Check out adapter source
-        uses: actions/checkout@v4
-        with:
-          repository: mors119/copc-adapter
-          # 0.3.0 predates the public /cesium and /three entrypoints. Keep
-          # compatibility runs reproducible until that artifact is republished.
-          ref: 73ec063cfac915ae2c0013f603f46102ae731012
-          path: .copc-adapter
-      - name: Install Rust WASM target
-        run: rustup target add wasm32-unknown-unknown
-      - name: Pack adapter source
-        working-directory: .copc-adapter/apps/viewer-web
-        run: |
-          npm install --ignore-scripts --legacy-peer-deps
-          npm pack --pack-destination "$RUNNER_TEMP"
-          echo "COPC_ADAPTER_SOURCE=tarball" >> "$GITHUB_ENV"
-          echo "COPC_ADAPTER_VERSION=0.3.0-ci" >> "$GITHUB_ENV"
-          echo "COPC_ADAPTER_TARBALL=$(find "$RUNNER_TEMP" -maxdepth 1 -name 'frillab-copc-adapter-*.tgz' -print -quit)" >> "$GITHUB_ENV"
+
       - uses: actions/cache@v4
         with:
           path: .cache/copc-fixtures
           key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
           restore-keys: |
             copc-fixtures-${{ runner.os }}-
+
       - run: npm ci
+
       - run: npx playwright install --with-deps chromium
+
       - run: npm run matrix:fast
+
       - name: Upload fast failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
@@ -70,7 +68,6 @@ jobs:
             test-results/
             playwright-report/
           if-no-files-found: ignore
-
   full:
     name: full compatibility matrix
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')

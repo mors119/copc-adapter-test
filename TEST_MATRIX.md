@@ -60,6 +60,44 @@ tarball 경로로 해당 entry를 포함한 `copc-adapter` checkout을 지정한
 두 경로 모두 앱의 import는 `@frillab/copc-adapter` 또는 공개 `/cesium`, `/three`
 entry로 동일하다.
 
+## Boundary compatibility consumers
+
+`tools/compatibility/manifest.mjs`에는 지원 경계와 일반 개발 매트릭스의 현재 버전을
+정확한 문자열로 기록한다.
+
+| Case | Renderer/consumer | Peer version |
+| --- | --- | --- |
+| `cesium-min` | Cesium | `1.142.0` |
+| `cesium-current` | Cesium | `1.145.0` |
+| `three-min` | Three.js | `0.170.0` |
+| `three-current` | Three.js | `0.186.0` |
+| `r3f-current` | React Three Fiber | React `19.2.8`, R3F `9.7.0`, Three `0.186.0` |
+
+각 케이스는 저장소 workspace 밖의 clean temporary directory에 작은 Vite consumer를
+생성한다. consumer의 `@frillab/copc-adapter`는 npm의 고정 버전 또는 외부 tarball로
+설치되며 workspace 경로를 참조하지 않는다. 설치와 production build가 모두 통과해야 한다.
+
+```bash
+# The boundary cases use the public renderer entrypoints from a packed artifact.
+COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter.tgz \
+  npm run compatibility:consumer -- \
+    --cases cesium-min,cesium-current,three-min,three-current,r3f-current \
+    --package-managers npm
+
+# Exercise all supported package-manager commands against representative cases.
+COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter.tgz \
+  npm run compatibility:consumer -- \
+    --cases cesium-min,three-current \
+    --package-managers npm,pnpm,yarn,bun
+```
+
+실패 메시지는 `packageManager`, OS, Node, renderer, peer track, adapter package version을
+항상 포함한다. Node 18은 선언된 최소 지원선이고 Node 22는 일반 CI의 current track이다.
+GitHub Actions의 `compatibility-boundaries.yml`은 같은 packed adapter artifact를
+Node 18/22, npm/pnpm/Yarn/Bun, Linux/macOS/Windows에서 사용해 경계와 build smoke를
+검증한다. 이 adapter 조합에서 Bun은 native runtime 의존성이 없으므로
+`required-pass` track으로 기록되어 있으며, 실패를 expected-failure로 숨기지 않는다.
+
 ## 공통 runtime contract
 
 각 브라우저 앱은 `window.__COPC_TEST__`를 노출한다. 계약은

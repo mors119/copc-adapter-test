@@ -380,6 +380,20 @@ export const MATRIX_TIERS = {
     packageSource: 'npm',
     packageVersion: '0.3.0',
   },
+  visual: {
+    // Keep visual coverage representative and intentionally small. The
+    // renderer output is shared by these Vite consumers, so every framework
+    // does not need a separate screenshot baseline.
+    apps: ['vite-react-cesium', 'vite-react-three', 'vite-r3f'],
+    buildApps: ['vite-react-cesium', 'vite-react-three', 'vite-r3f'],
+
+    browsers: ['chromium'],
+    backends: ['copc-js'],
+    fixtures: ['small-valid-copc'],
+
+    packageSource: 'npm',
+    packageVersion: '0.3.0',
+  },
   full: {
     apps: ALL_APP_IDS,
     buildApps: ALL_APP_IDS,

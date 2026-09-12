@@ -285,6 +285,37 @@ variants are excluded from browser runs by default; set
 its own dev server and reports the app identity, host, renderer, backend, fixture, and
 browser in failure artifacts.
 
+## Deterministic Chromium visual checks
+
+`tests/e2e/visual.spec.ts` adds a deliberately small supplementary visual suite for the
+representative Vite React Cesium, Vite React Three, and Vite R3F consumers. It captures the
+renderer canvas only at a fixed 1280×720 viewport and device pixel ratio 1, with a fixed local
+fixture, Chromium SwiftShader rendering path, deterministic camera command, and the selected
+color mode. Numeric/runtime assertions still run before each screenshot. The default smoke
+fixture has no RGB attribute, so RGB cases are explicitly skipped until a selected fixture
+advertises RGB coverage; use `COPC_E2E_FIXTURES=point-format-7-rgb` to exercise those cases
+when the larger fixture is available.
+
+Normal comparison never updates committed baselines:
+
+```bash
+npm run fixtures:fetch
+npm run e2e:install
+npm run e2e:visual
+```
+
+Baseline generation is an explicit opt-in command:
+
+```bash
+npm run e2e:visual:update
+```
+
+Baselines live under `tests/e2e/__screenshots__/` and include fixture, renderer, color mode,
+viewport, package source, and package version in their names. On mismatch Playwright attaches
+expected, actual, and diff images to the test result; the visual context attachment records the
+backend, browser, device scale factor, and software-rendering policy. The Chromium threshold is
+conservative (`64` pixels and `0.05%`) because visual checks supplement the runtime contract.
+
 Next.js webpack and Turbopack are separate matrix identities. The current Turbopack entries are
 recorded expected build failures because the adapter's WASM URL modules are not yet resolvable by
 that bundler; the matrix runner captures the build output and requires the recorded adapter WASM

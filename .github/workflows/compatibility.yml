@@ -68,6 +68,55 @@ jobs:
             test-results/
             playwright-report/
           if-no-files-found: ignore
+
+  visual:
+    name: deterministic Chromium visual gate
+
+    if: >
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.tier == 'fast')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      COPC_ADAPTER_SOURCE: npm
+      COPC_ADAPTER_VERSION: 0.3.0
+      COPC_MATRIX_SKIP_BOOTSTRAP: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/copc-fixtures
+          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+          restore-keys: |
+            copc-fixtures-${{ runner.os }}-
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run fixtures:fetch
+
+      - run: npm run e2e:visual
+
+      - name: Upload visual failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-visual-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
   full:
     name: full compatibility matrix
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')

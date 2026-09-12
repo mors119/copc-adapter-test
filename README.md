@@ -92,6 +92,8 @@ npm run typecheck:matrix
 npm run test:matrix
 npm run e2e:fast
 npm run e2e:full
+npm run e2e:visual
+npm run e2e:visual:update  # explicitly regenerate visual baselines
 npm run fixtures:list
 npm run fixtures:fetch
 npm run fixtures:verify

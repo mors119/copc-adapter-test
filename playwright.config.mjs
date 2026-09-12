@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { selectMatrixCases } from './tools/matrix/manifest.mjs';
 
 const mode = process.env.COPC_E2E_MODE ?? 'fast';
-const tier = mode === 'full' || mode === 'release' ? mode : 'fast';
+const tier = mode === 'full' || mode === 'release' || mode === 'visual' ? mode : 'fast';
 const includeExpectedFailures = process.env.COPC_E2E_INCLUDE_EXPECTED_FAILURES === '1';
 const cases = selectMatrixCases(tier, {
   apps: process.env.COPC_E2E_APPS,
@@ -65,6 +65,10 @@ const sharedFixtureServer = apps.some((app) => app.host === 'angular')
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
+  // Include the project and platform context in every visual baseline name.
+  // This makes fixture/renderer/backend/browser provenance visible from the
+  // snapshot path and avoids accidentally sharing a baseline across rows.
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}-{projectName}{ext}',
   timeout: testTimeout,
   expect: { timeout: expectTimeout },
   fullyParallel: false,
@@ -105,6 +109,14 @@ export default defineConfig({
     use: {
       ...browserDevices[matrixCase.browser],
       baseURL: baseUrlFor(matrixCase),
+      ...(matrixCase.browser === 'chromium' ? {
+        launchOptions: {
+          // Chromium's software path is available in hosted Linux CI and
+          // makes the intentionally narrow screenshot suite less GPU-host
+          // dependent while retaining conservative pixel tolerances.
+          args: ['--use-angle=swiftshader', '--use-gl=swiftshader'],
+        },
+      } : {}),
       screenshot: 'only-on-failure',
       trace: 'retain-on-failure',
       video: 'retain-on-failure',

@@ -39,3 +39,16 @@ test('selects runnable CRS coverage and keeps the documented PDRF 8 gap out of t
   assert.deepEqual(MATRIX_FIXTURE_GAPS, ['point-format-8-rgb-nir']);
   assert.throws(() => selectMatrixCases('full', { fixtures: 'point-format-8-rgb-nir' }), /fixture gap/);
 });
+
+test('keeps the visual tier narrow, Chromium-only, and copc-js-only', () => {
+  const cases = selectMatrixCases('visual');
+
+  assert.deepEqual(cases.map((entry) => entry.appId), [
+    'vite-react-cesium',
+    'vite-react-three',
+    'vite-r3f',
+  ]);
+  assert.deepEqual([...new Set(cases.map((entry) => entry.browser))], ['chromium']);
+  assert.deepEqual([...new Set(cases.map((entry) => entry.backend))], ['copc-js']);
+  assert.deepEqual([...new Set(cases.map((entry) => entry.fixtureId))], ['small-valid-copc']);
+});

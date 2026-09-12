@@ -13,13 +13,14 @@
   "dependencies": {
     "@copc-test/fixture-client": "0.0.0",
     "@copc-test/harness-core": "0.0.0",
-    "@frillab/copc-adapter": "^0.3.0",
     "@types/three": "^0.185.4",
     "next": "^16.3.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.186.0"
   },
+  "peerDependencies": { "@frillab/copc-adapter": "0.4.0" },
+  "peerDependenciesMeta": { "@frillab/copc-adapter": { "optional": true } },
   "devDependencies": {
     "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",

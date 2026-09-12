@@ -36,7 +36,7 @@ export function HarnessPanel({
       <div className="tag-row">
         <span>{framework}</span>
         <span>{renderer}</span>
-        <span>{config.packageSource === 'tarball' ? 'Packed TGZ' : `npm ${config.packageVersion}`}</span>
+        <span>{config.packageSource === 'npm' ? `npm ${config.packageVersion}` : config.packageSource === 'checkout' ? 'Packed checkout' : 'Packed TGZ'}</span>
       </div>
 
       <div className="status-row">

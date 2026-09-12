@@ -25,7 +25,7 @@ export {
   type RuntimeScenarioId,
 } from '@copc-test/test-contract';
 
-export const DEFAULT_PACKAGE_VERSION = '0.3.0';
+export const DEFAULT_PACKAGE_VERSION = '0.4.0';
 
 export type HarnessDefaults = Omit<HarnessConfig, 'fixtureUrl' | 'backend' | 'scenario' | 'packageSource' | 'packageVersion'> & {
   fixtureUrl: string;
@@ -61,7 +61,7 @@ function environmentConfig(environment: HarnessEnvironment, prefix: string): Par
     fixtureUrl: environmentValue(environment, prefix, 'COPC_FIXTURE_URL'),
     backend: enumValue(environmentValue(environment, prefix, 'COPC_BACKEND'), ['copc-js', 'rust']),
     scenario: enumValue(environmentValue(environment, prefix, 'COPC_SCENARIO'), ['load-and-stream', 'camera-stream', 'static']),
-    packageSource: enumValue(environmentValue(environment, prefix, 'COPC_PACKAGE_SOURCE'), ['npm', 'tarball']),
+    packageSource: enumValue(environmentValue(environment, prefix, 'COPC_PACKAGE_SOURCE'), ['checkout', 'tarball', 'npm']),
     packageVersion: environmentValue(environment, prefix, 'COPC_PACKAGE_VERSION'),
   });
 }
@@ -74,7 +74,7 @@ function queryConfig(): Partial<HarnessConfig> {
     fixtureUrl: params.get('fixture') ?? undefined,
     backend: enumValue(params.get('backend'), ['copc-js', 'rust']),
     scenario: enumValue(params.get('scenario'), ['load-and-stream', 'camera-stream', 'static']),
-    packageSource: enumValue(params.get('packageSource'), ['npm', 'tarball']),
+    packageSource: enumValue(params.get('packageSource'), ['checkout', 'tarball', 'npm']),
     packageVersion: params.get('packageVersion') ?? undefined,
   });
 }

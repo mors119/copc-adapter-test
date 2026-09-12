@@ -14,9 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Keep the packed source reproducible. Update this ref when the adapter
-  # artifact used by compatibility CI is intentionally changed.
-  COPC_ADAPTER_REF: 73ec063cfac915ae2c0013f603f46102ae731012
+  COPC_ADAPTER_REPOSITORY: mors119/copc-adapter
+  COPC_ADAPTER_REF: main
+  COPC_ADAPTER_VERSION: 0.4.0
 
 jobs:
   pack-adapter:
@@ -28,7 +28,7 @@ jobs:
       - name: Check out adapter source
         uses: actions/checkout@v4
         with:
-          repository: mors119/copc-adapter
+          repository: ${{ env.COPC_ADAPTER_REPOSITORY }}
           ref: ${{ env.COPC_ADAPTER_REF }}
           path: .copc-adapter
       - uses: actions/setup-node@v4
@@ -39,12 +39,14 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
       - name: Pack adapter source
         id: pack
-        working-directory: .copc-adapter/apps/viewer-web
+        env:
+          COPC_ADAPTER_SOURCE: checkout
+          COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.copc-adapter
+          COPC_ADAPTER_PACK_DESTINATION: ${{ runner.temp }}/copc-adapter-pack
         shell: bash
         run: |
-          npm install --ignore-scripts --legacy-peer-deps
-          npm pack --pack-destination "$RUNNER_TEMP"
-          tarball=$(find "$RUNNER_TEMP" -maxdepth 1 -name 'frillab-copc-adapter-*.tgz' -print -quit)
+          node tools/matrix/package-source.mjs pack
+          tarball=$(find "$RUNNER_TEMP/copc-adapter-pack" -maxdepth 1 -name 'frillab-copc-adapter-*.tgz' -print -quit)
           test -n "$tarball"
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4

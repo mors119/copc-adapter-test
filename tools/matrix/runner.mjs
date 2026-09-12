@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { ADAPTER_TARGET_VERSION } from './package-source.mjs';
 import { selectMatrix } from './manifest.mjs';
 
 function npmCommand(args, { captureOutput = false } = {}) {
@@ -43,7 +44,7 @@ function option(name) {
 export async function runMatrix(command, options = {}) {
   const apps = selectMatrix(options.apps ?? option('--apps') ?? option('--app'));
   const packageSource = options.packageSource ?? process.env.COPC_ADAPTER_SOURCE ?? 'npm';
-  const packageVersion = options.packageVersion ?? process.env.COPC_ADAPTER_VERSION ?? '0.3.0';
+  const packageVersion = options.packageVersion ?? process.env.COPC_ADAPTER_VERSION ?? ADAPTER_TARGET_VERSION;
   const backend = options.backend ?? process.env.COPC_E2E_BACKEND ?? 'copc-js';
   const fixtureId = options.fixtureId ?? process.env.COPC_E2E_FIXTURE ?? 'small-valid-copc';
   for (const app of apps) {

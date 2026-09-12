@@ -69,6 +69,8 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
       renderer.render(scene, camera);
       animationFrame = window.requestAnimationFrame(render);
     };
+    const update = (): void => { void layer.update(); };
+    controls.addEventListener('change', update);
     render();
     const timer = window.setInterval(() => onSnapshot(layer.getSnapshot()), 250);
 
@@ -100,6 +102,7 @@ function ThreeViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode 
       window.clearInterval(timer);
       window.cancelAnimationFrame(animationFrame);
       window.removeEventListener('resize', resize);
+      controls.removeEventListener('change', update);
       controls.dispose();
       layer.destroy();
       renderer.dispose();

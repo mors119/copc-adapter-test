@@ -155,7 +155,7 @@ export class ControlPanel {
 
       <div class="control-grid">
         <div class="control-label">Package source
-          <strong class="source-value">${this.packageSource === 'tarball' ? 'Packed TGZ' : 'npm published'}</strong>
+          <strong class="source-value">${this.packageSource === 'npm' ? 'npm published' : this.packageSource === 'checkout' ? 'Packed checkout' : 'Packed TGZ'}</strong>
           <small>소스 변경은 앱 재설치 후 적용됩니다.</small>
         </div>
         <label>샘플 파일

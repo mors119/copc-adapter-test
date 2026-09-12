@@ -1,9 +1,15 @@
-import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { selectMatrix, selectTier } from './manifest.mjs';
-import { installAdapterSource, validateInstalledPackage, validateTarball } from './package-source.mjs';
+import {
+  installAdapterSource,
+  ADAPTER_TARGET_VERSION,
+  packAdapterCheckout,
+  validateInstalledPackage,
+  validateTarball,
+} from './package-source.mjs';
 import { runMatrix } from './runner.mjs';
 
 function command(name, args, { cwd = process.cwd(), env = process.env } = {}) {
@@ -15,48 +21,6 @@ function command(name, args, { cwd = process.cwd(), env = process.env } = {}) {
       else reject(new Error(`${name} ${args.join(' ')} failed (${signal ?? code})`));
     });
   });
-}
-
-async function isFile(path) {
-  try {
-    return (await stat(path)).isFile();
-  } catch {
-    return false;
-  }
-}
-
-async function packCheckout(checkout, destination) {
-  const packageJsonPath = join(checkout, 'package.json');
-  if (!(await isFile(packageJsonPath))) {
-    throw new Error(`COPC_ADAPTER_CHECKOUT does not contain package.json: ${checkout}`);
-  }
-  const metadata = JSON.parse(await readFile(packageJsonPath, 'utf8'));
-  if (metadata.name !== '@frillab/copc-adapter') {
-    throw new Error(`Expected @frillab/copc-adapter checkout, received ${metadata.name ?? 'unnamed package'}.`);
-  }
-
-  // Install/build/pack are intentionally run in the target checkout. This
-  // makes the release gate exercise the exact artifact a release would ship.
-  await command('npm', ['install', '--ignore-scripts', '--legacy-peer-deps'], { cwd: checkout });
-  await command('npm', ['pack', '--pack-destination', destination], { cwd: checkout });
-  const files = (await readdir(destination)).filter((file) => file.endsWith('.tgz'));
-  if (files.length !== 1) {
-    throw new Error(`Expected exactly one packed adapter tarball in ${destination}, found ${files.length}.`);
-  }
-  return join(destination, files[0]);
-}
-
-async function adapterPackageDirectory(checkout) {
-  const configured = process.env.COPC_ADAPTER_PACKAGE_DIR;
-  if (configured) return resolve(configured);
-  const candidates = [checkout, join(checkout, 'apps/viewer-web')];
-  for (const candidate of candidates) {
-    const path = join(candidate, 'package.json');
-    if (!(await isFile(path))) continue;
-    const metadata = JSON.parse(await readFile(path, 'utf8'));
-    if (metadata.name === '@frillab/copc-adapter') return candidate;
-  }
-  throw new Error(`Could not locate @frillab/copc-adapter package below ${checkout}. Set COPC_ADAPTER_PACKAGE_DIR.`);
 }
 
 async function readTextFiles(directory) {
@@ -100,9 +64,6 @@ async function allFiles(directory) {
 async function verifyBuildOutputs(checkout, appSelector) {
   const forbidden = [
     checkout,
-    'copc-adapter-local',
-    'file:../../../copc-adapter',
-    'file:../../copc-adapter',
   ].filter(Boolean);
   const roots = selectMatrix(appSelector).map((app) => resolve(app.workspace, app.host === 'next' ? '.next' : 'dist'));
   const builtFiles = [];
@@ -158,8 +119,8 @@ export async function runReleaseGate(options = {}) {
   });
 
   try {
-    const packageDirectory = checkout ? await adapterPackageDirectory(checkout) : undefined;
-    const tarball = configuredTarball ?? (packageDirectory ? await packCheckout(packageDirectory, temporaryRoot) : undefined);
+    const packed = checkout ? await packAdapterCheckout(checkout, temporaryRoot) : undefined;
+    const tarball = configuredTarball ?? packed?.tarball;
     if (!tarball) {
       throw new Error('Release gate requires COPC_ADAPTER_CHECKOUT or COPC_ADAPTER_TARBALL.');
     }
@@ -179,16 +140,16 @@ export async function runReleaseGate(options = {}) {
       COPC_E2E_BACKENDS: backends,
       COPC_E2E_FIXTURES: fixtures,
       VITE_COPC_PACKAGE_SOURCE: 'tarball',
-      VITE_COPC_PACKAGE_VERSION: 'packed-checkout',
+      VITE_COPC_PACKAGE_VERSION: ADAPTER_TARGET_VERSION,
       NEXT_PUBLIC_COPC_PACKAGE_SOURCE: 'tarball',
-      NEXT_PUBLIC_COPC_PACKAGE_VERSION: 'packed-checkout',
+      NEXT_PUBLIC_COPC_PACKAGE_VERSION: ADAPTER_TARGET_VERSION,
       COPC_E2E_PACKAGE_SOURCE: 'tarball',
-      COPC_E2E_PACKAGE_VERSION: 'packed-checkout',
+      COPC_E2E_PACKAGE_VERSION: ADAPTER_TARGET_VERSION,
     };
     const matrixOptions = {
       apps,
       packageSource: 'tarball',
-      packageVersion: 'packed-checkout',
+      packageVersion: ADAPTER_TARGET_VERSION,
       backend: backends.split(',')[0],
       fixtureId: fixtures.split(',')[0],
     };

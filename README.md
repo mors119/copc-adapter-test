@@ -47,6 +47,12 @@ tools/matrix/           matrix definitions and runners
 .github/workflows/      CI and release validation
 ```
 
+## Documentation
+
+- [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) — the living human-readable matrix, architecture, package-source modes, tiers, fixture coverage, status vocabulary, and backend/browser/visual/performance policy.
+- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — how to add a consumer without duplicating harness logic, represent expected failures, reproduce one CI cell, and review documentation changes.
+- [`TEST_MATRIX.md`](TEST_MATRIX.md) — compatibility-matrix entrypoint for existing links.
+
 ## Test tiers
 
 ### Fast

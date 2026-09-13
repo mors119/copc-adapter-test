@@ -14,6 +14,7 @@ import {
   type FixtureCatalog,
 } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
+import { readVisualHarnessOptions, type VisualColorMode } from '../../../apps/shared/visualHarness';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { StrictMode, useCallback, useEffect, useState, type ReactNode } from 'react';
@@ -32,6 +33,7 @@ const harnessConfig = createHarnessConfig({
   scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');
 const testContract = createTestContract(harnessConfig);
+const visualHarness = readVisualHarnessOptions();
 
 type ViewportProps = {
   url: string;
@@ -46,12 +48,13 @@ type ThreeApiHandle = {
   unload(): void;
   destroy(): void;
   pick(x: number, y: number): void;
+  setView(view: 'far' | 'near' | 'overview' | 'visual'): Promise<void>;
   runApiCoverage(): Promise<void>;
   probeSource(label: string, source: string): Promise<void>;
 };
 
 type Operation = { status: 'passed' | 'unsupported' | 'error'; message?: string };
-type CopcColorMode = 'fixed' | 'elevation' | 'rgb' | 'intensity' | 'classification';
+type CopcColorMode = VisualColorMode | 'intensity' | 'classification';
 type PublishedSnapshot = CopcThreeLayerSnapshot & {
   selectedPoint?: ReturnType<CopcThreeLayer['getSelectedPoint']>;
 };
@@ -86,6 +89,7 @@ testContract.registerCommand('reload', () => activeThreeHandle?.reload());
 testContract.registerCommand('detach', () => activeThreeHandle?.detach());
 testContract.registerCommand('unload', () => activeThreeHandle?.unload());
 testContract.registerCommand('destroy', () => activeThreeHandle?.destroy());
+testContract.registerCommand('setView', (view) => activeThreeHandle?.setView(view));
 testContract.registerCommand('pick', (x = 0, y = 0) => { activeThreeHandle?.pick(x, y); });
 testContract.registerCommand('runApiCoverage', () => activeThreeHandle?.runApiCoverage());
 testContract.registerCommand('probeSource', (label, source) => activeThreeHandle?.probeSource(label, source));
@@ -128,18 +132,19 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
   useEffect(() => {
     const container = document.createElement('div');
     container.className = 'harness-canvas';
+    container.dataset.testid = 'renderer-viewport';
     document.body.appendChild(container);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#06101d');
     const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 20_000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = new THREE.WebGLRenderer({ antialias: !visualHarness.enabled, alpha: false });
+    renderer.setPixelRatio(visualHarness.enabled ? 1 : Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    let layer = new CopcThreeLayer(layerOptions(url, 'elevation'));
+    let layer = new CopcThreeLayer(layerOptions(url, visualHarness.colorMode));
     let disposed = false;
     let animationFrame = 0;
     const apiCoverageOnly = new URLSearchParams(window.location.search).get('apiCoverage') === '1';
@@ -378,6 +383,21 @@ function ThreeViewport({ url, onStatus, onSnapshot, onHandle }: ViewportProps): 
           x: ((screenPosition.x - rect.left) / Math.max(rect.width, 1)) * 2 - 1,
           y: -(((screenPosition.y - rect.top) / Math.max(rect.height, 1)) * 2 - 1),
         });
+        publishSnapshot();
+      },
+      async setView(view: 'far' | 'near' | 'overview' | 'visual'): Promise<void> {
+        if (view === 'visual') {
+          if (!fitThreeCamera(layer, camera, controls.target)) {
+            throw new Error('COPC visual camera could not be fitted to rendered points.');
+          }
+        } else {
+          const scale = view === 'near' ? 0.65 : view === 'far' ? 1.5 : 1;
+          const offset = camera.position.clone().sub(controls.target).multiplyScalar(scale);
+          camera.position.copy(controls.target).add(offset);
+          camera.updateMatrixWorld(true);
+          controls.update();
+        }
+        await layer.update();
         publishSnapshot();
       },
       runApiCoverage,

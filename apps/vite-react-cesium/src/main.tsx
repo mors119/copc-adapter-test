@@ -5,6 +5,7 @@ import * as Cesium from 'cesium';
 import { CopcCesiumLayer, type CopcCesiumLayerSnapshot } from '@frillab/copc-adapter/cesium';
 import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
+import { readVisualHarnessOptions } from '../../../apps/shared/visualHarness';
 import { StrictMode, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HarnessPanel } from '../../../apps/shared/HarnessPanel';
@@ -20,6 +21,7 @@ const harnessConfig = createHarnessConfig({
   scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');
 const testContract = createTestContract(harnessConfig);
+const visualHarness = readVisualHarnessOptions();
 
 type ViewportProps = {
   url: string;
@@ -34,6 +36,7 @@ function CesiumViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode
 
     const container = document.createElement('div');
     container.className = 'harness-canvas';
+    container.dataset.testid = 'renderer-viewport';
     document.body.appendChild(container);
 
     const viewer = new Cesium.Viewer(container, {
@@ -50,15 +53,37 @@ function CesiumViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode
       infoBox: false,
       selectionIndicator: false,
     });
+    if (visualHarness.enabled) {
+      viewer.resolutionScale = 1;
+      viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#06101d');
+      viewer.scene.globe.show = false;
+      if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = false;
+      if (viewer.scene.sun) viewer.scene.sun.show = false;
+      if (viewer.scene.moon) viewer.scene.moon.show = false;
+      viewer.scene.fog.enabled = false;
+    }
     const layer = new CopcCesiumLayer({
       url,
-      colorMode: 'elevation',
+      colorMode: visualHarness.colorMode,
       backend: harnessConfig.backend,
       pointSize: 2,
       debug: true,
       streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8 },
       ...benchmarkCacheOptions(),
     });
+
+    if (visualHarness.enabled) {
+      testContract.registerCommand('setView', () => {
+        viewer.camera.setView({
+          destination: viewer.camera.positionWC.clone(),
+          orientation: {
+            direction: viewer.camera.directionWC.clone(),
+            up: viewer.camera.upWC.clone(),
+          },
+        });
+        viewer.scene.requestRender();
+      });
+    }
 
     let disposed = false;
     onStatus('loading');
@@ -83,6 +108,7 @@ function CesiumViewport({ url, onStatus, onSnapshot }: ViewportProps): ReactNode
       window.clearInterval(timer);
       layer.destroy();
       if (!viewer.isDestroyed()) viewer.destroy();
+      if (visualHarness.enabled) testContract.unregisterCommand('setView');
       container.remove();
       testContract.markDestroyed();
       onSnapshot(undefined);

@@ -2,6 +2,8 @@ import type * as ThreeTypes from 'three';
 import type { OrbitControls as OrbitControlsType } from 'three/addons/controls/OrbitControls.js';
 import type { CopcThreeLayer, CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
 import type { CopcTestContract, HarnessConfig } from '@copc-test/harness-core';
+import { benchmarkCacheOptions } from './benchmarkOptions';
+import { withPublicHierarchyDiagnostics } from './publicDiagnostics';
 
 type ThreeHarnessOptions = {
   container: HTMLDivElement;
@@ -86,6 +88,7 @@ export function startThreeHarness({
         pointSize: 3,
         maxRenderedPoints: 1_000_000,
         streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
+        ...benchmarkCacheOptions(),
         debug: true,
       });
       layer = currentLayer;
@@ -97,7 +100,7 @@ export function startThreeHarness({
         camera.updateMatrixWorld(true);
         currentControls.update();
         await currentLayer.update();
-        if (!disposed) onSnapshot(currentLayer.getSnapshot());
+        if (!disposed) onSnapshot(withPublicHierarchyDiagnostics(currentLayer.getSnapshot(), currentLayer));
       });
       currentControls.addEventListener('change', () => {
         if (!disposed) void currentLayer.update();
@@ -121,7 +124,7 @@ export function startThreeHarness({
         animationFrame = window.requestAnimationFrame(render);
       };
       render();
-      timer = window.setInterval(() => onSnapshot(currentLayer.getSnapshot()), 250);
+      timer = window.setInterval(() => onSnapshot(withPublicHierarchyDiagnostics(currentLayer.getSnapshot(), currentLayer)), 250);
 
       currentLayer.attachTo({ scene, camera, renderer: currentRenderer });
       contract.markAttached();
@@ -134,7 +137,7 @@ export function startThreeHarness({
       }
       currentControls.update();
       await currentLayer.update();
-      onSnapshot(currentLayer.getSnapshot());
+      onSnapshot(withPublicHierarchyDiagnostics(currentLayer.getSnapshot(), currentLayer));
       onStatus('ready');
     } catch (error: unknown) {
       if (!disposed) {

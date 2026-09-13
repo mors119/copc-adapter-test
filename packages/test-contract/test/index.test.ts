@@ -100,6 +100,8 @@ test('normalizes optional picking and cache diagnostics without exposing decoder
       cachedNodeCount: 2,
       currentCacheBytes: 4096,
       cacheByteBudget: 8192,
+      evictionCount: 3,
+      bytesEvicted: 2048,
     },
   }), {
     backend: undefined,
@@ -122,7 +124,79 @@ test('normalizes optional picking and cache diagnostics without exposing decoder
       loadedNodeCount: 2,
       cacheBytes: 4096,
       cacheBudgetBytes: 8192,
+      evictionCount: 3,
+      bytesEvicted: 2048,
     },
+  });
+});
+
+test('preserves public streaming performance, transition, and worker diagnostics', () => {
+  assert.deepEqual(normalizeSnapshot({
+    lifecycle: 'ready',
+    performance: {
+      updateDurationMs: 12.5,
+      rangeFetchBytes: 4096,
+      decodeDurationMs: 3.25,
+      longestMainThreadBlockingSectionMs: 1.75,
+      minimumFrontierExceedsPointBudget: false,
+      visibleLevelRange: { min: 0, max: 4 },
+      cameraDirection: [0, 1, 0],
+      privateDecoderCounter: 99,
+    },
+    transition: {
+      activeReplacementGroupCount: 0,
+      staleReplacementCancellationCount: 2,
+    },
+    worker: {
+      workerCount: 2,
+      activeCount: 1,
+      queuedCount: 0,
+      completedCount: 5,
+    },
+  }).performance, {
+    updateDurationMs: 12.5,
+    rangeFetchBytes: 4096,
+    decodeDurationMs: 3.25,
+    longestMainThreadBlockingSectionMs: 1.75,
+    minimumFrontierExceedsPointBudget: false,
+    visibleLevelRange: { min: 0, max: 4 },
+    cameraDirection: [0, 1, 0],
+  });
+  assert.deepEqual(normalizeSnapshot({
+    transition: { activeReplacementGroupCount: 0, staleReplacementCancellationCount: 2 },
+    worker: { workerCount: 2, activeCount: 1, queuedCount: 0, completedCount: 5 },
+  }).transition, {
+    activeReplacementGroupCount: 0,
+    staleReplacementCancellationCount: 2,
+  });
+  assert.deepEqual(normalizeSnapshot({
+    transition: { activeReplacementGroupCount: 0 },
+    worker: { workerCount: 2, activeCount: 1, queuedCount: 0, completedCount: 5 },
+  }).worker, {
+    workerCount: 2,
+    activeCount: 1,
+    queuedCount: 0,
+    completedCount: 5,
+  });
+});
+
+test('normalizes hierarchy request and cache counters without deriving false negatives', () => {
+  assert.deepEqual(normalizeSnapshot({
+    hierarchy: {
+      requestCount: 1,
+      cacheHitCount: 5,
+      cacheMissCount: 1,
+      bytesFetched: 1024,
+      loadedPageCount: 1,
+      loadedEntryCount: 8,
+    },
+  }).hierarchy, {
+    requestCount: 1,
+    cacheHitCount: 5,
+    cacheMissCount: 1,
+    bytesFetched: 1024,
+    loadedPageCount: 1,
+    loadedEntryCount: 8,
   });
 });
 

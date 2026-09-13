@@ -1,8 +1,22 @@
-import type { HarnessResult, RuntimeScenarioId } from '@copc-test/test-contract';
-import type { FixtureCatalog } from '@copc-test/fixture-client';
+import type { RuntimeScenarioId } from '@copc-test/test-contract';
 import type { Page, TestInfo } from '@playwright/test';
 import { assertRuntimeScenario } from '@copc-test/harness-core';
 import { test, expect } from './fixtures.ts';
+import {
+  READY_TIMEOUT,
+  fixturePathForHost,
+  fixtureRecord,
+  fixtureStats,
+  harnessResult as result,
+  invokeHarnessCommand,
+  moveCameraForStreaming,
+  movePointerToCanvas,
+  openConsumer,
+  projectMetadata,
+  type ProjectMetadata,
+  waitForReady,
+  waitForRenderedPoints,
+} from './support.ts';
 import {
   assertBackendIdentity,
   assertBoundedRangeStreaming,
@@ -11,130 +25,12 @@ import {
   parseCopcHeader,
 } from './fixture-contract.ts';
 
-type ProjectMetadata = {
-  appId: string;
-  origin: string;
-  host: 'vite' | 'next' | 'nuxt' | 'sveltekit' | 'astro' | 'angular' | 'webpack' | 'rollup' | 'esbuild' | 'parcel';
-  bundler?: string;
-  renderer: 'cesium' | 'three' | 'r3f';
-  backend: 'copc-js' | 'rust';
-  fixtureId: string;
-  browser: 'chromium' | 'firefox' | 'webkit';
-  packageSource: 'checkout' | 'tarball' | 'npm';
-  packageVersion: string;
-  appScenarios: RuntimeScenarioId[];
-};
-
-const READY_TIMEOUT = Number(process.env.COPC_E2E_READY_TIMEOUT ?? 90_000);
-function projectMetadata(testInfo: TestInfo): ProjectMetadata {
-  return testInfo.project.metadata as ProjectMetadata;
-}
-
-async function result(page: Page): Promise<HarnessResult | null> {
-  try {
-    return await page.evaluate(() => window.__COPC_TEST__?.getResult() ?? null) as HarnessResult | null;
-  } catch {
-    return null;
-  }
-}
-
-async function waitForReady(page: Page): Promise<HarnessResult> {
-  await expect.poll(async () => (await result(page))?.status, {
-    timeout: READY_TIMEOUT,
-    message: 'The consumer did not reach ready through the browser harness contract.',
-  }).toBe('ready');
-  const current = await result(page);
-  if (!current) throw new Error('window.__COPC_TEST__ did not expose a result.');
-  return current;
-}
-
-async function waitForRenderedPoints(page: Page): Promise<HarnessResult> {
-  await waitForReady(page);
-  await expect.poll(async () => (await result(page))?.diagnostics.renderedPointCount ?? 0, {
-    timeout: READY_TIMEOUT,
-    message: 'The adapter became ready but did not publish rendered points.',
-  }).toBeGreaterThan(0);
-  const current = await result(page);
-  if (!current) throw new Error('Missing result after point rendering.');
-  return current;
-}
-
-function fixturePathForHost(host: ProjectMetadata['host'], fixtureId: string): string {
-  const apiHosts: ProjectMetadata['host'][] = ['next', 'nuxt', 'sveltekit', 'astro'];
-  return `${apiHosts.includes(host) ? '/api/fixtures' : '/fixtures'}/${fixtureId}`;
-}
-
-function fixtureStatsPath(host: ProjectMetadata['host']): string {
-  if (host === 'next') return '/api/fixture-control/stats';
-  if (['nuxt', 'sveltekit', 'astro'].includes(host)) return '/api/__fixture__/stats';
-  return '/__fixture__/stats';
-}
-
-function fixtureCatalogPath(host: ProjectMetadata['host']): string {
-  return ['next', 'nuxt', 'sveltekit', 'astro'].includes(host)
-    ? '/api/fixtures.json'
-    : '/fixtures.json';
-}
-
-function fixtureResetPath(host: ProjectMetadata['host']): string {
-  if (host === 'next') return '/api/fixture-control/reset';
-  if (['nuxt', 'sveltekit', 'astro'].includes(host)) return '/api/__fixture__/reset';
-  return '/__fixture__/reset';
-}
-
-type FixtureStats = {
-  bytesServed?: number;
-  requestCount?: number;
-  failures?: number;
-  requestedRanges?: string[];
-  requests?: Array<{ fixtureId?: string; status?: number; scenario?: string; range?: string; bytesServed?: number }>;
-};
-
-async function fixtureStats(page: Page, host: ProjectMetadata['host']): Promise<FixtureStats> {
-  return page.evaluate(async (path) => {
-    const response = await fetch(path, { cache: 'no-store' });
-    return response.json() as Promise<FixtureStats>;
-  }, fixtureStatsPath(host));
-}
-
-async function fixtureRecord(page: Page, info: ProjectMetadata) {
-  const response = await page.request.get(fixtureCatalogPath(info.host));
-  if (!response.ok()) throw new Error(`Unable to load fixture catalog (${response.status()}).`);
-  const catalog = await response.json() as FixtureCatalog;
-  const fixture = catalog.fixtures.find((candidate) => candidate.id === info.fixtureId);
-  if (!fixture) throw new Error(`Fixture ${info.fixtureId} is missing from the served catalog.`);
-  return fixture;
-}
-
 async function fixtureHeader(page: Page, info: ProjectMetadata) {
   const response = await page.request.get(fixturePathForHost(info.host, info.fixtureId), {
     headers: { Range: 'bytes=0-588' },
   });
   if (!response.ok()) throw new Error(`Unable to probe fixture header (${response.status()}).`);
   return parseCopcHeader(new Uint8Array(await response.body()));
-}
-
-async function openConsumer(
-  page: Page,
-  query = '',
-  resetHost?: ProjectMetadata['host'],
-  info?: ProjectMetadata,
-): Promise<void> {
-  if (resetHost) {
-    const response = await page.request.post(fixtureResetPath(resetHost), {
-      headers: info?.origin ? { origin: info.origin } : undefined,
-    });
-    if (!response.ok()) throw new Error(`Unable to reset fixture stats (${response.status()}).`);
-  }
-  if (info) {
-    const params = new URLSearchParams(query.replace(/^\?/, ''));
-    if (!params.has('fixture')) params.set('fixture', fixturePathForHost(info.host, info.fixtureId));
-    if (!params.has('backend')) params.set('backend', info.backend);
-    if (!params.has('packageSource')) params.set('packageSource', info.packageSource);
-    if (!params.has('packageVersion')) params.set('packageVersion', info.packageVersion);
-    query = `?${params.toString()}`;
-  }
-  await page.goto(`/${query}`, { waitUntil: 'domcontentloaded' });
 }
 
 async function reloadHarness(page: Page): Promise<void> {
@@ -150,35 +46,6 @@ async function reloadHarness(page: Page): Promise<void> {
   await page.getByTestId('harness-reload').click();
 }
 
-async function invokeHarnessCommand(
-  page: Page,
-  name: 'detach' | 'unload' | 'destroy' | 'setColorMode' | 'pick' | 'setView' | 'runApiCoverage' | 'probeSource',
-  ...args: unknown[]
-): Promise<void> {
-  await page.evaluate(({ commandName, commandArgs }) => {
-    const command = window.__COPC_TEST__?.commands[commandName] as
-      ((...values: unknown[]) => void | Promise<unknown>) | undefined;
-    if (!command) throw new Error(`Harness command ${commandName} is not registered.`);
-    return command(...commandArgs);
-  }, { commandName: name, commandArgs: args });
-}
-
-async function movePointerToCanvas(page: Page): Promise<void> {
-  const canvas = page.locator('canvas').first();
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('The consumer did not expose a visible renderer canvas.');
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-}
-
-async function moveCameraForStreaming(page: Page): Promise<void> {
-  const hasCommand = await page.evaluate(() => typeof window.__COPC_TEST__?.commands.setView === 'function');
-  if (hasCommand) {
-    await invokeHarnessCommand(page, 'setView', 'near');
-    return;
-  }
-  await movePointerToCanvas(page);
-  await page.mouse.wheel(0, -700);
-}
 
 function withFixtureScenario(
   scenario: string,

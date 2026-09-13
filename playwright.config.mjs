@@ -3,6 +3,7 @@ import { selectMatrixCases } from './tools/matrix/manifest.mjs';
 
 const mode = process.env.COPC_E2E_MODE ?? 'fast';
 const tier = mode === 'full' || mode === 'release' || mode === 'visual' ? mode : 'fast';
+const benchmark = process.env.COPC_BENCHMARK === '1';
 const includeExpectedFailures = process.env.COPC_E2E_INCLUDE_EXPECTED_FAILURES === '1';
 const cases = selectMatrixCases(tier, {
   apps: process.env.COPC_E2E_APPS,
@@ -64,7 +65,8 @@ const sharedFixtureServer = apps.some((app) => app.host === 'angular')
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: '**/*.spec.ts',
+  testMatch: benchmark ? '**/performance.spec.ts' : '**/*.spec.ts',
+  testIgnore: benchmark ? [] : '**/performance.spec.ts',
   // Include the project and platform context in every visual baseline name.
   // This makes fixture/renderer/backend/browser provenance visible from the
   // snapshot path and avoids accidentally sharing a baseline across rows.
@@ -75,7 +77,11 @@ export default defineConfig({
   workers: Number(process.env.COPC_E2E_WORKERS ?? 1),
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : [['list']],
+  reporter: benchmark
+    ? [['./tools/benchmark/reporter.mjs', {
+        outputFile: process.env.COPC_BENCHMARK_OUTPUT ?? 'benchmark-results/latest.json',
+      }]]
+    : process.env.CI ? [['line'], ['html', { open: 'never' }]] : [['list']],
   outputDir: 'test-results',
   webServer: [...sharedFixtureServer, ...apps.map((app) => ({
     command: devCommand(app),

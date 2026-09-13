@@ -1,0 +1,81 @@
+name: COPC adapter performance benchmarks
+
+on:
+  schedule:
+    - cron: '31 4 * * 6'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Benchmark profile
+        required: true
+        default: representative
+        type: choice
+        options: [quick, representative, full]
+
+permissions:
+  contents: read
+
+env:
+  COPC_ADAPTER_REPOSITORY: mors119/copc-adapter
+  # v0.4.0 release commit; keep benchmark package-source validation reproducible.
+  COPC_ADAPTER_REF: 552fee21c78945a940a156f9e07d6954a13c00c2
+  COPC_ADAPTER_VERSION: 0.4.0
+
+concurrency:
+  group: copc-performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: external streaming performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      COPC_ADAPTER_SOURCE: checkout
+      COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.copc-adapter
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out adapter source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.COPC_ADAPTER_REPOSITORY }}
+          ref: ${{ env.COPC_ADAPTER_REF }}
+          path: .copc-adapter
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/copc-fixtures
+          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+          restore-keys: |
+            copc-fixtures-${{ runner.os }}-
+
+      - run: npm ci
+
+      - name: Bootstrap packed adapter source
+        run: npm run bootstrap
+
+      - run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Run benchmark profile
+        run: >-
+          npm run benchmark --
+          --profile "${{ inputs.profile || 'representative' }}"
+          --output "benchmark-results/${{ github.sha }}.json"
+
+      - name: Upload benchmark JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copc-performance-${{ github.run_id }}
+          path: benchmark-results/
+          if-no-files-found: warn

@@ -1,6 +1,8 @@
 import type { CopcCesiumLayer, CopcCesiumLayerSnapshot } from '@frillab/copc-adapter/cesium';
 import type * as CesiumTypes from 'cesium';
 import type { HarnessConfig, CopcTestContract } from '@copc-test/harness-core';
+import { benchmarkCacheOptions } from './benchmarkOptions';
+import { withPublicHierarchyDiagnostics } from './publicDiagnostics';
 
 type CesiumHarnessOptions = {
   container: HTMLDivElement;
@@ -55,14 +57,15 @@ export function startCesiumHarness({
         pointSize: 2,
         debug: true,
         streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8 },
+        ...benchmarkCacheOptions(),
       });
       layer = currentLayer;
-      timer = window.setInterval(() => onSnapshot(currentLayer.getSnapshot()), 250);
+      timer = window.setInterval(() => onSnapshot(withPublicHierarchyDiagnostics(currentLayer.getSnapshot(), currentLayer)), 250);
       await currentLayer.load();
       if (disposed) return;
       currentLayer.attachTo(currentViewer);
       contract.markAttached();
-      onSnapshot(currentLayer.getSnapshot());
+      onSnapshot(withPublicHierarchyDiagnostics(currentLayer.getSnapshot(), currentLayer));
       onStatus('ready');
     } catch (error: unknown) {
       if (!disposed) {

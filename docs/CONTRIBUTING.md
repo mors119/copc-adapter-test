@@ -27,7 +27,7 @@ The `checkout` path must run the adapter’s normal `npm pack`/`prepack` process
 1. Add or update the real consumer under `apps/`. Keep framework lifecycle, renderer creation, camera/view ownership, client boundaries, and cleanup in that consumer.
 2. Use a public package entrypoint: the root entry, `/cesium`, or `/three`, as appropriate.
 3. Reuse `packages/test-contract`, `packages/harness-core`, `packages/fixture-client`, and the shared fixture server. Do not create a framework-specific fixture server or duplicate scenario assertions.
-4. Expose the common `window.__COPC_TEST__` result contract. Include app identity, host, renderer/entrypoint, backend, fixture, lifecycle status, rendered counts, streaming counters, and structured errors.
+4. Expose the common `window.__COPC_TEST__` result contract. Include app identity, host, renderer, backend, fixture, lifecycle status, rendered counts, streaming counters, and structured errors. The package entrypoint belongs in the matrix/package import declaration; it is not an additional required `HarnessConfig` field.
 5. Add the consumer identity to [`tools/matrix/manifest.mjs`](../tools/matrix/manifest.mjs), including its host, bundler/mode, renderer, public entrypoint, default scenario, backend selection, and applicable runtime scenarios.
 6. Update the human-readable matrix in [`COMPATIBILITY.md`](COMPATIBILITY.md) and the short [`TEST_MATRIX.md`](../TEST_MATRIX.md) index when the supported surface changes. Record an intentional build-only, not-applicable, or planned/untested boundary instead of implying runtime coverage.
 7. Put a new consumer in Fast only when it protects a high-value, frequent PR regression. Use Full, Boundary, or Release for broader or slower coverage.

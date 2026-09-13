@@ -80,8 +80,8 @@ The three Turbopack rows remain visible because removing a known failure would h
 
 | Tier | Purpose | Runtime selection | Browser / backend / fixture | Package source |
 | --- | --- | --- | --- | --- |
-| Fast | Representative PR gate | Vite Vanilla Cesium and Vite React Three; selected consumer builds/typechecks | Chromium / `copc-js` / `small-valid-copc` | npm |
-| Full | Broad scheduled or manually dispatched compatibility run | All current consumer identities except expected-failure browser variants | Chromium, Firefox, WebKit / `copc-js`, Rust / small, RGB, and geographic fixtures | npm |
+| Fast | Representative PR gate | Vite Vanilla Cesium and Vite React Three; selected consumer builds/typechecks | Chromium / `copc-js` / `small-valid-copc` | checkout in CI; npm when explicitly selected locally |
+| Full | Broad scheduled or manually dispatched compatibility run | All current consumer identities except expected-failure browser variants | Chromium, Firefox, WebKit / `copc-js`, Rust / small, RGB, and geographic fixtures | checkout in CI; npm when explicitly selected locally |
 | Visual | Small deterministic rendering supplement | Vite React Cesium, Vite React Three, and Vite R3F | Chromium / `copc-js` / `small-valid-copc` | packed checkout |
 | Release | External package gate | Vite Cesium, Vite Three/R3F, and Next representatives | Chromium / `copc-js` / `small-valid-copc` | packed `.tgz` |
 | Boundary | Peer, Node, package-manager, and OS envelope | Clean temporary Vite consumers | Node 18/22; npm, pnpm, Yarn, Bun; Linux, macOS, Windows | packed `.tgz` |
@@ -104,6 +104,20 @@ npm run matrix:full -- \
   --backends rust \
   --fixtures small-valid-copc
 ```
+
+## Boundary compatibility consumers
+
+Boundary checks use clean temporary Vite consumers outside this workspace. The exact peer versions are intentionally recorded in [`tools/compatibility/manifest.mjs`](../tools/compatibility/manifest.mjs) rather than inherited from the main lockfile:
+
+| Case | Renderer / consumer | Track | Exact peer versions |
+| --- | --- | --- | --- |
+| `cesium-min` | Cesium | minimum | `cesium@1.142.0` |
+| `cesium-current` | Cesium | current | `cesium@1.145.0` |
+| `three-min` | Three.js | minimum | `three@0.170.0` |
+| `three-current` | Three.js | current | `three@0.186.0` |
+| `r3f-current` | React Three Fiber | current | `@react-three/fiber@9.7.0`, `@types/three@0.185.4`, `react@19.2.8`, `react-dom@19.2.8`, `three@0.186.0` |
+
+Node 18 is the declared minimum track and Node 22 is the current CI track. Boundary CI installs the same packed adapter artifact with npm, pnpm, Yarn, and Bun (all currently `required-pass`) and runs production-build smoke on Linux, macOS, and Windows. Failures identify the package manager, operating system, Node version, renderer peer track, and installed adapter version.
 
 ## Package source modes
 

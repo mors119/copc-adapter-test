@@ -23,6 +23,8 @@
     "e2e": "playwright test",
     "e2e:fast": "COPC_E2E_MODE=fast playwright test",
     "e2e:full": "COPC_E2E_MODE=full playwright test",
+    "e2e:visual": "COPC_E2E_MODE=visual playwright test tests/e2e/visual.spec.ts",
+    "e2e:visual:update": "COPC_E2E_MODE=visual playwright test tests/e2e/visual.spec.ts --update-snapshots",
     "e2e:bundlers": "COPC_E2E_APPS=webpack-three,rollup-cesium,esbuild-three,parcel-three playwright test",
     "e2e:preview": "npm run build:matrix && COPC_E2E_TARGET=preview COPC_E2E_MODE=fast playwright test",
     "e2e:install": "playwright install chromium firefox webkit",

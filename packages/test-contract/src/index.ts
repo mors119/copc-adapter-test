@@ -30,7 +30,7 @@ export const RUNTIME_SCENARIO_IDS = [
 ] as const;
 export type RuntimeScenarioId = (typeof RUNTIME_SCENARIO_IDS)[number];
 
-export type HarnessView = 'far' | 'near' | 'overview';
+export type HarnessView = 'far' | 'near' | 'overview' | 'visual';
 
 export type HarnessSelectedPoint = {
   index?: number;

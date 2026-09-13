@@ -3,7 +3,9 @@ import '../../../apps/shared/styles.css';
 import { CopcThreeLayer, type CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
 import { DEFAULT_FIXTURE_ID, fixtureUrlForId } from '@copc-test/fixture-client';
 import { createHarnessConfig, createTestContract } from '@copc-test/harness-core';
+import { readVisualHarnessOptions } from '../../../apps/shared/visualHarness';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { StrictMode, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -19,6 +21,7 @@ const harnessConfig = createHarnessConfig({
   scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');
 const testContract = createTestContract(harnessConfig);
+const visualHarness = readVisualHarnessOptions();
 
 type PointCloudProps = {
   url: string;
@@ -35,10 +38,11 @@ function CopcPointCloud({ url, onStatus, onSnapshot }: PointCloudProps): ReactNo
     const controls = new OrbitControls(camera, gl.domElement);
     controls.enableDamping = true;
     controlsRef.current = controls;
+    scene.background = new THREE.Color('#06101d');
 
     const layer = new CopcThreeLayer({
       url,
-      colorMode: 'elevation',
+      colorMode: visualHarness.colorMode,
       backend: harnessConfig.backend,
       pointSize: 3,
       maxRenderedPoints: 100_000,
@@ -48,6 +52,23 @@ function CopcPointCloud({ url, onStatus, onSnapshot }: PointCloudProps): ReactNo
     layerRef.current = layer;
     let disposed = false;
     onStatus('loading');
+
+    testContract.registerCommand('setView', async (view) => {
+      if (disposed) return;
+      if (view === 'visual') {
+        if (!fitThreeCamera(layer, camera, controls.target)) {
+          throw new Error('COPC visual camera could not be fitted to rendered points.');
+        }
+      } else {
+        const scale = view === 'near' ? 0.65 : view === 'far' ? 1.5 : 1;
+        const offset = camera.position.clone().sub(controls.target).multiplyScalar(scale);
+        camera.position.copy(controls.target).add(offset);
+        camera.updateMatrixWorld(true);
+        controls.update();
+      }
+      await layer.update();
+      if (!disposed) onSnapshot(layer.getSnapshot());
+    });
 
     const timer = window.setInterval(() => onSnapshot(layer.getSnapshot()), 250);
     void (async (): Promise<void> => {
@@ -78,6 +99,7 @@ function CopcPointCloud({ url, onStatus, onSnapshot }: PointCloudProps): ReactNo
       window.clearInterval(timer);
       controls.dispose();
       controlsRef.current = undefined;
+      testContract.unregisterCommand('setView');
       layer.destroy();
       layerRef.current = undefined;
       testContract.markDestroyed();
@@ -114,8 +136,8 @@ function App(): ReactNode {
 
   return (
     <main className="harness-root">
-      <div className="harness-canvas">
-        <Canvas key={`${harnessConfig.fixtureUrl}:${reloadKey}`} camera={{ position: [0, 0, 1000], near: 0.1, far: 20_000 }}>
+      <div className="harness-canvas" data-testid="renderer-viewport">
+        <Canvas key={`${harnessConfig.fixtureUrl}:${reloadKey}`} dpr={visualHarness.enabled ? 1 : undefined} gl={{ antialias: !visualHarness.enabled, alpha: false }} camera={{ position: [0, 0, 1000], near: 0.1, far: 20_000 }}>
           <CopcPointCloud url={harnessConfig.fixtureUrl} onStatus={reportStatusWithContract} onSnapshot={reportSnapshot} />
         </Canvas>
       </div>

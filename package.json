@@ -23,7 +23,7 @@
     "test:contract": "npm run test --workspace @copc-test/test-contract",
     "test:fixtures": "npm run test --workspace @copc-test/fixture-server",
     "test:benchmark": "node --test tools/benchmark/report.test.mjs",
-    "test:matrix": "npm run test:contract && npm run test:fixtures && npm run test:benchmark && node --experimental-strip-types --test tests/e2e/fixture-contract.test.ts && node --test tools/matrix/runner.test.mjs tools/matrix/package-source.test.mjs tools/compatibility/manifest.test.mjs tools/compatibility/runner.test.mjs && npm run typecheck:matrix",
+    "test:matrix": "npm run test:contract && npm run test:fixtures && npm run test:benchmark && node --experimental-strip-types --test tests/e2e/fixture-contract.test.ts && node --test tools/command.test.mjs tools/matrix/runner.test.mjs tools/matrix/package-source.test.mjs tools/compatibility/manifest.test.mjs tools/compatibility/runner.test.mjs && npm run typecheck:matrix",
     "e2e": "playwright test",
     "e2e:fast": "COPC_E2E_MODE=fast playwright test",
     "e2e:full": "COPC_E2E_MODE=full playwright test",

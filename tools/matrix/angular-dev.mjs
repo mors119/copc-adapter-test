@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawnPlatformCommand } from '../command.mjs';
 
 const appId = process.argv[2];
 const appArgs = process.argv.slice(3);
@@ -9,7 +9,7 @@ if (!angularApps.has(appId)) {
 }
 
 function start(command, args) {
-  return spawn(command, args, { stdio: 'inherit', env: process.env });
+  return spawnPlatformCommand(command, args, { stdio: 'inherit', env: process.env });
 }
 
 const fixtureServer = start('npm', [

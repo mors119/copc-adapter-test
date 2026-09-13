@@ -7,7 +7,7 @@ import {
 import { runReleaseGate } from './release-gate.mjs';
 import { selectMatrix, selectTier } from './manifest.mjs';
 import { runMatrix } from './runner.mjs';
-import { spawn } from 'node:child_process';
+import { spawnPlatformCommand } from '../command.mjs';
 
 const command = process.argv[2] ?? 'build';
 
@@ -70,7 +70,7 @@ function forwardedLocalArgs() {
 
 function npmCommand(args, env = process.env) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn('npm', args, { stdio: 'inherit', env });
+    const child = spawnPlatformCommand('npm', args, { stdio: 'inherit', env });
     child.once('error', reject);
     child.once('exit', (code, signal) => {
       if (code === 0) resolvePromise();

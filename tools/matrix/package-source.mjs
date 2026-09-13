@@ -1,8 +1,8 @@
 import { access, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { spawnPlatformCommand } from '../command.mjs';
 
 export const ADAPTER_PACKAGE = '@frillab/copc-adapter';
 export const ADAPTER_TARGET_VERSION = '0.4.0';
@@ -10,7 +10,7 @@ export const PUBLIC_ENTRYPOINTS = ['.', './cesium', './three'];
 
 function command(name, args, { cwd = process.cwd(), env = process.env } = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(name, args, { cwd, env, stdio: 'inherit' });
+    const child = spawnPlatformCommand(name, args, { cwd, env, stdio: 'inherit' });
     child.once('error', reject);
     child.once('exit', (code, signal) => {
       if (code === 0) resolvePromise();
@@ -25,7 +25,7 @@ function npmCommand(args, options = {}) {
 
 function commandOutput(name, args, { cwd = process.cwd(), env = process.env } = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(name, args, { cwd, env });
+    const child = spawnPlatformCommand(name, args, { cwd, env });
     let output = '';
     let error = '';
     child.stdout.on('data', (chunk) => { output += chunk; });

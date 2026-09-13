@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
 import { selectMatrix, selectTier } from './manifest.mjs';
+import { spawnPlatformCommand } from '../command.mjs';
 import {
   installAdapterSource,
   ADAPTER_TARGET_VERSION,
@@ -14,7 +14,7 @@ import { runMatrix } from './runner.mjs';
 
 function command(name, args, { cwd = process.cwd(), env = process.env } = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(name, args, { cwd, env, stdio: 'inherit' });
+    const child = spawnPlatformCommand(name, args, { cwd, env, stdio: 'inherit' });
     child.once('error', reject);
     child.once('exit', (code, signal) => {
       if (code === 0) resolvePromise();

@@ -1,10 +1,10 @@
-import { spawn } from 'node:child_process';
 import { ADAPTER_TARGET_VERSION } from './package-source.mjs';
 import { selectMatrix } from './manifest.mjs';
+import { spawnPlatformCommand } from '../command.mjs';
 
 function npmCommand(args, { captureOutput = false } = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn('npm', args, {
+    const child = spawnPlatformCommand('npm', args, {
       stdio: captureOutput ? ['inherit', 'pipe', 'pipe'] : 'inherit',
       env: process.env,
     });

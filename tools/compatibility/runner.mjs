@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { spawnPlatformCommand } from '../command.mjs';
 import {
   BUILD_TOOL_VERSIONS,
   selectCompatibilityCases,
@@ -21,14 +21,10 @@ function option(name) {
 
 function runCommand(packageManager, args, cwd) {
   return new Promise((resolvePromise, reject) => {
-    // npm/pnpm/Yarn expose .cmd shims on Windows. Let cmd.exe resolve the
-    // package-manager command instead of trying to spawn a .cmd file directly,
-    // which raises EINVAL with shell:false on current Windows runners.
-    const child = spawn(packageManager, args, {
+    const child = spawnPlatformCommand(packageManager, args, {
       cwd,
       env: process.env,
       stdio: 'inherit',
-      shell: process.platform === 'win32',
     });
     child.once('error', reject);
     child.once('exit', (code, signal) => {

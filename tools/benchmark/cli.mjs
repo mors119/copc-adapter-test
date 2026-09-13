@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { ADAPTER_TARGET_VERSION } from '../matrix/package-source.mjs';
 import { compareReports, formatComparison } from './report.mjs';
+import { spawnPlatformCommand } from '../command.mjs';
 
 const profiles = {
   quick: {
@@ -42,7 +42,7 @@ function hasFlag(name) {
 
 function run(command, args, env) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit', env });
+    const child = spawnPlatformCommand(command, args, { stdio: 'inherit', env });
     child.once('error', reject);
     child.once('exit', (code, signal) => resolvePromise(code ?? (signal ? 1 : 0)));
   });

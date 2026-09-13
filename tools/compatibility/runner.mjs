@@ -1,16 +1,18 @@
 import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { spawnPlatformCommand } from '../command.mjs';
 import {
   BUILD_TOOL_VERSIONS,
   selectCompatibilityCases,
   selectPackageManagers,
 } from './manifest.mjs';
-import { ADAPTER_TARGET_VERSION } from '../matrix/package-source.mjs';
-
-const ADAPTER_PACKAGE = '@frillab/copc-adapter';
+import {
+  ADAPTER_PACKAGE,
+  ADAPTER_TARGET_VERSION,
+  validatePackageMetadata,
+} from '../matrix/package-source.mjs';
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -19,14 +21,10 @@ function option(name) {
 
 function runCommand(packageManager, args, cwd) {
   return new Promise((resolvePromise, reject) => {
-    // npm/pnpm/Yarn expose .cmd shims on Windows. Let cmd.exe resolve the
-    // package-manager command instead of trying to spawn a .cmd file directly,
-    // which raises EINVAL with shell:false on current Windows runners.
-    const child = spawn(packageManager, args, {
+    const child = spawnPlatformCommand(packageManager, args, {
       cwd,
       env: process.env,
       stdio: 'inherit',
-      shell: process.platform === 'win32',
     });
     child.once('error', reject);
     child.once('exit', (code, signal) => {
@@ -113,10 +111,16 @@ async function writeConsumer(root, testCase, adapter) {
   await writeFile(join(root, 'src', 'main.ts'), `${sourceForCase(testCase)}\n`);
 }
 
+async function validateInstalledAdapter(root, expectedVersion) {
+  const packageRoot = join(root, 'node_modules', '@frillab', 'copc-adapter');
+  const packageJson = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  validatePackageMetadata(packageJson, packageRoot, expectedVersion);
+  return packageJson.version;
+}
+
 async function installedAdapterVersion(root) {
   try {
-    const packageJson = JSON.parse(await readFile(join(root, 'node_modules', '@frillab', 'copc-adapter', 'package.json'), 'utf8'));
-    return packageJson.version ?? 'unknown';
+    return await validateInstalledAdapter(root, ADAPTER_TARGET_VERSION);
   } catch {
     return 'unknown';
   }
@@ -142,7 +146,7 @@ export async function runCompatibilityCase(testCase, packageManager, { keepTemp 
     await writeConsumer(root, testCase, adapter);
     console.log(`\n→ ${context(testCase, packageManager, requestedAdapterVersion)} install`);
     await runCommand(packageManager, packageManagerInstallArgs(packageManager), root);
-    const installedVersion = await installedAdapterVersion(root);
+    const installedVersion = await validateInstalledAdapter(root, requestedAdapterVersion);
     console.log(`→ ${context(testCase, packageManager, installedVersion)} production build`);
     await runCommand(packageManager, packageManagerBuildArgs(), root);
     console.log(`✓ ${context(testCase, packageManager, installedVersion)} passed`);

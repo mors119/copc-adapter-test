@@ -61,8 +61,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Bootstrap packed adapter source
-        run: npm run bootstrap
+      - name: Bootstrap packed local adapter
+        run: npm run bootstrap:local
 
       - run: npx playwright install --with-deps chromium firefox webkit
 

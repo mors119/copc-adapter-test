@@ -155,7 +155,10 @@ The sibling layout works without manually creating a tarball:
 
 ```bash
 # ../copc-adapter is the default checkout path
-npm run test:local
+npm run bootstrap:local
+npm run dev:local:three       # defaults to apps/vite-vanilla-three
+npm run dev:local:cesium      # defaults to apps/vite-react-cesium
+npm run test:local:three
 
 # Or select a checkout explicitly
 COPC_ADAPTER_SOURCE=checkout \
@@ -176,6 +179,12 @@ Supported package sources are `checkout`, `tarball`, and `npm`. npm mode request
 specified version (0.4.0 by default) and fails clearly if that version is unavailable;
 it never falls back to an older release. Three consumers use the public
 `@frillab/copc-adapter/three` entrypoint.
+
+The local development commands pack and install the sibling checkout, verify
+the installed 0.4.0 package boundary, clear root and consumer Vite dependency
+caches, and only then start the selected consumer. Override the consumer with
+`COPC_LOCAL_APP=vite-react-three` or `--app vite-react-three`; override the
+checkout with `COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter`.
 
 Run individual consumers with the `dev:*` scripts in the root `package.json`, for example:
 

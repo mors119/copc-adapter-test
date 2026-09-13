@@ -18,6 +18,12 @@ npm run bootstrap
 COPC_ADAPTER_SOURCE=checkout \
 COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter \
 npm run bootstrap
+
+# Common ../copc-adapter layout; packs and installs automatically.
+npm run bootstrap:local
+npm run dev:local:three
+npm run dev:local:cesium
+npm run test:local:three
 ```
 
 The `checkout` path must run the adapter’s normal `npm pack`/`prepack` process. A consumer must never import adapter source files directly. For a prepared artifact, set `COPC_ADAPTER_SOURCE=tarball` and `COPC_ADAPTER_TARBALL=/path/to/adapter.tgz`.

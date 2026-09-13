@@ -1,6 +1,11 @@
-import { installAdapterSource } from './package-source.mjs';
+import {
+  ADAPTER_PACKAGE,
+  ADAPTER_TARGET_VERSION,
+  installAdapterSource,
+  PUBLIC_ENTRYPOINTS,
+} from './package-source.mjs';
 import { runReleaseGate } from './release-gate.mjs';
-import { selectTier } from './manifest.mjs';
+import { selectMatrix, selectTier } from './manifest.mjs';
 import { runMatrix } from './runner.mjs';
 import { spawn } from 'node:child_process';
 
@@ -13,6 +18,54 @@ function option(name) {
 
 function hasFlag(name) {
   return process.argv.includes(name);
+}
+
+function printInstalledAdapter(result) {
+  console.log(`Installed ${ADAPTER_PACKAGE}@${result.version} from ${result.spec}`);
+  console.log(`Package boundary: ${PUBLIC_ENTRYPOINTS.join(', ')}`);
+}
+
+function configureLocalCheckout() {
+  process.env.COPC_ADAPTER_SOURCE = 'checkout';
+  process.env.COPC_ADAPTER_VERSION = ADAPTER_TARGET_VERSION;
+  if (!process.env.COPC_ADAPTER_CHECKOUT) process.env.COPC_ADAPTER_CHECKOUT = '../copc-adapter';
+}
+
+async function bootstrapAdapter() {
+  const result = await installAdapterSource();
+  printInstalledAdapter(result);
+  return result;
+}
+
+function localConsumer(mode) {
+  const defaultApp = mode === 'cesium' ? 'vite-react-cesium' : 'vite-vanilla-three';
+  const requested = option('--app') ?? process.env.COPC_LOCAL_APP ?? defaultApp;
+  const apps = selectMatrix(requested);
+  if (apps.length !== 1) {
+    throw new Error(`Local development requires one consumer app; "${requested}" matched ${apps.length}. Use a concrete app such as vite-vanilla-three.`);
+  }
+  const [app] = apps;
+  const expectedRenderer = mode === 'cesium' ? 'cesium' : undefined;
+  if (expectedRenderer && app.renderer !== expectedRenderer) {
+    throw new Error(`${requested} is not a Cesium consumer.`);
+  }
+  if (!expectedRenderer && app.renderer !== 'three' && app.renderer !== 'r3f') {
+    throw new Error(`${requested} is not a Three consumer.`);
+  }
+  return app;
+}
+
+function forwardedLocalArgs() {
+  const args = process.argv.slice(4);
+  const forwarded = [];
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === '--app') {
+      index += 1;
+      continue;
+    }
+    forwarded.push(args[index]);
+  }
+  return forwarded;
 }
 
 function npmCommand(args, env = process.env) {
@@ -86,8 +139,19 @@ async function runTier(tier) {
 }
 
 if (command === 'bootstrap') {
-  const result = await installAdapterSource();
-  console.log(`Adapter source: ${result.spec}`);
+  await bootstrapAdapter();
+} else if (command === 'bootstrap-local') {
+  configureLocalCheckout();
+  await bootstrapAdapter();
+} else if (command === 'dev-local') {
+  const mode = process.argv[3] ?? 'three';
+  if (mode !== 'three' && mode !== 'cesium') {
+    throw new Error(`Unknown local development renderer "${mode}". Use three or cesium.`);
+  }
+  configureLocalCheckout();
+  await bootstrapAdapter();
+  const app = localConsumer(mode);
+  await npmCommand(['run', app.devScript ?? 'dev', '--workspace', app.workspace, '--', ...forwardedLocalArgs()]);
 } else if (command === 'build') {
   await runMatrix('build');
 } else if (command === 'typecheck') {
@@ -104,5 +168,5 @@ if (command === 'bootstrap') {
     skipFixtures: hasFlag('--skip-fixtures') || Boolean(process.env.COPC_MATRIX_SKIP_FIXTURES),
   });
 } else {
-  throw new Error(`Unknown command "${command}". Use bootstrap, build, typecheck, fast, full, local, three, or release.`);
+  throw new Error(`Unknown command "${command}". Use bootstrap, bootstrap-local, dev-local, build, typecheck, fast, full, local, three, or release.`);
 }

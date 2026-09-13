@@ -1,12 +1,12 @@
-import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { access, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 export const ADAPTER_PACKAGE = '@frillab/copc-adapter';
 export const ADAPTER_TARGET_VERSION = '0.4.0';
-const PUBLIC_ENTRYPOINTS = ['.', './cesium', './three'];
+export const PUBLIC_ENTRYPOINTS = ['.', './cesium', './three'];
 
 function command(name, args, { cwd = process.cwd(), env = process.env } = {}) {
   return new Promise((resolvePromise, reject) => {
@@ -123,6 +123,16 @@ export async function validateInstalledPackage({ requireAssets = false, expected
   return packageRoot;
 }
 
+export async function clearViteDependencyCaches() {
+  const cachePaths = [resolve('node_modules/.vite')];
+  const appsDirectory = resolve('apps');
+  for (const entry of await readdir(appsDirectory, { withFileTypes: true }).catch(() => [])) {
+    if (entry.isDirectory()) cachePaths.push(join(appsDirectory, entry.name, 'node_modules/.vite'));
+  }
+  await Promise.all(cachePaths.map((path) => rm(path, { recursive: true, force: true })));
+  return cachePaths;
+}
+
 export async function adapterPackageDirectory(checkout) {
   const resolvedCheckout = resolve(checkout);
   const configured = process.env.COPC_ADAPTER_PACKAGE_DIR;
@@ -152,10 +162,12 @@ export async function packAdapterCheckout(checkout = process.env.COPC_ADAPTER_CH
 
   // npm pack runs the package's real prepack hook. For the current adapter this
   // builds the library, generates the Rust/WASM assets, and then packs dist.
+  const hasLockfile = await isFile(join(packageDirectory, 'package-lock.json'));
   await npmCommand([
-    'install',
+    hasLockfile ? 'ci' : 'install',
     '--ignore-scripts',
     '--legacy-peer-deps',
+    ...(hasLockfile ? [] : ['--package-lock=false']),
     '--no-audit',
     '--no-fund',
   ], { cwd: packageDirectory });
@@ -167,8 +179,8 @@ export async function packAdapterCheckout(checkout = process.env.COPC_ADAPTER_CH
     throw new Error(`Expected exactly one new packed adapter tarball in ${packDestination}, found ${files.length}.`);
   }
   const tarball = join(packDestination, files[0]);
-  await validateTarball(tarball);
-  return { checkout: resolvedCheckout, packageDirectory, tarball, metadata };
+  const packedMetadata = await validateTarball(tarball);
+  return { checkout: resolvedCheckout, packageDirectory, tarball, metadata: packedMetadata };
 }
 
 async function installBaseWorkspace() {
@@ -185,17 +197,25 @@ async function installBaseWorkspace() {
   ]);
 }
 
-async function installPackedArtifact(tarball) {
+async function installPackedArtifact(tarball, expectedVersion = ADAPTER_TARGET_VERSION) {
   await installBaseWorkspace();
-  const extractionRoot = await mkdtemp(resolve('node_modules/.copc-adapter-source-'));
-  await command('tar', ['-xzf', tarball, '-C', extractionRoot]);
   const installedPackage = resolve('node_modules/@frillab/copc-adapter');
   await rm(installedPackage, { recursive: true, force: true });
-  await mkdir(dirname(installedPackage), { recursive: true });
-  // The consumer resolves the exact unpacked tarball below node_modules, not
-  // source files from the sibling checkout.
-  await symlink(join(extractionRoot, 'package'), installedPackage, 'dir');
-  await validateInstalledPackage({ requireAssets: true });
+  // Install the exact packed artifact after the normal workspace install. This
+  // both preserves the external-package boundary and installs the adapter's
+  // runtime dependencies without allowing a later workspace install to replace
+  // the selected package with a registry version.
+  await npmCommand([
+    'install',
+    tarball,
+    '--ignore-scripts',
+    '--legacy-peer-deps',
+    '--package-lock=false',
+    '--no-save',
+    '--no-audit',
+    '--no-fund',
+  ]);
+  await validateInstalledPackage({ requireAssets: true, expectedVersion });
 }
 
 /**
@@ -222,6 +242,7 @@ export async function installAdapterSource() {
       throw new Error(`Unable to install ${ADAPTER_PACKAGE}@${version} from the npm registry. npm mode never falls back to an older adapter version. ${error.message}`, { cause: error });
     }
     const packageRoot = await validateInstalledPackage({ requireAssets: true, expectedVersion: version });
+    await clearViteDependencyCaches();
     return { source, spec: `${ADAPTER_PACKAGE}@${version}`, packageRoot, version };
   }
 
@@ -229,7 +250,8 @@ export async function installAdapterSource() {
     const packDestination = await mkdtemp(join(tmpdir(), 'copc-adapter-checkout-pack-'));
     try {
       const packed = await packAdapterCheckout(undefined, packDestination);
-      await installPackedArtifact(packed.tarball);
+      await installPackedArtifact(packed.tarball, ADAPTER_TARGET_VERSION);
+      await clearViteDependencyCaches();
       return {
         source,
         spec: `packed-checkout:${packed.metadata.version}`,
@@ -237,8 +259,6 @@ export async function installAdapterSource() {
         version: packed.metadata.version,
       };
     } finally {
-      // installPackedArtifact extracted the package into node_modules. The
-      // temporary tarball can be removed without changing the installed source.
       await rm(packDestination, { recursive: true, force: true });
     }
   }
@@ -254,7 +274,8 @@ export async function installAdapterSource() {
 
   const tarball = resolve(configuredPath);
   const metadata = await validateTarball(tarball);
-  await installPackedArtifact(tarball);
+  await installPackedArtifact(tarball, metadata.version);
+  await clearViteDependencyCaches();
   return { source, spec: `file:${tarball}`, packageRoot: resolve('node_modules/@frillab/copc-adapter'), version: metadata.version, tarball };
 }
 

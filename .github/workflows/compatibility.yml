@@ -126,7 +126,8 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run bootstrap
+      - name: Bootstrap packed local adapter
+        run: npm run bootstrap:local
 
       - run: npx playwright install --with-deps chromium
 

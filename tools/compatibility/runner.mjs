@@ -8,9 +8,11 @@ import {
   selectCompatibilityCases,
   selectPackageManagers,
 } from './manifest.mjs';
-import { ADAPTER_TARGET_VERSION } from '../matrix/package-source.mjs';
-
-const ADAPTER_PACKAGE = '@frillab/copc-adapter';
+import {
+  ADAPTER_PACKAGE,
+  ADAPTER_TARGET_VERSION,
+  validatePackageMetadata,
+} from '../matrix/package-source.mjs';
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -113,10 +115,16 @@ async function writeConsumer(root, testCase, adapter) {
   await writeFile(join(root, 'src', 'main.ts'), `${sourceForCase(testCase)}\n`);
 }
 
+async function validateInstalledAdapter(root, expectedVersion) {
+  const packageRoot = join(root, 'node_modules', '@frillab', 'copc-adapter');
+  const packageJson = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  validatePackageMetadata(packageJson, packageRoot, expectedVersion);
+  return packageJson.version;
+}
+
 async function installedAdapterVersion(root) {
   try {
-    const packageJson = JSON.parse(await readFile(join(root, 'node_modules', '@frillab', 'copc-adapter', 'package.json'), 'utf8'));
-    return packageJson.version ?? 'unknown';
+    return await validateInstalledAdapter(root, ADAPTER_TARGET_VERSION);
   } catch {
     return 'unknown';
   }
@@ -142,7 +150,7 @@ export async function runCompatibilityCase(testCase, packageManager, { keepTemp 
     await writeConsumer(root, testCase, adapter);
     console.log(`\n→ ${context(testCase, packageManager, requestedAdapterVersion)} install`);
     await runCommand(packageManager, packageManagerInstallArgs(packageManager), root);
-    const installedVersion = await installedAdapterVersion(root);
+    const installedVersion = await validateInstalledAdapter(root, requestedAdapterVersion);
     console.log(`→ ${context(testCase, packageManager, installedVersion)} production build`);
     await runCommand(packageManager, packageManagerBuildArgs(), root);
     console.log(`✓ ${context(testCase, packageManager, installedVersion)} passed`);

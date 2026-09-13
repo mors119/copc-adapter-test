@@ -11,7 +11,7 @@ export type ProjectMetadata = {
   backend: 'copc-js' | 'rust';
   fixtureId: string;
   browser: 'chromium' | 'firefox' | 'webkit';
-  packageSource: 'npm' | 'tarball';
+  packageSource: 'checkout' | 'npm' | 'tarball';
   packageVersion: string;
   appScenarios: string[];
 };

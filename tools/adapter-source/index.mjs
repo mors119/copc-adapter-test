@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { access, mkdir, readFile, readdir, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { access, cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { join, relative, resolve, sep } from 'node:path';
 import { spawn } from 'node:child_process';
 import semver from 'semver';
 
@@ -86,6 +86,16 @@ export async function validateTarball(tarball) {
 export async function validateInstalledPackage() {
   const packageRoot = resolve(root, 'node_modules/@frillab/copc-adapter');
   const metadata = validateMetadata(JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8')), packageRoot);
+  for (const [dependency, range] of Object.entries(metadata.dependencies ?? {})) {
+    const dependencyPackage = resolve(root, 'node_modules', dependency, 'package.json');
+    if (!await isFile(dependencyPackage)) {
+      throw new Error(`${packageRoot} requires ${dependency}@${range}, but it is not installed in the consumer workspace.`);
+    }
+    const installed = JSON.parse(await readFile(dependencyPackage, 'utf8'));
+    if (!semver.satisfies(installed.version, range)) {
+      throw new Error(`${packageRoot} requires ${dependency}@${range}, but the consumer workspace has ${installed.version}.`);
+    }
+  }
   const entries = [];
   async function collect(directory, relative = '') {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -124,15 +134,43 @@ export async function packAdapterCheckout(
   const { directory, metadata } = await locatePackage(resolvedCheckout);
   validateMetadata(metadata, join(directory, 'package.json'));
   await mkdir(destination, { recursive: true });
-  if (!await isFile(join(directory, 'node_modules/.package-lock.json'))) {
-    if (await isFile(join(directory, 'package-lock.json'))) await run('npm', ['ci', '--ignore-scripts', '--legacy-peer-deps', '--no-audit', '--no-fund'], directory);
-    else await run('npm', ['install', '--ignore-scripts', '--legacy-peer-deps', '--package-lock=false', '--no-audit', '--no-fund'], directory);
-  }
   const expectedArtifact = join(resolve(destination), 'frillab-copc-adapter-0.4.0.tgz');
   await rm(expectedArtifact, { force: true });
   const before = new Set((await readdir(destination)).filter((file) => file.endsWith('.tgz')));
-  // npm pack runs the adapter's actual prepack hook before archiving the public package.
-  await run('npm', ['pack', '--pack-destination', resolve(destination)], directory);
+  const stagingRoot = await mkdtemp(join(root, '.cache/adapter-source-build-'));
+  const stagingCheckout = join(stagingRoot, 'checkout');
+  const packageRelativePath = relative(resolvedCheckout, directory);
+  if (packageRelativePath === '..' || packageRelativePath.startsWith(`..${sep}`)) {
+    await rm(stagingRoot, { recursive: true, force: true });
+    throw new Error(`The selected adapter package must be inside its checkout to pack safely: ${directory}`);
+  }
+  const stagingPackage = join(stagingCheckout, packageRelativePath);
+  try {
+    await cp(resolvedCheckout, stagingCheckout, {
+      recursive: true,
+      filter(source) {
+        const path = relative(resolvedCheckout, source);
+        if (!path) return true;
+        return !path.split(sep).some((part) => ['node_modules', 'dist', '.git', '.cache', 'target'].includes(part));
+      },
+    });
+
+    // Reuse already installed build dependencies read-only; otherwise install them
+    // inside the temporary copy so npm never changes the selected checkout.
+    const checkoutModules = join(directory, 'node_modules');
+    if (await isFile(join(checkoutModules, '.package-lock.json'))) {
+      await symlink(await realpath(checkoutModules), join(stagingPackage, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+    } else if (await isFile(join(stagingPackage, 'package-lock.json'))) {
+      await run('npm', ['ci', '--ignore-scripts', '--legacy-peer-deps', '--no-audit', '--no-fund'], stagingPackage);
+    } else {
+      await run('npm', ['install', '--ignore-scripts', '--legacy-peer-deps', '--package-lock=false', '--no-audit', '--no-fund'], stagingPackage);
+    }
+
+    // npm pack runs the adapter's actual prepack hook in the isolated copy.
+    await run('npm', ['pack', '--pack-destination', resolve(destination)], stagingPackage);
+  } finally {
+    await rm(stagingRoot, { recursive: true, force: true });
+  }
   const artifacts = (await readdir(destination)).filter((file) => file.endsWith('.tgz') && !before.has(file));
   if (artifacts.length !== 1) throw new Error(`npm pack should create exactly one adapter tarball; found ${artifacts.length}.`);
   const tarball = join(resolve(destination), artifacts[0]);
@@ -167,50 +205,47 @@ async function unpackArtifact(tarball) {
   return packageRoot;
 }
 
-async function installCheckoutArtifact(tarball, fallbackDependencyRoot) {
-  const packageRoot = await unpackArtifact(tarball);
-  const metadata = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
-  for (const [dependency, range] of Object.entries(metadata.dependencies ?? {})) {
-    const rootDependency = resolve(root, 'node_modules', dependency);
-    if (await isFile(join(rootDependency, 'package.json'))) {
-      const installed = JSON.parse(await readFile(join(rootDependency, 'package.json'), 'utf8'));
-      if (semver.satisfies(installed.version, range)) continue;
-    }
-    const checkoutDependency = resolve(fallbackDependencyRoot, 'node_modules', dependency);
-    if (!await isFile(join(checkoutDependency, 'package.json'))) {
-      throw new Error(`Packed ${ADAPTER_PACKAGE} requires ${dependency}, which is not installed at the root or in the selected adapter checkout.`);
-    }
-    const checkoutMetadata = JSON.parse(await readFile(join(checkoutDependency, 'package.json'), 'utf8'));
-    if (!semver.satisfies(checkoutMetadata.version, range)) {
-      throw new Error(`Packed ${ADAPTER_PACKAGE} requires ${dependency}@${range}, but the selected checkout provides ${checkoutMetadata.version}.`);
-    }
-    await mkdir(resolve(rootDependency, '..'), { recursive: true });
-    await rm(rootDependency, { recursive: true, force: true });
-    await symlink(checkoutDependency, rootDependency, 'junction');
-    console.log(`Using ${dependency} from the adapter checkout's installed dependency tree.`);
-  }
-  return validateInstalledPackage();
-}
-
-async function installTarball(tarball) {
-  const packageRoot = await unpackArtifact(tarball);
-  const metadata = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
-  for (const [dependency, range] of Object.entries(metadata.dependencies ?? {})) {
+async function installPackageDependencies(metadata, source) {
+  const dependencies = Object.entries(metadata.dependencies ?? {});
+  if (dependencies.length === 0) return;
+  let needsInstall = false;
+  for (const [dependency, range] of dependencies) {
     const dependencyRoot = resolve(root, 'node_modules', dependency);
     if (await isFile(join(dependencyRoot, 'package.json'))) {
       const installed = JSON.parse(await readFile(join(dependencyRoot, 'package.json'), 'utf8'));
       if (semver.satisfies(installed.version, range)) continue;
     }
+    needsInstall = true;
+    break;
+  }
+  if (needsInstall) {
+    const specifications = dependencies.map(([dependency, range]) => `${dependency}@${range}`);
     try {
-      await run('npm', ['install', `${dependency}@${range}`, '--ignore-scripts', '--legacy-peer-deps', '--package-lock=false', '--no-save', '--no-audit', '--no-fund'], root);
+      await run('npm', ['install', ...specifications, '--ignore-scripts', '--legacy-peer-deps', '--package-lock=false', '--no-save', '--no-audit', '--no-fund'], root);
     } catch (error) {
-      throw new Error(`Unable to install ${dependency}@${range}, a runtime dependency of ${ADAPTER_PACKAGE}. ${error.message}`, { cause: error });
+      throw new Error(`Unable to install runtime dependencies for ${ADAPTER_PACKAGE} from ${source}. ${error.message}`, { cause: error });
     }
+  }
+  for (const [dependency, range] of dependencies) {
+    const dependencyRoot = resolve(root, 'node_modules', dependency);
     const installed = JSON.parse(await readFile(join(dependencyRoot, 'package.json'), 'utf8'));
     if (!semver.satisfies(installed.version, range)) {
       throw new Error(`Installed ${dependency}@${installed.version}; packed ${ADAPTER_PACKAGE} requires ${range}.`);
     }
   }
+}
+
+async function installCheckoutArtifact(tarball) {
+  const metadata = await validateTarball(tarball);
+  await installPackageDependencies(metadata, 'the packed checkout artifact');
+  await unpackArtifact(tarball);
+  return validateInstalledPackage();
+}
+
+async function installTarball(tarball) {
+  const metadata = await validateTarball(tarball);
+  await installPackageDependencies(metadata, `the tarball ${tarball}`);
+  await unpackArtifact(tarball);
   return validateInstalledPackage();
 }
 
@@ -218,7 +253,7 @@ export async function bootstrapAdapterSource(source = process.env.COPC_ADAPTER_S
   await ensureRootDependencies();
   if (source === 'checkout') {
     const packed = await packAdapterCheckout();
-    const installed = await installCheckoutArtifact(packed.tarball, packed.packageDirectory);
+    const installed = await installCheckoutArtifact(packed.tarball);
     const metadata = await writeSourceMetadata(source, installed.metadata.version, `packed-checkout:${packed.tarball}`);
     console.log(`Installed ${ADAPTER_PACKAGE}@${installed.metadata.version} from packed checkout: ${packed.tarball}`);
     return { ...packed, ...installed, source: metadata };
@@ -250,7 +285,7 @@ export async function bootstrapAdapterSource(source = process.env.COPC_ADAPTER_S
 }
 
 export async function clearViteCaches() {
-  const paths = [resolve(root, 'node_modules/.vite')];
+  const paths = [resolve(root, 'node_modules/.vite'), resolve(root, 'node_modules/.vite-temp')];
   for (const app of ['vanilla', 'react']) paths.push(resolve(root, `apps/${app}/node_modules/.vite`));
   await Promise.all(paths.map((path) => rm(path, { recursive: true, force: true })));
 }

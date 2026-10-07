@@ -22,7 +22,7 @@ npm run bootstrap:local
 npm run fixtures:fetch -- small-valid-copc
 ```
 
-`bootstrap:local` runs the adapter checkout’s actual `npm pack` and `prepack` flow, validates the resulting `@frillab/copc-adapter@0.4.0` tarball, then installs that packed artifact for these external consumers. It never imports adapter source files. Set `COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter` to select another checkout. A missing sibling or wrong package version fails explicitly.
+`bootstrap:local` stages the selected checkout in a temporary ignored directory, runs the real `apps/viewer-web` `prepack` and `npm pack` flow there, validates the resulting `@frillab/copc-adapter@0.4.0` tarball and dependencies, then installs that packed artifact for these external consumers. It never imports adapter source files and leaves the sibling checkout untouched. Set `COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter` to select another checkout. A missing sibling or wrong package version fails explicitly.
 
 Other explicit package sources are supported:
 

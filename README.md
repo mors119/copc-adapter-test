@@ -1,30 +1,73 @@
-# COPC Adapter Consumer Testbed
+# COPC adapter consumer validation
 
-This repository validates [`@frillab/copc-adapter`](https://github.com/mors119/copc-adapter) as an installed public npm package. The canonical target is **0.4.0**. Consumer builds check its public exports and packaged Worker/WASM/declaration assets; browser scenarios exercise real COPC loads through the shared Range-enabled fixture server.
+This repository validates **`@frillab/copc-adapter@0.4.0` as an external consumer**. It installs the packed public npm package, checks its public exports and bundled Worker, WASM, and declaration files, then builds and runs consumer applications against that artifact.
 
-There are exactly three host applications because they cover the distinct host boundaries we support:
+This is not the adapter implementation repository or a framework showcase. It proves that the published package boundary works in the supported browser, React, and SSR host environments.
 
-| Application | Responsibility | Renderer scenarios |
-| --- | --- | --- |
-| `apps/vanilla` | Small browser baseline, without React or SSR | Cesium, Three.js |
-| `apps/react` | React mount, cleanup, remount, and state synchronization | Cesium, Three.js, React Three Fiber |
-| `apps/next` | Server/client boundary, SSR-safe imports, hydration, and Next bundling | Cesium, Three.js |
+## Supported host applications
 
-Cesium, Three.js, R3F, backends, and fixtures are runtime scenarios or parameters. They do not each get an application. The three hosts mount one shared Control Panel and use common diagnostics, fixture catalog, and byte Range server.
+### Vanilla (`apps/vanilla`)
 
-## Local sibling checkout
+Purpose: baseline browser consumer that isolates adapter behavior from React and SSR.
 
-With `copc-adapter` checked out at `../copc-adapter`, prepare the package with:
+Renderer scenarios: Cesium and Three.js.
 
-```sh
-npm ci
-npm run bootstrap:local
-npm run fixtures:fetch -- small-valid-copc
+### React (`apps/react`)
+
+Purpose: React lifecycle validation, including mount/unmount/remount, renderer switching, state synchronization, and cleanup.
+
+Renderer scenarios: Cesium, Three.js, and React Three Fiber (R3F).
+
+### Next (`apps/next`)
+
+Purpose: SSR/client-boundary validation through a production build, hydration, and browser-only renderer startup.
+
+Renderer scenarios: Cesium and Three.js.
+
+There are exactly three applications because they represent the distinct host boundaries under test. Renderer, backend, fixture, and browser combinations are test parameters; they do not get separate applications. Vanilla's host integration has no React dependency. Next is a focused SSR consumer rather than a copy of the React playground.
+
+## Shared implementation
+
+The applications share the Control Panel, UI styles, diagnostics model, renderer controls, fixture catalog, Range server, package validation, and test contract. Shared implementation lives in `packages/`; app-specific code contains only the differences required by each host. Fixtures live outside application bundles under `.cache/copc-fixtures`.
+
+The fixture server is shared by the Vite middleware and the Next route handler. It serves fixture metadata and byte ranges, including `Range`/`Content-Range`, `Accept-Ranges`, CORS, and explicit error scenarios.
+
+## Adapter package source
+
+Every mode installs and validates the same public package identity and exports:
+
+- `@frillab/copc-adapter`
+- `@frillab/copc-adapter/cesium`
+- `@frillab/copc-adapter/three`
+
+| Source | Behavior |
+| --- | --- |
+| `checkout` | Default. Stages the selected checkout in an isolated temporary directory, runs its real `prepack` through `npm pack`, validates the tarball and dependencies, then installs that tarball into this consumer workspace. |
+| `tarball` | Validates and installs a local packed artifact. |
+| `npm` | Runs `npm pack` for the explicitly requested published `@frillab/copc-adapter@0.4.0`, validates that registry tarball, then installs the same artifact into this consumer workspace. |
+
+For checkout mode, the usual local path is:
+
+```text
+../copc-adapter checkout
+  → isolated npm pack/prepack
+  → tarball and dependency validation
+  → install packed artifact
+  → external consumer tests
 ```
 
-`bootstrap:local` stages the selected checkout in a temporary ignored directory, runs the real `apps/viewer-web` `prepack` and `npm pack` flow there, validates the resulting `@frillab/copc-adapter@0.4.0` tarball and dependencies, then installs that packed artifact for these external consumers. It never imports adapter source files and leaves the sibling checkout untouched. Set `COPC_ADAPTER_CHECKOUT=/path/to/copc-adapter` to select another checkout. A missing sibling or wrong package version fails explicitly.
+The adapter source is never imported directly, and checkout packaging does not modify the sibling checkout. All modes reject a package other than version `0.4.0`; there is no older-version fallback.
 
-Other explicit package sources are supported:
+These environment variables are supported by `tools/adapter-source/`:
+
+| Variable | Use |
+| --- | --- |
+| `COPC_ADAPTER_CHECKOUT` | Checkout path for `checkout` mode; defaults to `../copc-adapter`. |
+| `COPC_ADAPTER_SOURCE` | `checkout`, `tarball`, or `npm`; defaults to `checkout`. |
+| `COPC_ADAPTER_TARBALL` | Local `.tgz` path required for `tarball` mode. |
+| `COPC_ADAPTER_VERSION` | npm mode version; must be exactly `0.4.0`. |
+
+For example, to install a local artifact or the published package:
 
 ```sh
 COPC_ADAPTER_SOURCE=tarball \
@@ -34,40 +77,97 @@ npm run bootstrap
 COPC_ADAPTER_SOURCE=npm npm run bootstrap
 ```
 
-npm mode requires the published 0.4.0 package; it never downgrades to an older version. `npm run test:local` performs the local packed-checkout setup and fast validation.
+## Local setup and development
 
-## Run an application
+Requirements: Node.js `>=22.12`, npm, and a sibling `../copc-adapter` checkout for the default local package source. Checkout packaging runs the adapter's WASM build, so Rust and the `wasm32-unknown-unknown` target must be installed. Tarball and npm modes do not pack source.
+
+From a clean clone with the sibling checkout available:
 
 ```sh
-npm run dev:vanilla  # open http://127.0.0.1:5173; choose Cesium or Three
-npm run dev:react    # open http://127.0.0.1:5173; choose Cesium, Three, or R3F
-npm run dev:next     # visit /cesium or /three
+npm ci
+npm run bootstrap:local
+npm run fixtures:fetch -- small-valid-copc
 ```
 
-The first two applications use Vite for development and builds. Next renders a small shared client boundary; browser-only renderer modules are dynamically imported after hydration. Cesium uses a real Viewer, the bundled NaturalEarthII imagery, local Cesium assets, and globe controls without an Ion token. Three uses a real WebGL renderer, scene, camera, controls, resize handling, and adapter layer. R3F is intentionally limited to React.
+The small smoke fixture is about 81 MB. Fixture downloads are cached outside app bundles and checked against the catalog's expected size and checksum when fetched.
 
-## Validation commands
+Install Chromium once before local browser runs with `npx playwright install chromium`. CI installs Chromium and its system dependencies. Checkout packaging needs the Rust WASM target; tarball and npm source modes do not.
+
+Start each host in its own terminal:
 
 ```sh
+npm run dev:vanilla
+npm run dev:react
+npm run dev:next
+```
+
+| Host | URL | Select or open |
+| --- | --- | --- |
+| Vanilla | `http://127.0.0.1:4173` | Choose Cesium or Three.js in the Control Panel. |
+| React | `http://127.0.0.1:4174` | Choose Cesium, Three.js, or R3F in the Control Panel. |
+| Next | `http://127.0.0.1:4175/cesium` or `http://127.0.0.1:4175/three` | Each route starts its renderer after hydration. |
+
+Cesium runs a real Viewer with local assets and bundled NaturalEarthII imagery, without an Ion token. Three.js runs a real WebGL scene and adapter layer. R3F is available only in the React host. Next uses a browser-only renderer boundary so renderer startup happens after hydration.
+
+`npm run test:local` combines local checkout bootstrap and the fast validation tier. If the package has already been bootstrapped, `npm run test:fast` runs the fast checks directly.
+
+## Validation tiers
+
+The compatibility workflow checks out the stable `v0.4.0` adapter tag, sets up Node 22 and the Rust WASM target needed by `npm pack`, restores the fixture cache, runs `npm ci`, installs Chromium, and calls the same `bootstrap:local` and repository test scripts used locally. The fixture cache key includes the runner OS and `fixtures/catalog.json` content; a restored file is still checked against catalog size and checksum. Fast runs on pull requests and pushes to `main`. Full uses the same preparation on the weekly schedule or a manual request.
+
+### Fast
+
+Fast is the normal pull request signal and also runs on pushes to `main`. Manual dispatch can request it. It runs package and shared tests, typechecks/builds all three hosts, and runs representative Chromium smoke for Vanilla Cesium, Vanilla Three.js, and React R3F using `copc-js` with `small-valid-copc`. It does not run the broader backend/renderer cases or start Next in a browser; the Next production build remains required.
+
+Run locally with:
+
+```sh
+npm run test:fast
+```
+
+### Full
+
+Full runs on the weekly schedule or by manual dispatch. It adds selected Rust backend checks, React renderer/backend switching and cleanup, a fixture error case, and Next production server runtime checks at `/cesium` and `/three` after hydration. It uses explicit high-value cases, not every possible combination.
+
+Run locally with:
+
+```sh
+npm run test:full
+```
+
+`npm run e2e:full` alone requires a bootstrapped package, prepared fixture, and completed application build. `test:full` prepares the fixture and builds before launching the browser scenarios.
+
+### Release
+
+The `release-gate.yml` workflow is manual only. It accepts `checkout`, `tarball`, or `npm`, always requires the exact `0.4.0` package, validates and installs the exact packed artifact, then runs builds and critical Chromium scenarios, including the Rust path. Tarball input must be a non-empty HTTPS URL. Checkout repository and ref are explicit workflow inputs.
+
+The compatibility workflow intentionally checks out the stable adapter tag `v0.4.0`. The release gate is where a maintainer selects another repository/ref or artifact for release validation; it still fails if the package metadata is not `0.4.0`.
+
+Run the equivalent release validation locally with:
+
+```sh
+npm run test:release
+```
+
+## Useful commands
+
+```sh
+npm test
 npm run validate:package
 npm run test:package
 npm run test:shared
 npm run typecheck
 npm run build
 npm run e2e:fast
-npm run test:fast
-npm run test:full
-npm run test:release
+npm run e2e:full
+npm run fixtures:list
+npm run fixtures:fetch -- small-valid-copc
+npm run fixtures:verify -- small-valid-copc
+npm run fixtures:serve
 ```
 
-`test:fast` is the PR tier: package and shared tests, all three typechecks/builds, then Chromium smoke for Vanilla Cesium, Vanilla Three, and React R3F with `copc-js` and the small fixture. It fetches the shared smoke fixture if it is not cached.
+`e2e:fast` and `e2e:full` require a bootstrapped package and a ready fixture. Playwright validates the installed package and fixture before starting browser applications. Fast starts only Vanilla and React Vite servers. Full and release also start Next with `next start` on port `4175` after its production build. Playwright uses Chromium only, with ports `4173`, `4174`, and `4175`; local runs may reuse existing servers, while CI always starts clean servers.
 
-`test:full` adds Rust backend cases, React renderer/backend switching and cleanup, and production Next hydration/renderer checks. The manually dispatched release gate uses the same adapter-source implementation as local setup, validates the exact packed artifact, builds all applications, and runs the full Chromium scenarios. Rust failures remain visible when Rust is selected.
+## Fixture catalog
 
-`npm run e2e:fast` and `npm run e2e:full` require the package to be bootstrapped and the fixture cache to be ready. E2E preflight fails with the fetch command when a required fixture is absent; tests are not skipped.
-
-## Fixtures
-
-`fixtures/catalog.json` is the shared source of fixture IDs, capabilities, provenance, checksums, and cache paths. Fixture bytes stay under `.cache/copc-fixtures`, outside application bundles. The small deterministic valid COPC is used for normal browser validation. The catalog also retains an RGB-capable fixture and a geographic-CRS fixture for focused validation; the large datasets are not downloaded or exercised by PR CI.
-
-One fixture server implementation handles the Vite host middleware and Next route adapter. It serves fixture metadata, byte `Range`/`Content-Range`, `Accept-Ranges`, CORS, and explicit error scenarios. Download or inspect fixtures with `npm run fixtures:list`, `npm run fixtures:fetch -- <fixture-id>`, and `npm run fixtures:verify -- <fixture-id>`.
+`fixtures/catalog.json` is the source of fixture IDs, capabilities, provenance, checksums, and cache paths. `small-valid-copc` is the deterministic smoke fixture. The catalog also records an RGB fixture and a geographic CRS fixture for focused validation, plus documented coverage gaps. Larger fixtures are not downloaded or exercised by pull request CI.

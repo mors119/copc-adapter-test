@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { bootstrapAdapterSource, validateInstalledPackage } from './index.mjs';
+import { bootstrapAdapterSource, clearViteCaches } from './index.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -17,9 +17,8 @@ function run(command, args, env = process.env) {
 try {
   const source = process.env.COPC_ADAPTER_SOURCE ?? 'checkout';
   await bootstrapAdapterSource(source);
-  await validateInstalledPackage();
-  await run('npm', ['run', 'fixtures:fetch', '--', 'small-valid-copc']);
-  await run('npm', ['run', 'test:full'], { ...process.env, COPC_E2E_MODE: 'release' });
+  await clearViteCaches();
+  await run('npm', ['run', 'test:full']);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;

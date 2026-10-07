@@ -1,0 +1,23 @@
+{
+  "name": "@copc-test/vanilla",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@copc-test/core": "0.0.0",
+    "@copc-test/fixture-server": "0.0.0",
+    "@copc-test/renderers": "0.0.0",
+    "@copc-test/ui": "0.0.0",
+    "cesium": "^1.144.0",
+    "three": "^0.186.0"
+  },
+  "peerDependencies": { "@frillab/copc-adapter": "0.4.0" },
+  "peerDependenciesMeta": { "@frillab/copc-adapter": { "optional": true } },
+  "devDependencies": { "@types/three": "^0.185.4", "typescript": "~6.0.2", "vite": "^8.3.3" }
+}

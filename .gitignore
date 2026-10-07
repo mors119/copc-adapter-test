@@ -38,5 +38,4 @@ benchmark-results/
 *.sln
 *.sw?
 
-public/
-.cache/copc-fixtures/
+.cache/

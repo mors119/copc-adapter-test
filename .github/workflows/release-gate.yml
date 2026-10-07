@@ -1,78 +1,72 @@
-name: COPC adapter release gate
+name: COPC adapter packed release gate
 
 on:
   workflow_dispatch:
     inputs:
       source:
-        description: Build from an adapter checkout/ref or use a prepared tarball URL
+        description: Adapter artifact source
         required: true
         default: checkout
         type: choice
-        options: [checkout, tarball]
+        options: [checkout, tarball, npm]
       adapter-repository:
-        description: GitHub repository containing the copc-adapter checkout
+        description: Repository to pack when source is checkout
         required: true
         default: mors119/copc-adapter
         type: string
       adapter-ref:
         description: Branch, tag, or commit to pack when source is checkout
         required: true
-        default: 552fee21c78945a940a156f9e07d6954a13c00c2
+        default: v0.4.0
         type: string
       adapter-tarball-url:
-        description: HTTPS URL for a prepared @frillab/copc-adapter .tgz when source is tarball
+        description: HTTPS URL of a packed 0.4.0 artifact when source is tarball
         required: false
         type: string
 
 permissions:
   contents: read
 
-env:
-  COPC_ADAPTER_VERSION: 0.4.0
-
 jobs:
   release:
-    name: packed adapter release gate
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      COPC_ADAPTER_SOURCE: ${{ inputs.source }}
+      COPC_ADAPTER_VERSION: 0.4.0
+      COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.release-adapter
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout adapter source
+      - uses: actions/checkout@v4
         if: inputs.source == 'checkout'
-        uses: actions/checkout@v4
         with:
           repository: ${{ inputs.adapter-repository }}
           ref: ${{ inputs.adapter-ref }}
           path: .release-adapter
-      - name: Prepare adapter tarball input
+      - name: Download adapter tarball
         if: inputs.source == 'tarball'
-        run: curl --fail --location --retry 3 --output "$RUNNER_TEMP/copc-adapter.tgz" "${{ inputs.adapter-tarball-url }}"
-      - name: Export release gate source
-        shell: bash
-        run: |
-          if [[ "${{ inputs.source }}" == "checkout" ]]; then
-            echo "COPC_ADAPTER_CHECKOUT=$GITHUB_WORKSPACE/.release-adapter" >> "$GITHUB_ENV"
-          else
-            echo "COPC_ADAPTER_TARBALL=$RUNNER_TEMP/copc-adapter.tgz" >> "$GITHUB_ENV"
-          fi
+        env:
+          TARBALL_URL: ${{ inputs.adapter-tarball-url }}
+        run: curl --fail --location --retry 3 --output "$RUNNER_TEMP/copc-adapter-0.4.0.tgz" "$TARBALL_URL"
+      - name: Set tarball source
+        if: inputs.source == 'tarball'
+        run: echo "COPC_ADAPTER_TARBALL=$RUNNER_TEMP/copc-adapter-0.4.0.tgz" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Install Rust WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - run: rustup target add wasm32-unknown-unknown
       - uses: actions/cache@v4
         with:
           path: .cache/copc-fixtures
-          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
+          key: copc-small-fixture-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run matrix:release
-      - name: Upload release-gate failure artifacts
-        if: failure()
+      - run: npm run test:release
+      - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: compatibility-release-artifacts
+          name: release-failure-artifacts
           path: |
             test-results/
             playwright-report/

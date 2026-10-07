@@ -1,0 +1,28 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #eff7ff; background: #06101d; }
+* { box-sizing: border-box; }
+html, body, #root, #app { width: 100%; height: 100%; margin: 0; }
+body { overflow: hidden; background: #06101d; }
+.copc-panel-host { position: absolute; inset: 0; pointer-events: none; }
+.copc-panel { position: fixed; z-index: 10; top: 16px; left: 16px; width: min(350px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 16px; border: 1px solid rgb(255 255 255 / 16%); border-radius: 12px; background: rgb(5 12 24 / 92%); box-shadow: 0 16px 42px rgb(0 0 0 / 35%); backdrop-filter: blur(14px); font-size: 12px; pointer-events: auto; }
+.copc-panel__eyebrow { color: #72f1b8; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+.copc-panel h1 { margin: 5px 0 3px; font-size: 18px; letter-spacing: -.02em; }
+.copc-panel__help { margin: 0 0 12px; color: rgb(255 255 255 / 58%); line-height: 1.45; }
+.copc-panel__tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; }
+.copc-panel__tags span { padding: 4px 7px; border: 1px solid rgb(114 241 184 / 32%); border-radius: 999px; color: #a8f9d4; background: rgb(114 241 184 / 8%); }
+.copc-panel label { display: grid; gap: 5px; margin-top: 9px; color: rgb(255 255 255 / 68%); }
+.copc-panel select, .copc-panel button { width: 100%; min-height: 32px; padding: 6px 8px; border: 1px solid #40536a; border-radius: 6px; color: #fff; background: #182b40; font: inherit; }
+.copc-panel button { cursor: pointer; }
+.copc-panel button:hover { background: #29445e; }
+.copc-panel button:disabled { cursor: wait; opacity: .55; }
+.copc-panel__status, .copc-panel__diagnostics > div { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.copc-panel__status { color: rgb(255 255 255 / 58%); }
+.copc-panel__status strong, .copc-panel__diagnostics b { color: #fff; font-weight: 800; text-align: right; overflow-wrap: anywhere; }
+.copc-panel [data-status="error"], .copc-panel__error { color: #ff9d9d; }
+.copc-panel__diagnostics { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgb(255 255 255 / 10%); color: rgb(255 255 255 / 58%); font-variant-numeric: tabular-nums; }
+.copc-panel__button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 9px; }
+.copc-panel__button-row--two { grid-template-columns: 1fr 1fr; }
+.copc-panel__button-row--three { grid-template-columns: repeat(3, 1fr); }
+.copc-panel .copc-panel__primary { grid-column: 1 / -1; border-color: #72f1b8; color: #062117; background: #72f1b8; font-weight: 800; }
+.copc-panel .copc-panel__primary:hover { background: #9cf7cf; }
+.copc-renderer-root, .copc-renderer-root canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.copc-renderer-root { z-index: 0; }

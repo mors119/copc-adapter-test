@@ -1,16 +1,9 @@
-# AGENTS.md
+# Repository rules
 
-Repository-wide rules for coding agents.
-
-- Treat this repository as an external compatibility testbed for `@frillab/copc-adapter`.
-- Prefer shared fixtures, assertions, diagnostics, and orchestration over duplicated test code.
-- Keep framework-specific lifecycle and renderer integration inside each consumer app.
-- Test public package entrypoints only; do not depend on private adapter source paths.
-- Keep large COPC fixtures shared and out of individual app outputs.
-- Keep PR CI fast. Add broad browser/backend/version coverage to full, boundary, or release tiers instead.
-- Do not move every new consumer into the fast tier.
-- Preserve reproducible packed-artifact testing in the release gate.
-- Add or update tests when behavior changes.
-- Keep each change focused and avoid unrelated refactoring.
-- Do not weaken or delete tests merely to make CI pass.
-- Do not perform destructive Git operations or force pushes without explicit approval.
+- Keep only the Vanilla, React, and Next host environments; add another framework only for a concrete unsupported boundary.
+- Treat renderer, backend, fixture, and browser choices as runtime test parameters, not applications.
+- Share the test UI, harness, fixtures, and Range server instead of duplicating them.
+- Test the packed `@frillab/copc-adapter@0.4.0` public exports; never import adapter source internals.
+- Keep pull request CI representative and lightweight; put broader coverage in full or release validation.
+- Do not hide unexpected failures with skips, mocks, fake diagnostics, or backend/version fallbacks.
+- Keep fixtures outside app bundles and do not modify the sibling adapter checkout as part of consumer tests.

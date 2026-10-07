@@ -1,0 +1,16 @@
+{
+  "name": "@copc-test/ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": { "types": "./src/index.ts", "import": "./src/index.ts" },
+    "./react": { "types": "./src/react.tsx", "import": "./src/react.tsx" },
+    "./panel.css": "./src/panel.css"
+  },
+  "dependencies": {
+    "@copc-test/core": "0.0.0"
+  },
+  "peerDependencies": { "react": ">=18" },
+  "devDependencies": { "@types/react": "^19.2.18" }
+}

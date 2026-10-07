@@ -1,4 +1,4 @@
-name: COPC adapter compatibility
+name: COPC consumer testbed
 
 on:
   pull_request:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tier:
-        description: Matrix tier to run manually
+        description: Validation tier
         required: true
         default: fast
         type: choice
@@ -18,168 +18,79 @@ on:
 permissions:
   contents: read
 
-env:
-  COPC_ADAPTER_REPOSITORY: mors119/copc-adapter
-  # v0.4.0 release commit; keep package-source validation reproducible.
-  COPC_ADAPTER_REF: 552fee21c78945a940a156f9e07d6954a13c00c2
-  COPC_ADAPTER_VERSION: 0.4.0
-
 concurrency:
-  group: copc-compatibility-${{ github.workflow }}-${{ github.ref }}
+  group: copc-consumer-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.copc-adapter
+  COPC_ADAPTER_SOURCE: checkout
+  COPC_ADAPTER_VERSION: 0.4.0
 
 jobs:
   fast:
-    name: fast compatibility gate
-
-    if: >
-      github.event_name != 'schedule' &&
-      (github.event_name != 'workflow_dispatch' || inputs.tier == 'fast')
-
+    if: github.event_name != 'schedule' && (github.event_name != 'workflow_dispatch' || inputs.tier == 'fast')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    env:
-      COPC_ADAPTER_SOURCE: checkout
-      COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.copc-adapter
-
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check out adapter source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          repository: ${{ env.COPC_ADAPTER_REPOSITORY }}
-          ref: ${{ env.COPC_ADAPTER_REF }}
+          repository: mors119/copc-adapter
+          ref: v0.4.0
           path: .copc-adapter
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Install Rust WASM target
-        run: rustup target add wasm32-unknown-unknown
-
+      - run: rustup target add wasm32-unknown-unknown
       - uses: actions/cache@v4
         with:
           path: .cache/copc-fixtures
-          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
-          restore-keys: |
-            copc-fixtures-${{ runner.os }}-
-
+          key: copc-small-fixture-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
       - run: npm ci
-
       - run: npx playwright install --with-deps chromium
-
-      - run: npm run matrix:fast
-
-      - name: Upload fast failure artifacts
-        if: failure()
+      - run: npm run bootstrap:local
+      - run: npm run test:fast
+      - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: compatibility-fast-artifacts
+          name: fast-failure-artifacts
           path: |
             test-results/
             playwright-report/
           if-no-files-found: ignore
 
-  visual:
-    name: deterministic Chromium visual gate
-
-    if: >
-      github.event_name == 'pull_request' ||
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.tier == 'fast')
-
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-
-    env:
-      COPC_ADAPTER_SOURCE: checkout
-      COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.copc-adapter
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check out adapter source
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.COPC_ADAPTER_REPOSITORY }}
-          ref: ${{ env.COPC_ADAPTER_REF }}
-          path: .copc-adapter
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install Rust WASM target
-        run: rustup target add wasm32-unknown-unknown
-
-      - uses: actions/cache@v4
-        with:
-          path: .cache/copc-fixtures
-          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
-          restore-keys: |
-            copc-fixtures-${{ runner.os }}-
-
-      - run: npm ci
-
-      - name: Bootstrap packed local adapter
-        run: npm run bootstrap:local
-
-      - run: npx playwright install --with-deps chromium
-
-      - run: npm run fixtures:fetch
-
-      - run: npm run e2e:visual
-
-      - name: Upload visual failure artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: compatibility-visual-artifacts
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
   full:
-    name: full compatibility matrix
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 45
     env:
-      COPC_ADAPTER_SOURCE: checkout
-      COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.copc-adapter
+      COPC_E2E_MODE: full
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: mors119/copc-adapter
+          ref: v0.4.0
+          path: .copc-adapter
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Check out adapter source
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.COPC_ADAPTER_REPOSITORY }}
-          ref: ${{ env.COPC_ADAPTER_REF }}
-          path: .copc-adapter
-      - name: Install Rust WASM target
-        run: rustup target add wasm32-unknown-unknown
+      - run: rustup target add wasm32-unknown-unknown
       - uses: actions/cache@v4
         with:
           path: .cache/copc-fixtures
-          key: copc-fixtures-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
-          restore-keys: |
-            copc-fixtures-${{ runner.os }}-
+          key: copc-small-fixture-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
       - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox webkit
-      - run: npm run matrix:full
-      - name: Upload full failure artifacts
-        if: failure()
+      - run: npx playwright install --with-deps chromium
+      - run: npm run bootstrap:local
+      - run: npm run test:full
+      - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: compatibility-full-artifacts
+          name: full-failure-artifacts
           path: |
             test-results/
             playwright-report/

@@ -71,29 +71,47 @@ async function sha256(path) {
   return hash.digest('hex');
 }
 
+async function verifyFixtureFile(fixture, path) {
+  const file = await stat(path);
+  if (!file.isFile()) throw new Error(`${path} is not a file.`);
+  if (fixture.sizeBytes && file.size !== fixture.sizeBytes) {
+    throw new Error(`size mismatch (expected ${fixture.sizeBytes}, received ${file.size})`);
+  }
+  const digest = await sha256(path);
+  if (fixture.checksum.value && fixture.checksum.value !== digest) {
+    throw new Error(`checksum mismatch (expected ${fixture.checksum.value}, received ${digest})`);
+  }
+  return digest;
+}
+
 async function fetchFixture(fixture, force = false) {
   const { root } = paths();
   const destination = resolve(root, fixture.cachePath);
   if (!destination.startsWith(`${root}${sep}`)) throw new Error(`Unsafe cache path for ${fixture.id}.`);
   if (!force && await isFile(destination)) {
-    console.log(`${fixture.id}: already cached at ${destination}`);
-    return destination;
+    try {
+      const digest = await verifyFixtureFile(fixture, destination);
+      console.log(`${fixture.id}: cached and verified (${digest})`);
+      return destination;
+    } catch (error) {
+      console.warn(`${fixture.id}: cached file failed verification (${error.message}); downloading again.`);
+    }
   }
 
   await mkdir(dirname(destination), { recursive: true });
   const temporary = `${destination}.part-${process.pid}`;
-  console.log(`${fixture.id}: downloading ${fixture.source.url}`);
-  const response = await fetch(fixture.source.url, { redirect: 'follow' });
-  if (!response.ok || !response.body) throw new Error(`${fixture.id}: download failed (${response.status}).`);
-  await pipeline(Readable.fromWeb(response.body), createWriteStream(temporary));
-  await rename(temporary, destination);
-
-  const digest = await sha256(destination);
-  if (fixture.checksum.value && fixture.checksum.value !== digest) {
-    await rm(destination, { force: true });
-    throw new Error(`${fixture.id}: checksum mismatch (expected ${fixture.checksum.value}, received ${digest}).`);
+  try {
+    console.log(`${fixture.id}: downloading ${fixture.source.url}`);
+    const response = await fetch(fixture.source.url, { redirect: 'follow' });
+    if (!response.ok || !response.body) throw new Error(`${fixture.id}: download failed (${response.status}).`);
+    await pipeline(Readable.fromWeb(response.body), createWriteStream(temporary));
+    const digest = await verifyFixtureFile(fixture, temporary);
+    await rename(temporary, destination);
+    console.log(`${fixture.id}: cached and verified (${digest})`);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
   }
-  console.log(`${fixture.id}: cached (${digest})`);
   return destination;
 }
 
@@ -118,23 +136,15 @@ async function verifyFixtures() {
   let failures = 0;
   for (const fixture of selectFixtures(catalog)) {
     const path = resolve(root, fixture.cachePath);
-    if (!(await isFile(path))) {
-      console.error(`${fixture.id}: missing (${path})`);
-      failures += 1;
-      continue;
-    }
-    const digest = await sha256(path);
-    if (fixture.sizeBytes && (await stat(path)).size !== fixture.sizeBytes) {
-      console.error(`${fixture.id}: size mismatch (expected ${fixture.sizeBytes}, received ${(await stat(path)).size})`);
-      failures += 1;
-      continue;
-    }
-    if (!fixture.checksum.value) {
-      console.log(`${fixture.id}: ${digest} (no publisher checksum recorded)`);
-    } else if (fixture.checksum.value === digest) {
-      console.log(`${fixture.id}: checksum OK (${digest})`);
-    } else {
-      console.error(`${fixture.id}: checksum mismatch (expected ${fixture.checksum.value}, received ${digest})`);
+    try {
+      const digest = await verifyFixtureFile(fixture, path);
+      if (!fixture.checksum.value) {
+        console.log(`${fixture.id}: ${digest} (no publisher checksum recorded)`);
+      } else {
+        console.log(`${fixture.id}: size and checksum OK (${digest})`);
+      }
+    } catch (error) {
+      console.error(`${fixture.id}: ${error.message} (${path})`);
       failures += 1;
     }
   }

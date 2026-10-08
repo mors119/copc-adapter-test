@@ -43,19 +43,30 @@ jobs:
           repository: ${{ inputs.adapter-repository }}
           ref: ${{ inputs.adapter-ref }}
           path: .release-adapter
-      - name: Download adapter tarball
-        if: inputs.source == 'tarball'
-        env:
-          TARBALL_URL: ${{ inputs.adapter-tarball-url }}
-        run: curl --fail --location --retry 3 --output "$RUNNER_TEMP/copc-adapter-0.4.0.tgz" "$TARBALL_URL"
-      - name: Set tarball source
-        if: inputs.source == 'tarball'
-        run: echo "COPC_ADAPTER_TARBALL=$RUNNER_TEMP/copc-adapter-0.4.0.tgz" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: rustup target add wasm32-unknown-unknown
+      - name: Download adapter tarball
+        if: inputs.source == 'tarball'
+        env:
+          TARBALL_URL: ${{ inputs.adapter-tarball-url }}
+        run: |
+          node --input-type=module <<'NODE'
+          try {
+            const url = new URL(process.env.TARBALL_URL ?? '');
+            if (url.protocol !== 'https:' || !url.hostname) throw new Error('invalid URL');
+          } catch {
+            console.error('Tarball mode requires a non-empty HTTPS adapter-tarball-url.');
+            process.exit(1);
+          }
+          NODE
+          curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/copc-adapter-0.4.0.tgz" "$TARBALL_URL"
+      - name: Set tarball source
+        if: inputs.source == 'tarball'
+        run: echo "COPC_ADAPTER_TARBALL=$RUNNER_TEMP/copc-adapter-0.4.0.tgz" >> "$GITHUB_ENV"
+      - if: inputs.source == 'checkout'
+        run: rustup target add wasm32-unknown-unknown
       - uses: actions/cache@v4
         with:
           path: .cache/copc-fixtures

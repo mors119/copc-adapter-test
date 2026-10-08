@@ -6,23 +6,22 @@ import { assertFixturesReady } from './tools/fixtures/assert-ready.mjs';
 await validateInstalledPackage();
 await assertFixturesReady(['small-valid-copc']);
 
-const mode = process.env.COPC_E2E_MODE ?? 'fast';
-const full = mode === 'full' || mode === 'release';
+const full = process.env.COPC_E2E_MODE === 'full';
 const webServer = [
   {
-    command: 'npm run dev:vanilla -- --port 4173',
+    command: 'npm run dev:vanilla',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
   {
-    command: 'npm run dev:react -- --port 4174',
+    command: 'npm run dev:react',
     url: 'http://127.0.0.1:4174',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
   ...(full ? [{
-    command: 'npm run start:next -- --port 4175',
+    command: 'npm run start:next',
     url: 'http://127.0.0.1:4175/cesium',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
@@ -36,7 +35,9 @@ export default defineConfig({
   workers: 1,
   timeout: 120_000,
   expect: { timeout: 20_000 },
-  reporter: process.env.CI ? 'line' : 'list',
+  reporter: process.env.CI
+    ? [['line'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
+    : 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173',
     browserName: 'chromium',

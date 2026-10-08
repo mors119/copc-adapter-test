@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { access, readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -13,13 +15,21 @@ export async function assertFixturesReady(fixtureIds = ['small-valid-copc']) {
     const path = resolve(fixtureRoot, fixture.cachePath);
     try {
       await access(path);
-      const file = await stat(path);
-      if (!file.isFile()) throw new Error(`${path} is not a file.`);
-      if (fixture.sizeBytes && file.size !== fixture.sizeBytes) {
-        throw new Error(`${path} is ${file.size} bytes; expected ${fixture.sizeBytes}.`);
-      }
     } catch (error) {
       throw new Error(`Required COPC fixture ${fixtureId} is not ready at ${path}. Run: npm run fixtures:fetch -- ${fixtureId}`, { cause: error });
+    }
+    const file = await stat(path);
+    if (!file.isFile()) throw new Error(`Required COPC fixture ${fixtureId} is not a file at ${path}.`);
+    if (fixture.sizeBytes && file.size !== fixture.sizeBytes) {
+      throw new Error(`Required COPC fixture ${fixtureId} is ${file.size} bytes; expected ${fixture.sizeBytes}. Run: npm run fixtures:fetch -- ${fixtureId}`);
+    }
+    if (fixture.checksum.value) {
+      const hash = createHash('sha256');
+      for await (const chunk of createReadStream(path)) hash.update(chunk);
+      const digest = hash.digest('hex');
+      if (digest !== fixture.checksum.value) {
+        throw new Error(`Required COPC fixture ${fixtureId} has checksum ${digest}; expected ${fixture.checksum.value}. Run: npm run fixtures:fetch -- ${fixtureId}`);
+      }
     }
   }
 }

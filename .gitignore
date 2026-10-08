@@ -9,23 +9,14 @@ lerna-debug.log*
 
 node_modules
 dist
-dist-ssr
 .next
-.nuxt
-.svelte-kit
-.astro
-build
-.output
-.parcel-cache
 .env
 .env.*
 !.env.example
 *.local
 *.tsbuildinfo
-.angular/
 test-results/
 playwright-report/
-benchmark-results/
 
 # Editor directories and files
 .vscode/*

@@ -271,15 +271,21 @@ export async function bootstrapAdapterSource(source = process.env.COPC_ADAPTER_S
   if (source === 'npm') {
     const version = process.env.COPC_ADAPTER_VERSION ?? ADAPTER_VERSION;
     if (version !== ADAPTER_VERSION) throw new Error(`This testbed targets ${ADAPTER_VERSION}; requested npm version ${version} is not supported.`);
+    const destination = resolve(root, '.cache/adapter-artifacts/npm-source');
+    await rm(destination, { recursive: true, force: true });
+    await mkdir(destination, { recursive: true });
     try {
-      await run('npm', ['install', `${ADAPTER_PACKAGE}@${version}`, '--ignore-scripts', '--legacy-peer-deps', '--package-lock=false', '--no-save', '--no-audit', '--no-fund'], root);
+      await run('npm', ['pack', `${ADAPTER_PACKAGE}@${version}`, '--pack-destination', destination], root);
     } catch (error) {
-      throw new Error(`Unable to install published ${ADAPTER_PACKAGE}@${version}. npm mode does not fall back to another version. ${error.message}`, { cause: error });
+      throw new Error(`Unable to pack published ${ADAPTER_PACKAGE}@${version}. npm mode does not fall back to another version. ${error.message}`, { cause: error });
     }
-    const installed = await validateInstalledPackage();
-    await writeSourceMetadata(source, installed.metadata.version, `${ADAPTER_PACKAGE}@${version}`);
-    console.log(`Installed published ${ADAPTER_PACKAGE}@${installed.metadata.version}`);
-    return { ...installed, source };
+    const artifacts = (await readdir(destination)).filter((file) => file.endsWith('.tgz'));
+    if (artifacts.length !== 1) throw new Error(`npm pack should create exactly one ${ADAPTER_PACKAGE}@${version} tarball; found ${artifacts.length}.`);
+    const tarball = join(destination, artifacts[0]);
+    const installed = await installTarball(tarball);
+    await writeSourceMetadata(source, installed.metadata.version, `registry-tarball:${tarball}`);
+    console.log(`Installed published ${ADAPTER_PACKAGE}@${installed.metadata.version} from packed artifact: ${tarball}`);
+    return { ...installed, tarball, source };
   }
   throw new Error('COPC_ADAPTER_SOURCE must be checkout, tarball, or npm.');
 }

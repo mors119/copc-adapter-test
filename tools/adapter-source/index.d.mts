@@ -8,6 +8,11 @@ export function readAdapterSourceMetadata(): {
 };
 export function vitePackageDefines(prefix?: string): Record<string, string>;
 export function validateTarball(tarball: string): Promise<Record<string, unknown>>;
+export function resolveLocalAdapterTarball(options?: {
+  tarball?: string;
+  directory?: string;
+  projectRoot?: string;
+}): Promise<string>;
 export function validateInstalledPackage(): Promise<{
   packageRoot: string;
   metadata: Record<string, unknown>;

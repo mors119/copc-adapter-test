@@ -30,3 +30,5 @@ playwright-report/
 *.sw?
 
 .cache/
+local-packages/*
+!local-packages/.gitkeep

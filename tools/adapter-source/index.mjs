@@ -8,6 +8,7 @@ export const ADAPTER_PACKAGE = '@frillab/copc-adapter';
 export const ADAPTER_VERSION = '0.4.0';
 export const PUBLIC_EXPORTS = ['.', './cesium', './three'];
 const root = resolve(import.meta.dirname, '../..');
+const localPackagesDirectory = resolve(root, 'local-packages');
 
 function commandEnvironment() {
   const environment = { ...process.env };
@@ -81,6 +82,39 @@ export async function validateTarball(tarball) {
     }
   }
   return metadata;
+}
+
+export async function resolveLocalAdapterTarball({
+  tarball = process.env.COPC_ADAPTER_TARBALL,
+  directory = localPackagesDirectory,
+  projectRoot = root,
+} = {}) {
+  if (tarball) return resolve(projectRoot, tarball);
+
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    entries = [];
+  }
+
+  const artifacts = entries
+    .filter((entry) => entry.isFile() && /^frillab-copc-adapter-.+\.tgz$/.test(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+
+  if (artifacts.length === 0) {
+    throw new Error(
+      `No local ${ADAPTER_PACKAGE} tarball found in local-packages/.\n\nCreate one from the adapter package with:\nnpm pack --pack-destination "${directory}"`,
+    );
+  }
+  if (artifacts.length > 1) {
+    throw new Error(
+      `Multiple local adapter tarballs found:\n\n${artifacts.map((artifact) => `- ${artifact}`).join('\n')}\n\nRemove unused artifacts or specify:\nCOPC_ADAPTER_TARBALL=/path/to/artifact.tgz npm run bootstrap:tarball`,
+    );
+  }
+  return resolve(directory, artifacts[0]);
 }
 
 export async function validateInstalledPackage() {
@@ -265,7 +299,7 @@ export async function bootstrapAdapterSource(source = process.env.COPC_ADAPTER_S
     await validateTarball(absolute);
     const installed = await installTarball(absolute);
     await writeSourceMetadata(source, installed.metadata.version, `file:${absolute}`);
-    console.log(`Installed ${ADAPTER_PACKAGE}@${installed.metadata.version} from ${absolute}`);
+    console.log(`Installed ${ADAPTER_PACKAGE}@${installed.metadata.version} from tarball: ${absolute}`);
     return { ...installed, tarball: absolute, source };
   }
   if (source === 'npm') {

@@ -18,6 +18,7 @@ try {
   const source = process.env.COPC_ADAPTER_SOURCE ?? 'checkout';
   await bootstrapAdapterSource(source);
   await clearViteCaches();
+  if (process.env.CI) await run('npx', ['playwright', 'install', '--with-deps', 'chromium']);
   await run('npm', ['run', 'test:full']);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

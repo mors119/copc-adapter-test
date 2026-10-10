@@ -43,7 +43,7 @@ Every mode installs and validates the same public package identity and exports:
 | Source | Behavior |
 | --- | --- |
 | `checkout` | Default. Stages the selected checkout in an isolated temporary directory, runs its real `prepack` through `npm pack`, validates the tarball and dependencies, then installs that tarball into this consumer workspace. |
-| `tarball` | Validates and installs a local packed artifact. |
+| `tarball` | Validates and installs an existing local packed artifact. `npm run bootstrap:tarball` discovers one under `local-packages/`; `COPC_ADAPTER_TARBALL` can select an explicit artifact. |
 | `npm` | Runs `npm pack` for the explicitly requested published `@frillab/copc-adapter@0.4.0`, validates that registry tarball, then installs the same artifact into this consumer workspace. |
 
 For checkout mode, the usual local path is:
@@ -76,6 +76,38 @@ npm run bootstrap
 
 COPC_ADAPTER_SOURCE=npm npm run bootstrap
 ```
+
+## Test a local packed artifact before npm publish
+
+Use checkout mode while actively developing adapter source. `npm run bootstrap:local` stages that checkout, runs its `npm pack`/`prepack`, validates the result, and installs it before testing.
+
+Use tarball mode to test the exact `.tgz` intended for publication. From the adapter repository root, pack its package into this repository's ignored `local-packages/` directory:
+
+```sh
+cd apps/viewer-web
+npm pack --pack-destination ../../../copc-adapter-test/local-packages
+```
+
+Then, from this repository, run:
+
+```sh
+npm run bootstrap:tarball
+npm run dev:vanilla
+```
+
+Or run the standard fast validation tier, including bootstrap:
+
+```sh
+npm run test:tarball
+```
+
+`bootstrap:tarball` requires exactly one matching top-level `frillab-copc-adapter-*.tgz` in `local-packages/`. It validates the artifact's package metadata, public exports and targets, WASM, Worker, declarations, and dependencies through the existing tarball installer. Multiple matching files fail with instructions to remove extras or set `COPC_ADAPTER_TARBALL` to the artifact to test. Files in `local-packages/` are ignored by Git. This is the closest pre-publish check because it tests the exact package artifact rather than packing source again or fetching a published registry package.
+
+Source mode differences:
+
+- **checkout** — develop adapter source; run `npm run bootstrap:local` to pack, validate, install, and test the checkout.
+- **tarball** — validate the exact existing `.tgz`; run `npm run bootstrap:tarball`.
+- **npm** — validate the published registry artifact; run `COPC_ADAPTER_SOURCE=npm npm run bootstrap`.
 
 ## Local setup and development
 

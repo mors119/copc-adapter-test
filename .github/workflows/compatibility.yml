@@ -49,8 +49,8 @@ jobs:
           path: .cache/copc-fixtures
           key: copc-small-fixture-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       - run: npm run bootstrap:local
+      - run: npx playwright install --with-deps chromium
       - run: npm run test:fast
       - if: failure()
         uses: actions/upload-artifact@v4
@@ -84,8 +84,8 @@ jobs:
           path: .cache/copc-fixtures
           key: copc-small-fixture-${{ runner.os }}-${{ hashFiles('fixtures/catalog.json') }}
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       - run: npm run bootstrap:local
+      - run: npx playwright install --with-deps chromium
       - run: npm run test:full
       - if: failure()
         uses: actions/upload-artifact@v4

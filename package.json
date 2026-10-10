@@ -7,6 +7,7 @@
   "scripts": {
     "bootstrap": "node tools/adapter-source/cli.mjs bootstrap",
     "bootstrap:local": "node tools/adapter-source/cli.mjs bootstrap --source checkout",
+    "bootstrap:tarball": "node tools/adapter-source/cli.mjs bootstrap-tarball",
     "validate:package": "node tools/adapter-source/cli.mjs validate",
     "dev:vanilla": "npm run dev --workspace @copc-test/vanilla -- --port 4173 --strictPort",
     "dev:react": "npm run dev --workspace @copc-test/react -- --port 4174 --strictPort",
@@ -20,6 +21,7 @@
     "test:fast": "npm run test && npm run fixtures:fetch -- small-valid-copc && npm run build && npm run e2e:fast",
     "test:full": "npm run test && npm run fixtures:fetch -- small-valid-copc && npm run build && npm run e2e:full",
     "test:local": "npm run bootstrap:local && npm run test:fast",
+    "test:tarball": "npm run bootstrap:tarball && npm run test:fast",
     "test:release": "node tools/adapter-source/release-gate.mjs",
     "e2e": "playwright test",
     "e2e:fast": "COPC_E2E_MODE=fast playwright test",

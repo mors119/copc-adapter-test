@@ -188,10 +188,11 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await expect(page.locator('.cesium-viewer')).toBeVisible();
   expect(await page.locator('#renderer').getAttribute('data-cesium-viewer-instance')).toBe(viewerInstance);
 
-  const autzenRequestCount = ranges.filter(({ url }) => url.includes('/autzen/autzen-classified.copc.laz')).length;
+  const autzenRequestStarted = page.waitForRequest((request) => request.url().includes('/autzen/autzen-classified.copc.laz')
+    && /^bytes=\d+-\d+$/u.test(request.headers().range ?? ''));
   await page.getByTestId('fixture-select').selectOption('remote:autzen');
-  await expect.poll(() => ranges.filter(({ url }) => url.includes('/autzen/autzen-classified.copc.laz')).length, { timeout: 30_000 })
-    .toBeGreaterThan(autzenRequestCount);
+  await autzenRequestStarted;
+  await expect(page.getByTestId('harness-status')).toHaveText('loading');
   await page.getByTestId('style-select').selectOption('intensity');
   await waitForActiveUrl(page, '/autzen/autzen-classified.copc.laz');
   await expect(page.getByTestId('style-select')).toHaveValue('intensity');

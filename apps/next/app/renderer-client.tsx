@@ -89,6 +89,9 @@ export function RendererClient({
   const [error, setError] = useState<string>();
   const [sourceProbe, setSourceProbe] = useState<PanelState['sourceProbe']>();
   const [colorMode, setColorMode] = useState<ColorMode>('elevation');
+  const [activeView, setActiveView] = useState<PanelState['activeView']>(
+    'overview',
+  );
   const [reloadKey, setReloadKey] = useState(0);
   const [fixtures, setFixtures] = useState<FixtureCatalogEntry[]>([]);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -134,6 +137,22 @@ export function RendererClient({
     (probe: PanelState['sourceProbe']): void => setSourceProbe(probe),
     [],
   );
+  const setView = useCallback(
+    async (view: Exclude<HarnessView, 'visual'>): Promise<void> => {
+      const activeRenderer = rendererRef.current;
+      if (!activeRenderer) return;
+      try {
+        await activeRenderer.setView(view);
+        if (rendererRef.current === activeRenderer) setActiveView(view);
+      } catch (cause) {
+        onStatus(
+          'error',
+          cause instanceof Error ? cause.message : String(cause),
+        );
+      }
+    },
+    [onStatus],
+  );
 
   useEffect(() => {
     contract.setConfig({ renderer, backend: selection.backend, fixtureUrl });
@@ -147,6 +166,7 @@ export function RendererClient({
       snapshot,
       error,
       sourceProbe,
+      activeView,
       activeDatasetUrl: (snapshot as { datasetUrl?: string } | undefined)
         ?.datasetUrl,
       activeSourceKind: (
@@ -154,6 +174,11 @@ export function RendererClient({
       )?.sourceKind,
       pickedPoint: (snapshot as { pickedPoint?: unknown } | undefined)
         ?.pickedPoint,
+      pickedPointScreenPosition: (
+        snapshot as
+          | { pickedPointScreenPosition?: PanelState['pickedPointScreenPosition'] }
+          | undefined
+      )?.pickedPointScreenPosition,
       colorMode,
     }));
   }, [
@@ -164,6 +189,7 @@ export function RendererClient({
     snapshot,
     error,
     sourceProbe,
+    activeView,
     colorMode,
   ]);
   useEffect(() => {
@@ -248,7 +274,7 @@ export function RendererClient({
       setReloadKey((value) => value + 1),
     );
     contract.registerCommand('setView', (view) =>
-      rendererRef.current?.setView(view === 'visual' ? 'overview' : view),
+      setView(view === 'visual' ? 'overview' : view),
     );
     contract.registerCommand('unload', () => rendererRef.current?.unload());
     contract.registerCommand('destroy', () => {
@@ -261,7 +287,7 @@ export function RendererClient({
       contract.unregisterCommand('unload');
       contract.unregisterCommand('destroy');
     };
-  }, []);
+  }, [setView]);
 
   const apply = useCallback(
     (next: PanelSelection): void => {
@@ -294,6 +320,7 @@ export function RendererClient({
       )
         setColorMode('elevation');
       setSelection(next);
+      setActiveView('overview');
       setSnapshot(undefined);
       setError(undefined);
       setSourceProbe(undefined);
@@ -305,9 +332,6 @@ export function RendererClient({
     },
     [renderer, selection, colorMode],
   );
-  const setView = (view: Exclude<HarnessView, 'visual'>): void => {
-    void rendererRef.current?.setView(view);
-  };
   const setStyle = (mode: ColorMode): void => {
     setColorMode(mode);
     rendererRef.current?.setStyle?.(mode);
@@ -345,6 +369,7 @@ export function RendererClient({
     error,
     sourceProbe,
     colorMode,
+    activeView,
   };
 
   return (

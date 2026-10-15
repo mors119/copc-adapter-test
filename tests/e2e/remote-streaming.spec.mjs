@@ -96,6 +96,27 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
     timeout: 90_000,
   });
   await expect(page.getByTestId('rendered-points')).not.toHaveText('0');
+  await expect(page.getByTestId('streaming-hud')).toBeVisible();
+  await expect(page.getByTestId('hud-selected-nodes')).toHaveText(/\d+ \/ 8/u);
+  await expect(page.getByTestId('hud-rendered-nodes')).not.toHaveText('0');
+  await expect(page.getByTestId('hud-rendered-points')).toHaveText(
+    /[\d,]+ \/ 1,000,000/u,
+  );
+  expect(
+    asCount(await page.getByTestId('hud-selected-nodes').textContent()),
+  ).toBeLessThanOrEqual(8);
+  expect(
+    asCount(await page.getByTestId('hud-rendered-nodes').textContent()),
+  ).toBeLessThanOrEqual(8);
+  expect(
+    asCount(await page.getByTestId('hud-rendered-points').textContent()),
+  ).toBeLessThanOrEqual(1_000_000);
+  const panelToggle = page.getByTestId('panel-toggle');
+  await panelToggle.click();
+  await expect(page.getByTestId('control-panel-body')).toBeHidden();
+  await expect(page.getByTestId('streaming-hud')).toBeVisible();
+  await page.getByTestId('panel-toggle').click();
+  await expect(page.getByTestId('control-panel-body')).toBeVisible();
 
   const initial = await page.evaluate(() => window.__COPC_TEST__.getResult());
   expect(initial.config.fixtureUrl).toBe(
@@ -169,6 +190,7 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await page.waitForTimeout(800);
   const overview = await streamingState(page);
   await page.getByRole('button', { name: 'Near' }).click();
+  await expect(page.getByTestId('hud-view')).toHaveText('Near');
   await expect
     .poll(
       async () => {
@@ -231,10 +253,13 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await expect(page.getByTestId('point-classification-row')).toBeVisible();
   await expect(page.getByTestId('point-rgb-row')).toBeVisible();
 
+  await page.getByRole('button', { name: 'Far' }).click();
+  await expect(page.getByTestId('hud-view')).toHaveText('Far');
   await page
     .getByTestId('fixture-select')
     .selectOption('remote:chicago-downtown');
   await waitForActiveUrl(page, '/chicago-downtown/chicago-downtown.copc.laz');
+  await expect(page.getByTestId('hud-view')).toHaveText('Overview');
   await expect(page.getByTestId('style-select')).toHaveValue('elevation');
   const chicago = ranges.filter(({ url }) =>
     url.includes('/chicago-downtown/chicago-downtown.copc.laz'),

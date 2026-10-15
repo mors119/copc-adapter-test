@@ -87,6 +87,9 @@ function reportSnapshot(snapshot: unknown): void {
         ? record.sourceKind
         : panelState.activeSourceKind,
     pickedPoint: record?.pickedPoint,
+    pickedPointScreenPosition: record?.pickedPointScreenPosition as
+      | PanelState['pickedPointScreenPosition']
+      | undefined,
   });
 }
 
@@ -134,7 +137,7 @@ async function apply(selection: PanelSelection): Promise<void> {
     try {
       await renderer.setSource?.(fixtureUrl, nextSource.kind, nextColorMode);
       if (styleRevision === styleRevisionAtStart) colorMode = nextColorMode;
-      update({ colorMode });
+      update({ colorMode, activeView: 'overview' });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       contract.markError(error);
@@ -164,6 +167,7 @@ async function apply(selection: PanelSelection): Promise<void> {
     ...selection,
     fixtureUrl,
     status: 'loading',
+    activeView: 'overview',
     error: undefined,
     snapshot: undefined,
     sourceProbe: undefined,
@@ -190,7 +194,8 @@ async function apply(selection: PanelSelection): Promise<void> {
         onAttached: () => contract.markAttached(),
         onSnapshot: reportSnapshot,
         onSourceProbe: (sourceProbe) => update({ sourceProbe }),
-        onPointPicked: (pickedPoint) => update({ pickedPoint }),
+        onPointPicked: (pickedPoint, pickedPointScreenPosition) =>
+          update({ pickedPoint, pickedPointScreenPosition }),
         onStatus: (status, error) => {
           if (currentGeneration !== generation) return;
           if (status === 'ready') contract.markReady();
@@ -207,7 +212,7 @@ async function apply(selection: PanelSelection): Promise<void> {
     renderer = mounted;
     contract.recordMount();
     contract.registerCommand('setView', (view) =>
-      renderer?.setView(view === 'visual' ? 'overview' : view),
+      setView(view === 'visual' ? 'overview' : view),
     );
     contract.registerCommand('reload', () => void apply(selected));
     contract.registerCommand('unload', () => renderer?.unload());
@@ -222,8 +227,11 @@ async function apply(selection: PanelSelection): Promise<void> {
 }
 
 async function setView(view: 'overview' | 'near' | 'far'): Promise<void> {
+  const activeRenderer = renderer;
+  if (!activeRenderer) return;
   try {
-    await renderer?.setView(view);
+    await activeRenderer.setView(view);
+    if (renderer === activeRenderer) update({ activeView: view });
   } catch (error) {
     contract.markError(error);
     update({

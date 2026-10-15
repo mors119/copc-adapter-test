@@ -7,6 +7,7 @@ export type RendererColorMode =
   | 'elevation'
   | 'intensity'
   | 'classification';
+export type PointScreenPosition = { x: number; y: number };
 export type RendererOptions = {
   fixtureUrl: string;
   backend: 'copc-js' | 'rust';
@@ -17,7 +18,7 @@ export type RendererOptions = {
   onSnapshot(snapshot: unknown): void;
   onAttached(): void;
   onSourceProbe?(probe: CopcSourceProbeResult | undefined): void;
-  onPointPicked?(point: unknown): void;
+  onPointPicked?(point: unknown, screenPosition?: PointScreenPosition): void;
 };
 
 export type TestRenderer = {

@@ -25,6 +25,7 @@ let renderer: TestRenderer | undefined;
 let demoTimer: number | undefined;
 let demoIndex = 0;
 let generation = 0;
+let styleRevision = 0;
 
 function update(patch: Partial<PanelState>): void {
   panelState = { ...panelState, ...patch };
@@ -68,6 +69,7 @@ async function apply(selection: PanelSelection): Promise<void> {
     && selection.renderer === 'cesium'
     && typeof renderer.setSource === 'function';
   if (canSwitchSourceInPlace && renderer) {
+    const styleRevisionAtStart = styleRevision;
     selected = selection;
     fixtureId = selection.fixtureId;
     resolvedSource = nextSource;
@@ -77,7 +79,7 @@ async function apply(selection: PanelSelection): Promise<void> {
     contract.markLoading();
     try {
       await renderer.setSource?.(fixtureUrl, nextSource.kind, nextColorMode);
-      colorMode = nextColorMode;
+      if (styleRevision === styleRevisionAtStart) colorMode = nextColorMode;
       update({ colorMode });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -145,6 +147,7 @@ async function setView(view: 'overview' | 'near' | 'far'): Promise<void> {
 }
 
 function setStyle(mode: 'rgb' | 'elevation' | 'intensity' | 'classification'): void {
+  styleRevision += 1;
   colorMode = mode;
   try {
     renderer?.setStyle?.(mode);

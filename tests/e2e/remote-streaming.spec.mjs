@@ -57,7 +57,7 @@ function cameraPair(text) {
 }
 
 test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer across transactional switches', async ({ page }) => {
-  test.setTimeout(360_000);
+  test.setTimeout(480_000);
   const ranges = watchRemoteRanges(page);
   await page.goto(origins.vanilla, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('.cesium-viewer')).toBeVisible();
@@ -188,8 +188,13 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await expect(page.locator('.cesium-viewer')).toBeVisible();
   expect(await page.locator('#renderer').getAttribute('data-cesium-viewer-instance')).toBe(viewerInstance);
 
+  const autzenRequestCount = ranges.filter(({ url }) => url.includes('/autzen/autzen-classified.copc.laz')).length;
   await page.getByTestId('fixture-select').selectOption('remote:autzen');
+  await expect.poll(() => ranges.filter(({ url }) => url.includes('/autzen/autzen-classified.copc.laz')).length, { timeout: 30_000 })
+    .toBeGreaterThan(autzenRequestCount);
+  await page.getByTestId('style-select').selectOption('intensity');
   await waitForActiveUrl(page, '/autzen/autzen-classified.copc.laz');
+  await expect(page.getByTestId('style-select')).toHaveValue('intensity');
   expect(await page.locator('#renderer').getAttribute('data-cesium-viewer-instance')).toBe(viewerInstance);
   expect(await page.evaluate(() => window.__COPC_TEST__.getResult().diagnostics.renderedPointCount)).toBeGreaterThan(0);
 });

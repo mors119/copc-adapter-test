@@ -14,12 +14,14 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
   let probeCopcSource: AdapterRootModule['probeCopcSource'] | undefined;
   let viewer: CesiumTypes.Viewer | undefined;
   let layer: CopcCesiumLayer | undefined;
+  let pendingLayer: CopcCesiumLayer | undefined;
   let activeSourceKind = options.sourceKind;
   let activeProbe: CopcSourceProbeResult | undefined;
   let pickedPoint: unknown;
   let colorMode: ColorMode = options.colorMode ?? 'elevation';
   let timer: number | undefined;
   let sourceGeneration = 0;
+  let styleRevision = 0;
   let commitQueue: Promise<void> = Promise.resolve();
   options.onStatus('loading');
 
@@ -85,6 +87,7 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
     sourceKind: RendererOptions['sourceKind'],
     candidateColorMode: ColorMode = colorMode,
   ): Promise<void> {
+    const styleRevisionAtStart = styleRevision;
     await viewerReady;
     if (disposed) return;
     const currentViewer = viewer;
@@ -138,29 +141,38 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
         candidate.destroy();
         return;
       }
+      const loadedColorMode = styleRevision === styleRevisionAtStart ? candidateColorMode : colorMode;
+      candidate.setStyle({ colorMode: loadedColorMode });
+      pendingLayer = candidate;
 
       let committed = false;
       const commit = commitQueue.then(async () => {
         if (currentGeneration !== sourceGeneration || disposed || !candidate) {
           candidate?.destroy();
+          if (pendingLayer === candidate) pendingLayer = undefined;
           return;
         }
         const previousLayer = layer;
         const previousProbe = activeProbe;
         const previousKind = activeSourceKind;
-        const previousColorMode = colorMode;
         try {
+          const attachColorMode = styleRevision === styleRevisionAtStart ? candidateColorMode : colorMode;
+          candidate.setStyle({ colorMode: attachColorMode });
           candidate.attachTo(currentViewer);
           await waitForRenderedPoints(candidate, () => disposed || currentGeneration !== sourceGeneration);
           if (disposed || currentGeneration !== sourceGeneration) {
             candidate.destroy();
+            if (pendingLayer === candidate) pendingLayer = undefined;
             return;
           }
+          const committedColorMode = styleRevision === styleRevisionAtStart ? candidateColorMode : colorMode;
+          candidate.setStyle({ colorMode: committedColorMode });
           previousLayer?.detachFrom();
           layer = candidate;
           activeProbe = candidateProbe;
           activeSourceKind = sourceKind;
-          colorMode = candidateColorMode;
+          colorMode = committedColorMode;
+          if (pendingLayer === candidate) pendingLayer = undefined;
           pickedPoint = undefined;
           frameViewerToLayer(cesiumModule!, currentViewer, layer);
           previousLayer?.destroy();
@@ -173,7 +185,6 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
           else if (layer === candidate) layer = undefined;
           activeProbe = previousProbe;
           activeSourceKind = previousKind;
-          colorMode = previousColorMode;
           throw error;
         }
       });
@@ -184,6 +195,7 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
       }
     } catch (error) {
       candidate?.destroy();
+      if (pendingLayer === candidate) pendingLayer = undefined;
       if (!disposed && currentGeneration === sourceGeneration) {
         options.onSourceProbe?.(candidateProbe);
         options.onStatus('error', error instanceof Error ? error.message : String(error));
@@ -213,8 +225,10 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
       await changeSource(sourceUrl, sourceKind, candidateColorMode);
     },
     setStyle(mode): void {
+      styleRevision += 1;
       colorMode = mode;
       layer?.setStyle({ colorMode: mode });
+      if (pendingLayer && pendingLayer !== layer) pendingLayer.setStyle({ colorMode: mode });
       if (layer) options.onSnapshot(snapshotOf(layer));
     },
     snapshot: () => layer ? snapshotOf(layer) : undefined,

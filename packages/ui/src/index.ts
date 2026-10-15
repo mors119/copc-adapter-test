@@ -2,16 +2,23 @@ import {
   fixtureName,
   normalizeSnapshot,
   REMOTE_COPC_SOURCES,
+  defaultStreamingSettings,
+  DEFAULT_HARNESS_STREAMING_SETTINGS,
+  HARNESS_RENDER_DISTANCE_LIMITS,
+  HARNESS_STREAMING_SETTING_LIMITS,
   type CopcSourceKind,
   type FixtureCatalogEntry,
   type HarnessConfig,
   type HarnessRenderer,
+  type HarnessStreamingSettings,
 } from '@copc-test/core';
 
 export type PanelSelection = {
   renderer: HarnessRenderer;
   backend: 'copc-js' | 'rust';
   fixtureId: string;
+  streaming: HarnessStreamingSettings;
+  renderDistance?: number;
 };
 
 export type PanelSourceProbe = {
@@ -32,12 +39,10 @@ export type PanelState = PanelSelection & {
   packageSource: 'checkout' | 'tarball' | 'npm';
   status: 'idle' | 'loading' | 'ready' | 'error';
   activeView?: 'overview' | 'near' | 'far';
-  streamingLimits?: { maxNodes: number; maxRenderedPoints: number };
   selectedNodes?: number;
   renderedNodes?: number;
   renderedPoints?: number;
   streamUpdates?: number;
-  renderDistance?: number;
   error?: string;
   snapshot?: unknown;
   sourceProbe?: PanelSourceProbe;
@@ -161,13 +166,25 @@ export function mountControlPanel(
       <div><span>Rendered nodes</span><b data-testid="rendered-nodes">0</b></div>
       <div><span>Rendered points</span><b data-testid="rendered-points">0</b></div>
       <div><span>Stream updates</span><b data-testid="stream-updates">0</b></div>
-      <div><span>Render distance</span><b data-testid="render-distance">—</b></div>
       <div><span>Range requests</span><b data-testid="range-requests">0</b></div>
       <div><span>Hierarchy requests</span><b data-testid="hierarchy-requests">0</b></div>
       <div><span>Hierarchy cache hits</span><b data-testid="hierarchy-cache-hits">0</b></div>
       <div><span>Point cache</span><b data-testid="point-cache">0 entries</b></div>
       <div><span>Visible LoD levels</span><b data-testid="visible-lod-levels">—</b></div>
     </div>
+    <p class="copc-panel__metrics-note">Live counts reflect the current view. Camera distance and streaming settings are editable below.</p>
+    <fieldset class="copc-panel__streaming" data-testid="streaming-settings">
+      <legend>Render and streaming settings</legend>
+      <p>Render distance frames the camera; max render distance limits node streaming. Apply settings to reload the layer.</p>
+      <div class="copc-panel__streaming-grid">
+        <label>Render distance (m; blank = auto-fit)<input data-testid="render-distance-input" type="number" placeholder="Auto-fit"></label>
+        <label>Max selected nodes<input data-streaming-setting="maxNodes" data-testid="max-nodes-input" type="number" required></label>
+        <label>Max rendered points<input data-streaming-setting="maxRenderedPoints" data-testid="max-rendered-points-input" type="number" required></label>
+        <label>Max depth<input data-streaming-setting="maxDepth" data-testid="max-depth-input" type="number" required></label>
+        <label>Screen-space error<input data-streaming-setting="maxScreenSpaceError" data-testid="max-screen-space-error-input" type="number" required></label>
+        <label>Max render distance (m)<input data-streaming-setting="maxRenderDistanceMeters" data-testid="max-render-distance-input" type="number" required></label>
+      </div>
+    </fieldset>
     <label>Style<select data-testid="style-select">
       <option value="rgb">RGB</option><option value="elevation">Elevation</option>
       <option value="intensity">Intensity</option><option value="classification">Classification</option>
@@ -282,6 +299,67 @@ export function mountControlPanel(
   const customSourceInput = byTestId<HTMLInputElement>('custom-source-url');
   const sourceUrl = byTestId<HTMLElement>('source-url');
   const styleSelect = byTestId<HTMLSelectElement>('style-select');
+  const renderDistanceInput = byTestId<HTMLInputElement>(
+    'render-distance-input',
+  );
+  renderDistanceInput.min = String(HARNESS_RENDER_DISTANCE_LIMITS.min);
+  renderDistanceInput.max = String(HARNESS_RENDER_DISTANCE_LIMITS.max);
+  renderDistanceInput.step = String(HARNESS_RENDER_DISTANCE_LIMITS.step);
+  const writeRenderDistanceInput = (
+    renderDistance: number | undefined,
+  ): void => {
+    const value = renderDistance === undefined ? '' : String(renderDistance);
+    if (renderDistanceInput.value !== value) renderDistanceInput.value = value;
+  };
+  const readRenderDistanceInput = (): number | undefined | null => {
+    if (!renderDistanceInput.checkValidity()) {
+      renderDistanceInput.reportValidity();
+      return null;
+    }
+    return renderDistanceInput.value === ''
+      ? undefined
+      : renderDistanceInput.valueAsNumber;
+  };
+  const streamingInputs = new Map<
+    keyof HarnessStreamingSettings,
+    HTMLInputElement
+  >();
+  for (const key of Object.keys(
+    DEFAULT_HARNESS_STREAMING_SETTINGS,
+  ) as (keyof HarnessStreamingSettings)[]) {
+    const input = root.querySelector<HTMLInputElement>(
+      `[data-streaming-setting="${key}"]`,
+    );
+    if (!input) {
+      throw new Error(
+        `Shared control panel is missing streaming setting "${key}".`,
+      );
+    }
+    const limits = HARNESS_STREAMING_SETTING_LIMITS[key];
+    input.min = String(limits.min);
+    input.max = String(limits.max);
+    input.step = String(limits.step);
+    streamingInputs.set(key, input);
+  }
+  const writeStreamingInputs = (streaming: HarnessStreamingSettings): void => {
+    for (const [key, input] of streamingInputs) {
+      const value = streaming[key];
+      if (input.valueAsNumber !== value) input.value = String(value);
+    }
+  };
+  const readStreamingInputs = (): HarnessStreamingSettings | undefined => {
+    const entries = [...streamingInputs.entries()];
+    const invalid = entries.find(([, input]) => !input.checkValidity());
+    if (invalid) {
+      invalid[1].reportValidity();
+      return undefined;
+    }
+    return Object.fromEntries(
+      entries.map(([key, input]) => [key, input.valueAsNumber]),
+    ) as HarnessStreamingSettings;
+  };
+  writeRenderDistanceInput(state.renderDistance);
+  writeStreamingInputs(state.streaming);
   const panelBody = byTestId<HTMLElement>('control-panel-body');
   const panelToggle = byTestId<HTMLButtonElement>('panel-toggle');
   panelToggle.addEventListener('click', () => {
@@ -304,12 +382,19 @@ export function mountControlPanel(
     if (enteredUrl) return `custom:${enteredUrl}`;
     return state.fixtureId.startsWith('custom:') ? state.fixtureId : 'custom:';
   };
-  const onApply = (): void =>
+  const onApply = (): void => {
+    const streaming = readStreamingInputs();
+    if (!streaming) return;
+    const renderDistance = readRenderDistanceInput();
+    if (renderDistance === null) return;
     actions.apply({
       renderer: rendererSelect.value as HarnessRenderer,
       backend: backendSelect.value as PanelSelection['backend'],
       fixtureId: selectedFixtureId(),
+      streaming,
+      renderDistance,
     });
+  };
   fixtureSelect.addEventListener('change', () => {
     if (fixtureSelect.value !== 'custom:') onApply();
   });
@@ -322,10 +407,16 @@ export function mountControlPanel(
     () => {
       const url = customSourceInput.value.trim();
       if (!url) return;
+      const streaming = readStreamingInputs();
+      if (!streaming) return;
+      const renderDistance = readRenderDistanceInput();
+      if (renderDistance === null) return;
       actions.apply({
         renderer: rendererSelect.value as HarnessRenderer,
         backend: backendSelect.value as PanelSelection['backend'],
         fixtureId: `custom:${url}`,
+        streaming,
+        renderDistance,
       });
     },
   );
@@ -365,6 +456,9 @@ export function mountControlPanel(
         renderer: state.renderer !== next.renderer,
         backend: state.backend !== next.backend,
         fixtureId: state.fixtureId !== next.fixtureId,
+        streaming:
+          JSON.stringify(state.streaming) !== JSON.stringify(next.streaming),
+        renderDistance: state.renderDistance !== next.renderDistance,
       };
       Object.assign(state, next);
       if (selectionChanged.renderer) rendererSelect.value = state.renderer;
@@ -373,6 +467,9 @@ export function mountControlPanel(
         fixtureSelect.value = state.fixtureId.startsWith('custom:')
           ? 'custom:'
           : state.fixtureId;
+      if (selectionChanged.streaming) writeStreamingInputs(state.streaming);
+      if (selectionChanged.renderDistance)
+        writeRenderDistanceInput(state.renderDistance);
       field('host').textContent = `Host: ${state.host}`;
       field('renderer-label').textContent = state.renderer;
       field('adapter').textContent =
@@ -503,10 +600,6 @@ export function mountControlPanel(
       byTestId('stream-updates').textContent = number(
         state.streamUpdates ?? snapshot?.streamingUpdateCount,
       );
-      byTestId('render-distance').textContent =
-        state.renderDistance === undefined
-          ? '—'
-          : `${number(state.renderDistance)} m`;
       byTestId('range-requests').textContent = number(
         typeof rangeRequests?.requested === 'number'
           ? rangeRequests.requested
@@ -549,7 +642,7 @@ export function mountControlPanel(
       );
       setHudValue(
         'hud-selected-nodes',
-        `${selectedNodeCount} / ${number(state.streamingLimits?.maxNodes ?? 8)}`,
+        `${selectedNodeCount} / ${number(state.streaming.maxNodes)}`,
       );
       setHudValue(
         'hud-rendered-nodes',
@@ -557,7 +650,7 @@ export function mountControlPanel(
       );
       setHudValue(
         'hud-rendered-points',
-        `${renderedPointCount} / ${number(state.streamingLimits?.maxRenderedPoints ?? 1_000_000)}`,
+        `${renderedPointCount} / ${number(state.streaming.maxRenderedPoints)}`,
       );
       setHudValue(
         'hud-lod',
@@ -786,8 +879,7 @@ export function panelStateFromConfig(
     packageSource: config.packageSource,
     status: 'idle',
     activeView: 'overview',
-    streamingLimits: { maxNodes: 8, maxRenderedPoints: 1_000_000 },
-    renderDistance: 20_000,
+    streaming: defaultStreamingSettings(config.renderer),
   };
 }
 

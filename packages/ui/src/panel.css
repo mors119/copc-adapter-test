@@ -229,6 +229,44 @@ body {
   color: rgb(255 255 255 / 58%);
   font-variant-numeric: tabular-nums;
 }
+.copc-panel__metrics-note {
+  margin: 8px 0 0;
+  color: rgb(255 255 255 / 52%);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.copc-panel__streaming {
+  min-width: 0;
+  margin: 12px 0 0;
+  padding: 10px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 7px;
+}
+.copc-panel__streaming legend {
+  padding: 0 5px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.copc-panel__streaming > p {
+  margin: 0 0 8px;
+  color: rgb(255 255 255 / 58%);
+  line-height: 1.4;
+}
+.copc-panel .copc-panel__streaming-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 8px;
+}
+.copc-panel .copc-panel__streaming-grid label {
+  min-width: 0;
+  margin-top: 5px;
+  font-size: 10px;
+}
+.copc-panel .copc-panel__streaming-grid input {
+  min-width: 0;
+  padding: 5px 6px;
+}
 .copc-panel__button-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -4,6 +4,8 @@ import '@copc-test/ui/panel.css';
 import {
   createHarnessConfig,
   createTestContract,
+  renderDistanceFromSearch,
+  streamingSettingsFromSearch,
   loadFixtureCatalog,
   resolveCopcSourceSelection,
   sourceSelectionFromSearch,
@@ -24,6 +26,8 @@ const panelTarget = document.querySelector<HTMLElement>('#panel')!;
 const params = new URLSearchParams(location.search);
 const initialRenderer: HarnessRenderer =
   params.get('renderer') === 'three' ? 'three' : 'cesium';
+const initialStreaming = streamingSettingsFromSearch(params, initialRenderer);
+const initialRenderDistance = renderDistanceFromSearch(params);
 let fixtureId = sourceSelectionFromSearch(params);
 let resolvedSource = resolveCopcSourceSelection(fixtureId);
 const harnessConfig = createHarnessConfig(
@@ -44,11 +48,15 @@ let selected: PanelSelection = {
   renderer: initialRenderer,
   backend: harnessConfig.backend,
   fixtureId,
+  streaming: initialStreaming,
+  renderDistance: initialRenderDistance,
 };
 let colorMode: 'rgb' | 'elevation' | 'intensity' | 'classification' =
   'elevation';
 let panelState: PanelState = {
   ...panelStateFromConfig(harnessConfig, 'vanilla', fixtureId),
+  streaming: initialStreaming,
+  renderDistance: initialRenderDistance,
   colorMode,
 };
 let panel: MountedPanel;
@@ -113,6 +121,9 @@ async function apply(selection: PanelSelection): Promise<void> {
     selection.renderer === selected.renderer &&
     selection.backend === selected.backend &&
     selection.fixtureId !== selected.fixtureId &&
+    JSON.stringify(selection.streaming) ===
+      JSON.stringify(selected.streaming) &&
+    selection.renderDistance === selected.renderDistance &&
     selection.renderer === 'cesium' &&
     typeof renderer.setSource === 'function';
   if (canSwitchSourceInPlace && renderer) {
@@ -185,6 +196,8 @@ async function apply(selection: PanelSelection): Promise<void> {
       {
         fixtureUrl,
         backend: selection.backend,
+        streaming: selection.streaming,
+        renderDistance: selection.renderDistance,
         sourceKind: nextSource.kind,
         colorMode,
         cesiumIonToken:

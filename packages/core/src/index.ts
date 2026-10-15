@@ -2,6 +2,7 @@ import type {
   HarnessBackend,
   HarnessConfig,
   HarnessPackageSource,
+  HarnessRenderer,
   HarnessScenario,
 } from './test-contract.ts';
 export type { CopcTestContract } from './test-contract.ts';
@@ -26,6 +27,110 @@ export {
 export * from './fixtures.ts';
 export * from './sources.ts';
 export * from './fixture-assertions.ts';
+
+export type HarnessStreamingSettings = {
+  maxNodes: number;
+  maxRenderedPoints: number;
+  maxDepth: number;
+  maxScreenSpaceError: number;
+  maxRenderDistanceMeters: number;
+};
+
+export const DEFAULT_HARNESS_STREAMING_SETTINGS: HarnessStreamingSettings = {
+  maxNodes: 8,
+  maxRenderedPoints: 1_000_000,
+  maxDepth: 8,
+  maxScreenSpaceError: 8,
+  maxRenderDistanceMeters: 20_000,
+};
+
+export const HARNESS_STREAMING_SETTING_LIMITS = {
+  maxNodes: { min: 1, max: 128, step: 1 },
+  maxRenderedPoints: { min: 1, max: 10_000_000, step: 1 },
+  maxDepth: { min: 0, max: 32, step: 1 },
+  maxScreenSpaceError: { min: 0.1, max: 64, step: 0.1 },
+  maxRenderDistanceMeters: { min: 1, max: 10_000_000, step: 1 },
+} as const satisfies Record<
+  keyof HarnessStreamingSettings,
+  { min: number; max: number; step: number }
+>;
+
+export const HARNESS_RENDER_DISTANCE_LIMITS = {
+  min: 150,
+  max: 10_000_000,
+  step: 50,
+} as const;
+
+export function defaultStreamingSettings(
+  renderer: HarnessRenderer,
+): HarnessStreamingSettings {
+  return {
+    ...DEFAULT_HARNESS_STREAMING_SETTINGS,
+    maxDepth: renderer === 'cesium' ? 8 : 6,
+  };
+}
+
+export function streamingSettingsFromSearch(
+  params: URLSearchParams,
+  renderer: HarnessRenderer = 'cesium',
+): HarnessStreamingSettings {
+  const defaults = defaultStreamingSettings(renderer);
+  const read = (
+    key: keyof HarnessStreamingSettings,
+    fallback: number,
+    integer: boolean,
+  ): number => {
+    const raw = params.get(key);
+    const parsed = raw === null || raw.trim() === '' ? fallback : Number(raw);
+    const limits = HARNESS_STREAMING_SETTING_LIMITS[key];
+    const value = Number.isFinite(parsed) ? parsed : fallback;
+    const constrained = Math.min(limits.max, Math.max(limits.min, value));
+    const stepped =
+      limits.min +
+      Math.round((constrained - limits.min) / limits.step) * limits.step;
+    return integer ? Math.round(stepped) : Number(stepped.toPrecision(12));
+  };
+  return {
+    maxNodes: read('maxNodes', defaults.maxNodes, true),
+    maxRenderedPoints: read(
+      'maxRenderedPoints',
+      defaults.maxRenderedPoints,
+      true,
+    ),
+    maxDepth: read('maxDepth', defaults.maxDepth, true),
+    maxScreenSpaceError: read(
+      'maxScreenSpaceError',
+      defaults.maxScreenSpaceError,
+      false,
+    ),
+    maxRenderDistanceMeters: read(
+      'maxRenderDistanceMeters',
+      defaults.maxRenderDistanceMeters,
+      true,
+    ),
+  };
+}
+
+export function renderDistanceFromSearch(
+  params: URLSearchParams,
+): number | undefined {
+  const raw = params.get('renderDistance');
+  if (raw === null || raw.trim() === '') return undefined;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return undefined;
+  const constrained = Math.min(
+    HARNESS_RENDER_DISTANCE_LIMITS.max,
+    Math.max(HARNESS_RENDER_DISTANCE_LIMITS.min, parsed),
+  );
+  return (
+    HARNESS_RENDER_DISTANCE_LIMITS.min +
+    Math.round(
+      (constrained - HARNESS_RENDER_DISTANCE_LIMITS.min) /
+        HARNESS_RENDER_DISTANCE_LIMITS.step,
+    ) *
+      HARNESS_RENDER_DISTANCE_LIMITS.step
+  );
+}
 
 export const DEFAULT_PACKAGE_VERSION = '0.5.0';
 

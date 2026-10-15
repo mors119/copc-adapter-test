@@ -3,7 +3,10 @@ import type {
   CopcCesiumLayer,
   CopcSourceProbeResult,
 } from '@frillab/copc-adapter';
-import type { HarnessView } from '@copc-test/core';
+import {
+  HARNESS_RENDER_DISTANCE_LIMITS,
+  type HarnessView,
+} from '@copc-test/core';
 import type { RendererColorMode, RendererOptions, TestRenderer } from './types';
 
 type ColorMode = RendererColorMode;
@@ -224,12 +227,12 @@ export function mountCesiumRenderer(
         backend: options.backend,
         colorMode: candidateColorMode,
         pointSize: 3,
-        maxRenderedPoints: 1_000_000,
+        maxRenderedPoints: options.streaming.maxRenderedPoints,
         streaming: {
-          maxNodes: 8,
-          maxDepth: 8,
-          maxScreenSpaceError: 8,
-          maxRenderDistanceMeters: 20_000,
+          maxNodes: options.streaming.maxNodes,
+          maxDepth: options.streaming.maxDepth,
+          maxScreenSpaceError: options.streaming.maxScreenSpaceError,
+          maxRenderDistanceMeters: options.streaming.maxRenderDistanceMeters,
         },
         debug: true,
         onPointPicked: (point) => {
@@ -286,7 +289,13 @@ export function mountCesiumRenderer(
           colorMode = committedColorMode;
           if (pendingLayer === candidate) pendingLayer = undefined;
           pickedPoint = undefined;
-          frameViewerToLayer(cesiumModule!, currentViewer, layer);
+          frameViewerToLayer(
+            cesiumModule!,
+            currentViewer,
+            layer,
+            'overview',
+            options.renderDistance,
+          );
           previousLayer?.destroy();
           committed = true;
           options.onAttached();
@@ -334,7 +343,13 @@ export function mountCesiumRenderer(
       if (!viewer || !layer || disposed) return;
       if (!cesiumModule)
         throw new Error('Cesium module is not available for camera framing.');
-      frameViewerToLayer(cesiumModule, viewer, layer, view);
+      frameViewerToLayer(
+        cesiumModule,
+        viewer,
+        layer,
+        view,
+        options.renderDistance,
+      );
       options.onSnapshot(snapshotOf(layer));
     },
     async setSource(sourceUrl, sourceKind, candidateColorMode): Promise<void> {
@@ -374,16 +389,21 @@ function frameViewerToLayer(
   viewer: CesiumTypes.Viewer,
   layer: CopcCesiumLayer,
   view: Exclude<HarnessView, 'visual'> = 'overview',
+  renderDistance?: number,
 ): void {
   const sphere = getRenderedSphere(Cesium, viewer);
   if (!sphere) throw new Error('Cesium has no rendered COPC points to frame.');
+  const viewScale = view === 'near' ? 0.5 : view === 'far' ? 2 : 1;
+  const fittedRange =
+    sphere.radius * (view === 'near' ? 2 : view === 'far' ? 8 : 4);
   const range = Math.max(
-    sphere.radius * (view === 'near' ? 2 : view === 'far' ? 8 : 4),
-    150,
+    renderDistance === undefined ? fittedRange : renderDistance * viewScale,
+    HARNESS_RENDER_DISTANCE_LIMITS.min,
   );
+  const pitch = view === 'overview' ? -Math.PI / 2 : -Math.PI / 4;
   viewer.camera.viewBoundingSphere(
     sphere,
-    new Cesium.HeadingPitchRange(0, -Math.PI / 3, range),
+    new Cesium.HeadingPitchRange(0, pitch, range),
   );
   viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
   viewer.scene.requestRender();

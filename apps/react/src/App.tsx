@@ -13,8 +13,10 @@ import {
   createHarnessConfig,
   createTestContract,
   loadFixtureCatalog,
+  renderDistanceFromSearch,
   resolveCopcSourceSelection,
   sourceSelectionFromSearch,
+  streamingSettingsFromSearch,
   type FixtureCatalogEntry,
   type HarnessRenderer,
   type HarnessView,
@@ -41,6 +43,8 @@ const initialRenderer = availableRenderers.includes(
   ? (requestedRenderer as HarnessRenderer)
   : 'cesium';
 const initialFixtureId = sourceSelectionFromSearch(params);
+const initialStreaming = streamingSettingsFromSearch(params, initialRenderer);
+const initialRenderDistance = renderDistanceFromSearch(params);
 const initialSource = resolveCopcSourceSelection(initialFixtureId);
 const initialConfig = createHarnessConfig(
   {
@@ -65,6 +69,8 @@ export function App(): ReactNode {
     renderer: initialRenderer,
     backend: initialConfig.backend,
     fixtureId: initialFixtureId,
+    streaming: initialStreaming,
+    renderDistance: initialRenderDistance,
   });
   const [status, setStatus] = useState<PanelState['status']>('idle');
   const [snapshot, setSnapshot] = useState<unknown>();
@@ -93,7 +99,11 @@ export function App(): ReactNode {
     [selection, fixtureUrl],
   );
   const [panelState, setPanelState] = useState<PanelState>(() =>
-    panelStateFromConfig(initialConfig, 'react', initialFixtureId),
+    ({
+      ...panelStateFromConfig(initialConfig, 'react', initialFixtureId),
+      streaming: initialStreaming,
+      renderDistance: initialRenderDistance,
+    }),
   );
 
   useEffect(
@@ -211,6 +221,8 @@ export function App(): ReactNode {
       sourceKind: source.kind,
       colorMode: colorModeRef.current,
       backend: selection.backend,
+      streaming: selection.streaming,
+      renderDistance: selection.renderDistance,
       cesiumIonToken:
         selection.renderer === 'cesium'
           ? import.meta.env.VITE_CESIUM_ION_TOKEN
@@ -252,6 +264,8 @@ export function App(): ReactNode {
   }, [
     selection.renderer,
     selection.backend,
+    selection.streaming,
+    selection.renderDistance,
     fixtureUrl,
     source.kind,
     reloadKey,
@@ -307,7 +321,10 @@ export function App(): ReactNode {
       if (
         next.renderer === selection.renderer &&
         next.backend === selection.backend &&
-        next.fixtureId === selection.fixtureId
+        next.fixtureId === selection.fixtureId &&
+        JSON.stringify(next.streaming) ===
+          JSON.stringify(selection.streaming) &&
+        next.renderDistance === selection.renderDistance
       ) {
         setReloadKey((value) => value + 1);
       }
@@ -363,6 +380,8 @@ export function App(): ReactNode {
           <R3FPointCloud
             fixtureUrl={fixtureUrl}
             backend={selection.backend}
+            streaming={selection.streaming}
+            renderDistance={selection.renderDistance}
             onStatus={onStatus}
             onSnapshot={onSnapshot}
             onAttached={onAttached}
@@ -390,6 +409,8 @@ export function App(): ReactNode {
 type R3FPointCloudProps = {
   fixtureUrl: string;
   backend: PanelSelection['backend'];
+  streaming: PanelSelection['streaming'];
+  renderDistance?: number;
   onStatus: (status: RendererStatus, error?: string) => void;
   onSnapshot: (snapshot: unknown) => void;
   onAttached: () => void;
@@ -399,6 +420,8 @@ type R3FPointCloudProps = {
 function R3FPointCloud({
   fixtureUrl,
   backend,
+  streaming,
+  renderDistance,
   onStatus,
   onSnapshot,
   onAttached,
@@ -427,12 +450,12 @@ function R3FPointCloud({
         backend,
         colorMode: 'elevation',
         pointSize: 3,
-        maxRenderedPoints: 1_000_000,
+        maxRenderedPoints: streaming.maxRenderedPoints,
         streaming: {
-          maxNodes: 8,
-          maxDepth: 6,
-          maxScreenSpaceError: 8,
-          maxRenderDistanceMeters: 20_000,
+          maxNodes: streaming.maxNodes,
+          maxDepth: streaming.maxDepth,
+          maxScreenSpaceError: streaming.maxScreenSpaceError,
+          maxRenderDistanceMeters: streaming.maxRenderDistanceMeters,
         },
         debug: true,
       });
@@ -450,7 +473,7 @@ function R3FPointCloud({
       if (disposed) return;
       await current.update();
       if (disposed) return;
-      if (!fitR3FCamera(current, camera, controls.target))
+      if (!fitR3FCamera(current, camera, controls.target, renderDistance))
         throw new Error('COPC loaded, but R3F rendered no points.');
       controls.update();
       await current.update();
@@ -463,13 +486,14 @@ function R3FPointCloud({
       setView: async (view) => {
         await ready;
         if (!layer || !controls || disposed) return;
-        if (view === 'overview') fitR3FCamera(layer, camera, controls.target);
-        else
+        if (!fitR3FCamera(layer, camera, controls.target, renderDistance))
+          return;
+        if (view !== 'overview')
           camera.position.copy(controls.target).add(
             camera.position
               .clone()
               .sub(controls.target)
-              .multiplyScalar(view === 'near' ? 0.65 : 1.5),
+              .multiplyScalar(view === 'near' ? 0.5 : 2),
           );
         controls.update();
         await layer.update();
@@ -510,6 +534,8 @@ function R3FPointCloud({
     scene,
     fixtureUrl,
     backend,
+    streaming,
+    renderDistance,
     onStatus,
     onSnapshot,
     onAttached,
@@ -523,22 +549,26 @@ function fitR3FCamera(
   layer: import('@frillab/copc-adapter/three').CopcThreeLayer,
   camera: THREE.Camera,
   target: THREE.Vector3,
+  renderDistance?: number,
 ): boolean {
   const bounds = new THREE.Box3().setFromObject(layer.getRoot());
   if (bounds.isEmpty()) return false;
   const center = bounds.getCenter(new THREE.Vector3());
   const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, 10);
-  camera.position.set(
-    center.x + radius * 1.55,
-    center.y - radius * 1.55,
-    center.z + radius * 0.95,
+  const offset = new THREE.Vector3(
+    radius * 1.55,
+    -radius * 1.55,
+    radius * 0.95,
   );
+  if (renderDistance !== undefined)
+    offset.setLength(renderDistance);
+  camera.position.copy(center).add(offset);
   camera.lookAt(center);
   target.copy(center);
   camera.updateMatrixWorld(true);
   if (camera instanceof THREE.PerspectiveCamera) {
     camera.near = Math.max(radius / 10_000, 0.1);
-    camera.far = Math.max(radius * 12, 20_000);
+    camera.far = Math.max(radius * 12, (renderDistance ?? 0) * 2, 20_000);
     camera.updateProjectionMatrix();
   }
   return true;

@@ -20,17 +20,29 @@ export const REMOTE_COPC_SOURCES: readonly RemoteCopcSource[] = [
     id: 'autzen',
     name: 'Autzen Stadium',
     url: 'https://data.pointcloud.org/autzen/autzen-classified.copc.laz',
-    description: 'Classified 2010 airborne lidar survey over Autzen Stadium, Oregon.',
+    description:
+      'Classified 2010 airborne lidar survey over Autzen Stadium, Oregon.',
     approximateSize: '81 MB',
-    expectedCapabilities: { range: true, rgb: true, intensity: true, classification: true },
+    expectedCapabilities: {
+      range: true,
+      rgb: true,
+      intensity: true,
+      classification: true,
+    },
   },
   {
     id: 'chicago-downtown',
     name: 'Chicago Downtown',
     url: 'https://data.pointcloud.org/chicago-downtown/chicago-downtown.copc.laz',
-    description: 'Downtown Chicago airborne lidar; a geographically distinct source-switch target.',
+    description:
+      'Downtown Chicago airborne lidar; a geographically distinct source-switch target.',
     approximateSize: '204 MB',
-    expectedCapabilities: { range: true, rgb: false, intensity: true, classification: true },
+    expectedCapabilities: {
+      range: true,
+      rgb: false,
+      intensity: true,
+      classification: true,
+    },
   },
 ];
 
@@ -48,21 +60,38 @@ export type ResolvedCopcSource = {
 };
 
 /** Resolve the shared panel's remote, fixture, or custom-URL selection. */
-export function resolveCopcSourceSelection(selection: string): ResolvedCopcSource {
+export function resolveCopcSourceSelection(
+  selection: string,
+): ResolvedCopcSource {
   if (selection.startsWith('remote:')) {
     const id = selection.slice('remote:'.length);
     const remote = REMOTE_COPC_SOURCES.find((source) => source.id === id);
     if (!remote) throw new Error(`Unknown remote COPC source: ${id}`);
-    return { id: remote.id, name: remote.name, url: remote.url, kind: 'remote', remote };
+    return {
+      id: remote.id,
+      name: remote.name,
+      url: remote.url,
+      kind: 'remote',
+      remote,
+    };
   }
   if (selection.startsWith('custom:')) {
     const url = selection.slice('custom:'.length);
     let parsed: URL;
-    try { parsed = new URL(url); } catch { throw new Error('Enter a valid absolute HTTP or HTTPS COPC URL.'); }
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error('Enter a valid absolute HTTP or HTTPS COPC URL.');
+    }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       throw new Error('Custom COPC URLs must use HTTP or HTTPS.');
     }
-    return { id: 'custom', name: 'Custom URL', url: parsed.href, kind: 'custom-remote' };
+    return {
+      id: 'custom',
+      name: 'Custom URL',
+      url: parsed.href,
+      kind: 'custom-remote',
+    };
   }
   return {
     id: selection,
@@ -76,7 +105,8 @@ export function resolveCopcSourceSelection(selection: string): ResolvedCopcSourc
 export function sourceSelectionFromSearch(params: URLSearchParams): string {
   const sourceId = params.get('sourceId');
   if (sourceId) {
-    if (sourceId.startsWith('remote:') || sourceId.startsWith('custom:')) return sourceId;
+    if (sourceId.startsWith('remote:') || sourceId.startsWith('custom:'))
+      return sourceId;
     return `remote:${sourceId}`;
   }
   return params.get('fixtureId') ?? DEFAULT_SOURCE_SELECTION;

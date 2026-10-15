@@ -20,8 +20,13 @@ export const test = base.extend({
       if (message.type() === 'error') errors.push(`console: ${message.text()}`);
     });
     await use(page);
-    const unexpected = errors.filter((error) => !expectedErrors.some((pattern) => pattern.test(error)));
-    expect(unexpected, 'unexpected browser console and uncaught errors').toEqual([]);
+    const unexpected = errors.filter(
+      (error) => !expectedErrors.some((pattern) => pattern.test(error)),
+    );
+    expect(
+      unexpected,
+      'unexpected browser console and uncaught errors',
+    ).toEqual([]);
   },
 });
 
@@ -29,26 +34,42 @@ export { expect };
 
 export function allowBrowserConsoleError(page, pattern) {
   const expectedErrors = expectedErrorsByPage.get(page);
-  if (!expectedErrors) throw new Error('The test page is not using the shared browser error collector.');
+  if (!expectedErrors)
+    throw new Error(
+      'The test page is not using the shared browser error collector.',
+    );
   expectedErrors.push(pattern);
 }
 
 export async function expectBrowserConsoleError(page, pattern) {
   const expectedErrors = expectedErrorsByPage.get(page);
   const errors = browserErrorsByPage.get(page);
-  if (!expectedErrors || !errors) throw new Error('The test page is not using the shared browser error collector.');
+  if (!expectedErrors || !errors)
+    throw new Error(
+      'The test page is not using the shared browser error collector.',
+    );
   expectedErrors.push(pattern);
-  await expect.poll(() => errors.filter((error) => pattern.test(error)).length).toBeGreaterThan(0);
+  await expect
+    .poll(() => errors.filter((error) => pattern.test(error)).length)
+    .toBeGreaterThan(0);
 }
 
-export async function openHarness(page, host, renderer, backend = 'copc-js', fixture = 'small-valid-copc') {
-  const path = host === 'next' ? `/${renderer === 'three' ? 'three' : 'cesium'}` : '/';
+export async function openHarness(
+  page,
+  host,
+  renderer,
+  backend = 'copc-js',
+  fixture = 'small-valid-copc',
+) {
+  const path =
+    host === 'next' ? `/${renderer === 'three' ? 'three' : 'cesium'}` : '/';
   const query = new URLSearchParams({ renderer, backend, fixtureId: fixture });
   await page.goto(`${origins[host]}${path}?${query}`);
-  await expect.poll(
-    () => page.evaluate(() => window.__COPC_TEST__?.result.status),
-    { timeout: 60_000 },
-  ).toBe('ready');
+  await expect
+    .poll(() => page.evaluate(() => window.__COPC_TEST__?.result.status), {
+      timeout: 60_000,
+    })
+    .toBe('ready');
   const result = await page.evaluate(() => window.__COPC_TEST__.getResult());
   expect(result.config.host).toBe(host);
   expect(result.config.renderer).toBe(renderer);

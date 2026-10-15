@@ -49,8 +49,14 @@ test('fails deterministically when multiple matching tarballs exist', async () =
       resolveLocalAdapterTarball({ tarball: '', directory, projectRoot }),
       (error) => {
         assert.match(error.message, /Multiple local adapter tarballs found/);
-        assert.ok(error.message.indexOf('- frillab-copc-adapter-0.5.0-1.tgz') < error.message.indexOf('- frillab-copc-adapter-0.5.0.tgz'));
-        assert.match(error.message, /COPC_ADAPTER_TARBALL=\/path\/to\/artifact\.tgz npm run bootstrap:tarball/);
+        assert.ok(
+          error.message.indexOf('- frillab-copc-adapter-0.5.0-1.tgz') <
+            error.message.indexOf('- frillab-copc-adapter-0.5.0.tgz'),
+        );
+        assert.match(
+          error.message,
+          /COPC_ADAPTER_TARBALL=\/path\/to\/artifact\.tgz npm run bootstrap:tarball/,
+        );
         return true;
       },
     );

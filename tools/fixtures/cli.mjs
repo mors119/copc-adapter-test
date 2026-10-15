@@ -25,7 +25,9 @@ function hasFlag(name) {
 
 function paths() {
   const root = resolve(process.env.COPC_FIXTURE_ROOT ?? DEFAULT_FIXTURE_ROOT);
-  const catalogPath = resolve(process.env.COPC_FIXTURE_CATALOG ?? DEFAULT_FIXTURE_CATALOG);
+  const catalogPath = resolve(
+    process.env.COPC_FIXTURE_CATALOG ?? DEFAULT_FIXTURE_CATALOG,
+  );
   return { root, catalogPath };
 }
 
@@ -39,17 +41,27 @@ function selectFixtures(catalog) {
   const candidates = hasFlag('--all')
     ? catalog.fixtures
     : requested.length === 0
-      ? [catalog.fixtures.find((fixture) => fixture.id === catalog.defaultFixtureId)]
+      ? [
+          catalog.fixtures.find(
+            (fixture) => fixture.id === catalog.defaultFixtureId,
+          ),
+        ]
       : requested.map((id) => {
-        const fixture = catalog.fixtures.find((candidate) => candidate.id === id);
-        if (!fixture) throw new Error(`Unknown fixture ID "${id}".`);
-        return fixture;
-      });
+          const fixture = catalog.fixtures.find(
+            (candidate) => candidate.id === id,
+          );
+          if (!fixture) throw new Error(`Unknown fixture ID "${id}".`);
+          return fixture;
+        });
 
-  const gaps = candidates.filter((fixture) => fixture?.coverage?.status === 'gap');
+  const gaps = candidates.filter(
+    (fixture) => fixture?.coverage?.status === 'gap',
+  );
   if (gaps.length > 0 && !hasFlag('--include-gaps')) {
     if (requested.length > 0) {
-      throw new Error(`${gaps.map((fixture) => fixture.id).join(', ')} is a documented fixture gap. Use --include-gaps only to attempt it explicitly.`);
+      throw new Error(
+        `${gaps.map((fixture) => fixture.id).join(', ')} is a documented fixture gap. Use --include-gaps only to attempt it explicitly.`,
+      );
     }
     return candidates.filter((fixture) => fixture?.coverage?.status !== 'gap');
   }
@@ -75,11 +87,15 @@ async function verifyFixtureFile(fixture, path) {
   const file = await stat(path);
   if (!file.isFile()) throw new Error(`${path} is not a file.`);
   if (fixture.sizeBytes && file.size !== fixture.sizeBytes) {
-    throw new Error(`size mismatch (expected ${fixture.sizeBytes}, received ${file.size})`);
+    throw new Error(
+      `size mismatch (expected ${fixture.sizeBytes}, received ${file.size})`,
+    );
   }
   const digest = await sha256(path);
   if (fixture.checksum.value && fixture.checksum.value !== digest) {
-    throw new Error(`checksum mismatch (expected ${fixture.checksum.value}, received ${digest})`);
+    throw new Error(
+      `checksum mismatch (expected ${fixture.checksum.value}, received ${digest})`,
+    );
   }
   return digest;
 }
@@ -87,14 +103,17 @@ async function verifyFixtureFile(fixture, path) {
 async function fetchFixture(fixture, force = false) {
   const { root } = paths();
   const destination = resolve(root, fixture.cachePath);
-  if (!destination.startsWith(`${root}${sep}`)) throw new Error(`Unsafe cache path for ${fixture.id}.`);
-  if (!force && await isFile(destination)) {
+  if (!destination.startsWith(`${root}${sep}`))
+    throw new Error(`Unsafe cache path for ${fixture.id}.`);
+  if (!force && (await isFile(destination))) {
     try {
       const digest = await verifyFixtureFile(fixture, destination);
       console.log(`${fixture.id}: cached and verified (${digest})`);
       return destination;
     } catch (error) {
-      console.warn(`${fixture.id}: cached file failed verification (${error.message}); downloading again.`);
+      console.warn(
+        `${fixture.id}: cached file failed verification (${error.message}); downloading again.`,
+      );
     }
   }
 
@@ -103,8 +122,12 @@ async function fetchFixture(fixture, force = false) {
   try {
     console.log(`${fixture.id}: downloading ${fixture.source.url}`);
     const response = await fetch(fixture.source.url, { redirect: 'follow' });
-    if (!response.ok || !response.body) throw new Error(`${fixture.id}: download failed (${response.status}).`);
-    await pipeline(Readable.fromWeb(response.body), createWriteStream(temporary));
+    if (!response.ok || !response.body)
+      throw new Error(`${fixture.id}: download failed (${response.status}).`);
+    await pipeline(
+      Readable.fromWeb(response.body),
+      createWriteStream(temporary),
+    );
     const digest = await verifyFixtureFile(fixture, temporary);
     await rename(temporary, destination);
     console.log(`${fixture.id}: cached and verified (${digest})`);
@@ -120,12 +143,18 @@ async function listFixtures() {
   const { root } = paths();
   for (const fixture of catalog.fixtures) {
     const cached = await isFile(resolve(root, fixture.cachePath));
-    console.log(`${fixture.id}${fixture.id === catalog.defaultFixtureId ? ' (default)' : ''}`);
+    console.log(
+      `${fixture.id}${fixture.id === catalog.defaultFixtureId ? ' (default)' : ''}`,
+    );
     console.log(`  ${fixture.title}`);
     console.log(`  capabilities: ${fixture.capabilities.join(', ')}`);
-    console.log(`  coverage: ${fixture.coverage?.status ?? 'covered'}${fixture.coverage?.gapReason ? ` (${fixture.coverage.gapReason})` : ''}`);
+    console.log(
+      `  coverage: ${fixture.coverage?.status ?? 'covered'}${fixture.coverage?.gapReason ? ` (${fixture.coverage.gapReason})` : ''}`,
+    );
     if (fixture.sizeBytes) console.log(`  size: ${fixture.sizeBytes} bytes`);
-    console.log(`  cache: ${cached ? 'ready' : 'missing'} (${fixture.cachePath})`);
+    console.log(
+      `  cache: ${cached ? 'ready' : 'missing'} (${fixture.cachePath})`,
+    );
     console.log(`  source: ${fixture.source.url}`);
   }
 }
@@ -139,7 +168,9 @@ async function verifyFixtures() {
     try {
       const digest = await verifyFixtureFile(fixture, path);
       if (!fixture.checksum.value) {
-        console.log(`${fixture.id}: ${digest} (no publisher checksum recorded)`);
+        console.log(
+          `${fixture.id}: ${digest} (no publisher checksum recorded)`,
+        );
       } else {
         console.log(`${fixture.id}: size and checksum OK (${digest})`);
       }
@@ -148,20 +179,27 @@ async function verifyFixtures() {
       failures += 1;
     }
   }
-  if (failures > 0 || (hasFlag('--strict') && selectFixtures(catalog).some((fixture) => !fixture.checksum.value))) {
+  if (
+    failures > 0 ||
+    (hasFlag('--strict') &&
+      selectFixtures(catalog).some((fixture) => !fixture.checksum.value))
+  ) {
     process.exitCode = 1;
   }
 }
 
 async function cleanFixtures() {
   const { root } = paths();
-  if (root.split(sep).at(-1) !== 'copc-fixtures') throw new Error(`Refusing to clean unexpected fixture root: ${root}`);
+  if (root.split(sep).at(-1) !== 'copc-fixtures')
+    throw new Error(`Refusing to clean unexpected fixture root: ${root}`);
   await rm(root, { recursive: true, force: true });
   console.log(`Removed downloaded fixtures from ${root}`);
 }
 
 async function serveFixtures() {
-  const port = Number(option('--port') ?? process.env.COPC_FIXTURE_PORT ?? DEFAULT_FIXTURE_PORT);
+  const port = Number(
+    option('--port') ?? process.env.COPC_FIXTURE_PORT ?? DEFAULT_FIXTURE_PORT,
+  );
   const host = option('--host') ?? process.env.COPC_FIXTURE_HOST ?? '127.0.0.1';
   const server = startFixtureHttpServer({ port, host });
   await new Promise((resolvePromise, reject) => {
@@ -179,7 +217,8 @@ if (command === 'list') {
   await listFixtures();
 } else if (command === 'fetch') {
   const catalog = readCatalog();
-  for (const fixture of selectFixtures(catalog)) await fetchFixture(fixture, hasFlag('--force'));
+  for (const fixture of selectFixtures(catalog))
+    await fetchFixture(fixture, hasFlag('--force'));
 } else if (command === 'verify') {
   await verifyFixtures();
 } else if (command === 'serve') {
@@ -187,5 +226,7 @@ if (command === 'list') {
 } else if (command === 'clean') {
   await cleanFixtures();
 } else {
-  throw new Error(`Unknown fixture command "${command}". Use list, fetch, verify, serve, or clean.`);
+  throw new Error(
+    `Unknown fixture command "${command}". Use list, fetch, verify, serve, or clean.`,
+  );
 }

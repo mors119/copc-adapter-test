@@ -3,38 +3,57 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { FixtureServer, parseByteRange, type FixtureCatalog } from '../src/index.ts';
+import {
+  FixtureServer,
+  parseByteRange,
+  type FixtureCatalog,
+} from '../src/index.ts';
 
 type FixtureResult = NonNullable<Awaited<ReturnType<FixtureServer['handle']>>>;
 
-async function bodyText(body: NonNullable<FixtureResult['body']>): Promise<string> {
+async function bodyText(
+  body: NonNullable<FixtureResult['body']>,
+): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of body) chunks.push(Buffer.from(chunk));
   return Buffer.concat(chunks).toString('utf8');
 }
 
-async function createServer(options: ConstructorParameters<typeof FixtureServer>[0] = {}) {
+async function createServer(
+  options: ConstructorParameters<typeof FixtureServer>[0] = {},
+) {
   const root = await mkdtemp(join(tmpdir(), 'copc-fixture-server-'));
   const catalogPath = join(root, 'catalog.json');
   const fixturePath = join(root, 'fixture.copc.laz');
   const catalog: FixtureCatalog = {
     version: 1,
     defaultFixtureId: 'test-fixture',
-    fixtures: [{
-      id: 'test-fixture',
-      title: 'Test fixture',
-      filename: 'fixture.copc.laz',
-      capabilities: ['valid-copc'],
-      source: { url: 'https://example.test/fixture.copc.laz', provenance: 'test', license: 'MIT' },
-      checksum: { algorithm: 'sha256', value: null },
-      cachePath: 'fixture.copc.laz',
-    }],
+    fixtures: [
+      {
+        id: 'test-fixture',
+        title: 'Test fixture',
+        filename: 'fixture.copc.laz',
+        capabilities: ['valid-copc'],
+        source: {
+          url: 'https://example.test/fixture.copc.laz',
+          provenance: 'test',
+          license: 'MIT',
+        },
+        checksum: { algorithm: 'sha256', value: null },
+        cachePath: 'fixture.copc.laz',
+      },
+    ],
   };
   await writeFile(fixturePath, '0123456789');
   await writeFile(catalogPath, JSON.stringify(catalog));
   return {
     root,
-    server: new FixtureServer({ rootDir: root, catalogPath, corsOrigin: 'https://test.example', ...options }),
+    server: new FixtureServer({
+      rootDir: root,
+      catalogPath,
+      corsOrigin: 'https://test.example',
+      ...options,
+    }),
   };
 }
 
@@ -56,7 +75,10 @@ test('serves a catalog fixture with range and CORS headers and records stats', a
     assert.ok(result);
     assert.equal(result.status, 206);
     assert.equal(result.headers['Content-Range'], 'bytes 2-5/10');
-    assert.equal(result.headers['Access-Control-Allow-Origin'], 'https://test.example');
+    assert.equal(
+      result.headers['Access-Control-Allow-Origin'],
+      'https://test.example',
+    );
     assert.equal(await bodyText(result.body!), '2345');
     assert.deepEqual(server.getStats().requestedRanges, ['bytes=2-5']);
     assert.equal(server.getStats().bytesServed, 4);

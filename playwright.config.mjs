@@ -19,23 +19,35 @@ const webServer = [
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
-  ...(!remote ? [{
-    command: 'npm run dev:react',
-    url: 'http://127.0.0.1:4174',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  }] : []),
-  ...(full ? [{
-    command: 'npm run start:next',
-    url: 'http://127.0.0.1:4175/cesium',
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-  }] : []),
+  ...(!remote
+    ? [
+        {
+          command: 'npm run dev:react',
+          url: 'http://127.0.0.1:4174',
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        },
+      ]
+    : []),
+  ...(full
+    ? [
+        {
+          command: 'npm run start:next',
+          url: 'http://127.0.0.1:4175/cesium',
+          reuseExistingServer: !process.env.CI,
+          timeout: 180_000,
+        },
+      ]
+    : []),
 ];
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: remote ? '**/remote-streaming.spec.mjs' : full ? '**/*.spec.mjs' : '**/runtime.spec.mjs',
+  testMatch: remote
+    ? '**/remote-streaming.spec.mjs'
+    : full
+      ? '**/*.spec.mjs'
+      : '**/runtime.spec.mjs',
   fullyParallel: false,
   workers: 1,
   timeout: 120_000,

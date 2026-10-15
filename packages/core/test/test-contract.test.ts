@@ -18,27 +18,30 @@ const config: HarnessConfig = {
 };
 
 test('normalizes adapter snapshots into the renderer-neutral diagnostics shape', () => {
-  assert.deepEqual(normalizeSnapshot({
-    lifecycle: 'ready',
-    backend: 'copc-js',
-    selectedNodeKeys: ['0/0-0-0-0'],
-    renderedNodeKeys: ['0/0-0-0-0'],
-    renderedPointCount: 42,
-    streamingUpdateCount: 3,
-    datasetUrl: config.fixtureUrl,
-    attached: true,
-  }), {
-    lifecycle: 'ready',
-    backend: 'copc-js',
-    datasetUrl: config.fixtureUrl,
-    attached: true,
-    selectedNodeKeys: ['0/0-0-0-0'],
-    renderedNodeKeys: ['0/0-0-0-0'],
-    renderedPointCount: 42,
-    streamingUpdateCount: 3,
-    metadataLoaded: true,
-    hierarchyLoaded: true,
-  });
+  assert.deepEqual(
+    normalizeSnapshot({
+      lifecycle: 'ready',
+      backend: 'copc-js',
+      selectedNodeKeys: ['0/0-0-0-0'],
+      renderedNodeKeys: ['0/0-0-0-0'],
+      renderedPointCount: 42,
+      streamingUpdateCount: 3,
+      datasetUrl: config.fixtureUrl,
+      attached: true,
+    }),
+    {
+      lifecycle: 'ready',
+      backend: 'copc-js',
+      datasetUrl: config.fixtureUrl,
+      attached: true,
+      selectedNodeKeys: ['0/0-0-0-0'],
+      renderedNodeKeys: ['0/0-0-0-0'],
+      renderedPointCount: 42,
+      streamingUpdateCount: 3,
+      metadataLoaded: true,
+      hierarchyLoaded: true,
+    },
+  );
 });
 
 test('publishes lifecycle, error, and config transitions through one contract', () => {
@@ -52,7 +55,11 @@ test('publishes lifecycle, error, and config transitions through one contract', 
   assert.deepEqual(contract.result.lifecycleCounts, { mounts: 1, unmounts: 1 });
 
   contract.markLoading();
-  contract.setSnapshot({ lifecycle: 'loading', renderedNodeKeys: [], selectedNodeKeys: [] });
+  contract.setSnapshot({
+    lifecycle: 'loading',
+    renderedNodeKeys: [],
+    selectedNodeKeys: [],
+  });
   assert.equal(contract.getResult().status, 'loading');
   assert.equal(contract.getResult().diagnostics.renderedNodeKeys.length, 0);
 
@@ -93,52 +100,77 @@ test('preserves backend error stage and code for external failure assertions', (
 });
 
 test('normalizes optional picking and cache diagnostics without exposing decoder internals', () => {
-  assert.deepEqual(normalizeSnapshot({
-    lifecycle: 'ready',
-    selectedPoint: {
-      index: 4,
-      nodeKey: '0/0-0-0-0',
-      position: [1, 2, 3],
-      attributes: { classification: 2, label: 'ground' },
+  assert.deepEqual(
+    normalizeSnapshot({
+      lifecycle: 'ready',
+      selectedPoint: {
+        index: 4,
+        nodeKey: '0/0-0-0-0',
+        position: [1, 2, 3],
+        attributes: { classification: 2, label: 'ground' },
+      },
+      pointCache: {
+        cachedNodeCount: 2,
+        currentCacheBytes: 4096,
+        cacheByteBudget: 8192,
+        evictionCount: 3,
+        bytesEvicted: 2048,
+      },
+    }),
+    {
+      backend: undefined,
+      lifecycle: 'ready',
+      datasetUrl: undefined,
+      attached: undefined,
+      selectedNodeKeys: [],
+      renderedNodeKeys: [],
+      renderedPointCount: undefined,
+      streamingUpdateCount: undefined,
+      metadataLoaded: true,
+      hierarchyLoaded: true,
+      selectedPoint: {
+        index: 4,
+        nodeKey: '0/0-0-0-0',
+        position: [1, 2, 3],
+        attributes: { classification: 2, label: 'ground' },
+      },
+      cache: {
+        loadedNodeCount: 2,
+        cacheBytes: 4096,
+        cacheBudgetBytes: 8192,
+        evictionCount: 3,
+        bytesEvicted: 2048,
+      },
     },
-    pointCache: {
-      cachedNodeCount: 2,
-      currentCacheBytes: 4096,
-      cacheByteBudget: 8192,
-      evictionCount: 3,
-      bytesEvicted: 2048,
-    },
-  }), {
-    backend: undefined,
-    lifecycle: 'ready',
-    datasetUrl: undefined,
-    attached: undefined,
-    selectedNodeKeys: [],
-    renderedNodeKeys: [],
-    renderedPointCount: undefined,
-    streamingUpdateCount: undefined,
-    metadataLoaded: true,
-    hierarchyLoaded: true,
-    selectedPoint: {
-      index: 4,
-      nodeKey: '0/0-0-0-0',
-      position: [1, 2, 3],
-      attributes: { classification: 2, label: 'ground' },
-    },
-    cache: {
-      loadedNodeCount: 2,
-      cacheBytes: 4096,
-      cacheBudgetBytes: 8192,
-      evictionCount: 3,
-      bytesEvicted: 2048,
-    },
-  });
+  );
 });
 
 test('preserves public streaming performance, transition, and worker diagnostics', () => {
-  assert.deepEqual(normalizeSnapshot({
-    lifecycle: 'ready',
-    performance: {
+  assert.deepEqual(
+    normalizeSnapshot({
+      lifecycle: 'ready',
+      performance: {
+        updateDurationMs: 12.5,
+        rangeFetchBytes: 4096,
+        decodeDurationMs: 3.25,
+        longestMainThreadBlockingSectionMs: 1.75,
+        minimumFrontierExceedsPointBudget: false,
+        visibleLevelRange: { min: 0, max: 4 },
+        cameraDirection: [0, 1, 0],
+        privateDecoderCounter: 99,
+      },
+      transition: {
+        activeReplacementGroupCount: 0,
+        staleReplacementCancellationCount: 2,
+      },
+      worker: {
+        workerCount: 2,
+        activeCount: 1,
+        queuedCount: 0,
+        completedCount: 5,
+      },
+    }).performance,
+    {
       updateDurationMs: 12.5,
       rangeFetchBytes: 4096,
       decodeDurationMs: 3.25,
@@ -146,48 +178,58 @@ test('preserves public streaming performance, transition, and worker diagnostics
       minimumFrontierExceedsPointBudget: false,
       visibleLevelRange: { min: 0, max: 4 },
       cameraDirection: [0, 1, 0],
-      privateDecoderCounter: 99,
     },
-    transition: {
+  );
+  assert.deepEqual(
+    normalizeSnapshot({
+      transition: {
+        activeReplacementGroupCount: 0,
+        staleReplacementCancellationCount: 2,
+      },
+      worker: {
+        workerCount: 2,
+        activeCount: 1,
+        queuedCount: 0,
+        completedCount: 5,
+      },
+    }).transition,
+    {
       activeReplacementGroupCount: 0,
       staleReplacementCancellationCount: 2,
     },
-    worker: {
+  );
+  assert.deepEqual(
+    normalizeSnapshot({
+      transition: { activeReplacementGroupCount: 0 },
+      worker: {
+        workerCount: 2,
+        activeCount: 1,
+        queuedCount: 0,
+        completedCount: 5,
+      },
+    }).worker,
+    {
       workerCount: 2,
       activeCount: 1,
       queuedCount: 0,
       completedCount: 5,
     },
-  }).performance, {
-    updateDurationMs: 12.5,
-    rangeFetchBytes: 4096,
-    decodeDurationMs: 3.25,
-    longestMainThreadBlockingSectionMs: 1.75,
-    minimumFrontierExceedsPointBudget: false,
-    visibleLevelRange: { min: 0, max: 4 },
-    cameraDirection: [0, 1, 0],
-  });
-  assert.deepEqual(normalizeSnapshot({
-    transition: { activeReplacementGroupCount: 0, staleReplacementCancellationCount: 2 },
-    worker: { workerCount: 2, activeCount: 1, queuedCount: 0, completedCount: 5 },
-  }).transition, {
-    activeReplacementGroupCount: 0,
-    staleReplacementCancellationCount: 2,
-  });
-  assert.deepEqual(normalizeSnapshot({
-    transition: { activeReplacementGroupCount: 0 },
-    worker: { workerCount: 2, activeCount: 1, queuedCount: 0, completedCount: 5 },
-  }).worker, {
-    workerCount: 2,
-    activeCount: 1,
-    queuedCount: 0,
-    completedCount: 5,
-  });
+  );
 });
 
 test('normalizes hierarchy request and cache counters without deriving false negatives', () => {
-  assert.deepEqual(normalizeSnapshot({
-    hierarchy: {
+  assert.deepEqual(
+    normalizeSnapshot({
+      hierarchy: {
+        requestCount: 1,
+        cacheHitCount: 5,
+        cacheMissCount: 1,
+        bytesFetched: 1024,
+        loadedPageCount: 1,
+        loadedEntryCount: 8,
+      },
+    }).hierarchy,
+    {
       requestCount: 1,
       cacheHitCount: 5,
       cacheMissCount: 1,
@@ -195,20 +237,15 @@ test('normalizes hierarchy request and cache counters without deriving false neg
       loadedPageCount: 1,
       loadedEntryCount: 8,
     },
-  }).hierarchy, {
-    requestCount: 1,
-    cacheHitCount: 5,
-    cacheMissCount: 1,
-    bytesFetched: 1024,
-    loadedPageCount: 1,
-    loadedEntryCount: 8,
-  });
+  );
 });
 
 test('keeps registered browser commands outside the serializable result', async () => {
   const contract = createTestContract(config);
   let invoked = false;
-  contract.registerCommand('reload', () => { invoked = true; });
+  contract.registerCommand('reload', () => {
+    invoked = true;
+  });
 
   assert.deepEqual(contract.getCapabilities(), ['reload']);
   await contract.commands.reload?.();

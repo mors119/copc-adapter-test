@@ -6,7 +6,12 @@ export type HarnessRenderer = 'cesium' | 'three' | 'r3f';
 export type HarnessBackend = 'copc-js' | 'rust';
 export type HarnessScenario = 'load-and-stream' | 'camera-stream' | 'static';
 export type HarnessPackageSource = 'checkout' | 'tarball' | 'npm';
-export type HarnessStatus = 'idle' | 'loading' | 'ready' | 'error' | 'destroyed';
+export type HarnessStatus =
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'error'
+  | 'destroyed';
 export type HarnessView = 'far' | 'near' | 'overview' | 'visual';
 
 export type HarnessSelectedPoint = {
@@ -226,7 +231,13 @@ export type HarnessCommandMap = {
   reload: () => void | Promise<void>;
   setView: (view: HarnessView) => void | Promise<void>;
   setColorMode: (mode: string) => void | Promise<void>;
-  pick: (x: number, y: number) => HarnessSelectedPoint | undefined | Promise<HarnessSelectedPoint | undefined>;
+  pick: (
+    x: number,
+    y: number,
+  ) =>
+    | HarnessSelectedPoint
+    | undefined
+    | Promise<HarnessSelectedPoint | undefined>;
   detach: () => void | Promise<void>;
   unload: () => void | Promise<void>;
   destroy: () => void | Promise<void>;
@@ -241,7 +252,10 @@ export type CopcTestContract = {
   setConfig(config: Partial<HarnessConfig>): void;
   setSnapshot(snapshot: unknown): void;
   setApiDiagnostics(diagnostics: Partial<HarnessApiDiagnostics>): void;
-  registerCommand<K extends keyof HarnessCommandMap>(name: K, command: HarnessCommandMap[K]): void;
+  registerCommand<K extends keyof HarnessCommandMap>(
+    name: K,
+    command: HarnessCommandMap[K],
+  ): void;
   unregisterCommand<K extends keyof HarnessCommandMap>(name: K): void;
   getCapabilities(): string[];
   readonly commands: Partial<HarnessCommandMap>;
@@ -273,19 +287,29 @@ function stringArray(value: unknown): string[] {
 function selectedPoint(value: unknown): HarnessSelectedPoint | undefined {
   if (!isRecord(value)) return undefined;
 
-  const position = Array.isArray(value.position) && value.position.length === 3
-    && value.position.every((item) => typeof item === 'number' && Number.isFinite(item))
-    ? value.position as [number, number, number]
-    : undefined;
+  const position =
+    Array.isArray(value.position) &&
+    value.position.length === 3 &&
+    value.position.every(
+      (item) => typeof item === 'number' && Number.isFinite(item),
+    )
+      ? (value.position as [number, number, number])
+      : undefined;
   const attributes = isRecord(value.attributes)
-    ? Object.fromEntries(
-      Object.entries(value.attributes).filter(([, item]) =>
-        typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean'),
-    ) as Record<string, string | number | boolean>
+    ? (Object.fromEntries(
+        Object.entries(value.attributes).filter(
+          ([, item]) =>
+            typeof item === 'string' ||
+            typeof item === 'number' ||
+            typeof item === 'boolean',
+        ),
+      ) as Record<string, string | number | boolean>)
     : undefined;
 
   return {
-    ...(finiteNumber(value.index) !== undefined ? { index: finiteNumber(value.index) } : {}),
+    ...(finiteNumber(value.index) !== undefined
+      ? { index: finiteNumber(value.index) }
+      : {}),
     ...(typeof value.nodeKey === 'string' ? { nodeKey: value.nodeKey } : {}),
     ...(position ? { position } : {}),
     ...(attributes ? { attributes } : {}),
@@ -315,10 +339,21 @@ function cacheDiagnostics(value: unknown): HarnessCacheDiagnostics | undefined {
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function hierarchyDiagnostics(value: unknown): HarnessHierarchyDiagnostics | undefined {
+function hierarchyDiagnostics(
+  value: unknown,
+): HarnessHierarchyDiagnostics | undefined {
   if (!isRecord(value)) return undefined;
   const result = Object.fromEntries(
-    (['requestCount', 'cacheHitCount', 'cacheMissCount', 'bytesFetched', 'loadedPageCount', 'loadedEntryCount'] as const).flatMap((field) => {
+    (
+      [
+        'requestCount',
+        'cacheHitCount',
+        'cacheMissCount',
+        'bytesFetched',
+        'loadedPageCount',
+        'loadedEntryCount',
+      ] as const
+    ).flatMap((field) => {
       const number = finiteNumber(value[field]);
       return number === undefined ? [] : [[field, number]];
     }),
@@ -375,13 +410,16 @@ const PERFORMANCE_NUMBER_FIELDS = [
 ] as const;
 
 function vector3(value: unknown): [number, number, number] | undefined {
-  return Array.isArray(value) && value.length === 3
-    && value.every((item) => finiteNumber(item) !== undefined)
-    ? value as [number, number, number]
+  return Array.isArray(value) &&
+    value.length === 3 &&
+    value.every((item) => finiteNumber(item) !== undefined)
+    ? (value as [number, number, number])
     : undefined;
 }
 
-function performanceDiagnostics(value: unknown): HarnessPerformanceDiagnostics | undefined {
+function performanceDiagnostics(
+  value: unknown,
+): HarnessPerformanceDiagnostics | undefined {
   if (!isRecord(value)) return undefined;
   const result = Object.fromEntries(
     PERFORMANCE_NUMBER_FIELDS.flatMap((field) => {
@@ -389,17 +427,21 @@ function performanceDiagnostics(value: unknown): HarnessPerformanceDiagnostics |
       return number === undefined ? [] : [[field, number]];
     }),
   ) as HarnessPerformanceDiagnostics;
-  for (const field of ['minimumFrontierExceedsNodeBudget', 'minimumFrontierExceedsPointBudget'] as const) {
+  for (const field of [
+    'minimumFrontierExceedsNodeBudget',
+    'minimumFrontierExceedsPointBudget',
+  ] as const) {
     if (typeof value[field] === 'boolean') result[field] = value[field];
   }
-  const levelRange = isRecord(value.visibleLevelRange)
-    && finiteNumber(value.visibleLevelRange.min) !== undefined
-    && finiteNumber(value.visibleLevelRange.max) !== undefined
-    ? {
-        min: finiteNumber(value.visibleLevelRange.min) as number,
-        max: finiteNumber(value.visibleLevelRange.max) as number,
-      }
-    : undefined;
+  const levelRange =
+    isRecord(value.visibleLevelRange) &&
+    finiteNumber(value.visibleLevelRange.min) !== undefined &&
+    finiteNumber(value.visibleLevelRange.max) !== undefined
+      ? {
+          min: finiteNumber(value.visibleLevelRange.min) as number,
+          max: finiteNumber(value.visibleLevelRange.max) as number,
+        }
+      : undefined;
   if (levelRange) result.visibleLevelRange = levelRange;
   const direction = vector3(value.cameraDirection);
   if (direction) result.cameraDirection = direction;
@@ -415,7 +457,9 @@ const TRANSITION_FIELDS = [
   'coarseNodesRetainedForCoverageCount',
 ] as const;
 
-function transitionDiagnostics(value: unknown): HarnessTransitionDiagnostics | undefined {
+function transitionDiagnostics(
+  value: unknown,
+): HarnessTransitionDiagnostics | undefined {
   if (!isRecord(value)) return undefined;
   const result = Object.fromEntries(
     TRANSITION_FIELDS.flatMap((field) => {
@@ -438,7 +482,9 @@ const WORKER_FIELDS = [
   'failedCount',
 ] as const;
 
-function workerDiagnostics(value: unknown): HarnessWorkerDiagnostics | undefined {
+function workerDiagnostics(
+  value: unknown,
+): HarnessWorkerDiagnostics | undefined {
   if (!isRecord(value)) return undefined;
   const result = Object.fromEntries(
     WORKER_FIELDS.flatMap((field) => {
@@ -450,23 +496,31 @@ function workerDiagnostics(value: unknown): HarnessWorkerDiagnostics | undefined
 }
 
 function finiteNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function apiDiagnostics(value: unknown): HarnessApiDiagnostics | undefined {
   if (!isRecord(value) || !isRecord(value.operations)) return undefined;
 
   const operation = (candidate: unknown): HarnessOperation | undefined => {
-    if (!isRecord(candidate)
-      || !['passed', 'unsupported', 'error'].includes(String(candidate.status))) {
+    if (
+      !isRecord(candidate) ||
+      !['passed', 'unsupported', 'error'].includes(String(candidate.status))
+    ) {
       return undefined;
     }
     return {
       status: candidate.status as HarnessOperationStatus,
-      ...(typeof candidate.message === 'string' ? { message: candidate.message } : {}),
+      ...(typeof candidate.message === 'string'
+        ? { message: candidate.message }
+        : {}),
     };
   };
-  const operationMap = (candidate: unknown): Record<string, HarnessOperation> => {
+  const operationMap = (
+    candidate: unknown,
+  ): Record<string, HarnessOperation> => {
     if (!isRecord(candidate)) return {};
     return Object.fromEntries(
       Object.entries(candidate).flatMap(([key, item]) => {
@@ -476,32 +530,49 @@ function apiDiagnostics(value: unknown): HarnessApiDiagnostics | undefined {
     );
   };
   const probes = isRecord(value.probes)
-    ? Object.fromEntries(
-      Object.entries(value.probes).flatMap(([key, item]) => {
-        if (!isRecord(item)
-          || typeof item.reachable !== 'boolean'
-          || !['boolean', 'unknown'].includes(typeof item.rangeSupported === 'boolean'
-            ? 'boolean'
-            : String(item.rangeSupported))
-          || !['boolean', 'unknown'].includes(typeof item.corsReadable === 'boolean'
-            ? 'boolean'
-            : String(item.corsReadable))
-          || !['boolean', 'unknown'].includes(typeof item.copcDetected === 'boolean'
-            ? 'boolean'
-            : String(item.copcDetected))) {
-          return [];
-        }
-        return [[key, {
-          reachable: item.reachable,
-          rangeSupported: item.rangeSupported as boolean | 'unknown',
-          corsReadable: item.corsReadable as boolean | 'unknown',
-          copcDetected: item.copcDetected as boolean | 'unknown',
-          ...(finiteNumber(item.status) !== undefined ? { status: finiteNumber(item.status) } : {}),
-          ...(finiteNumber(item.partialStatus) !== undefined ? { partialStatus: finiteNumber(item.partialStatus) } : {}),
-          warnings: stringArray(item.warnings),
-        } satisfies HarnessProbeResult]];
-      }),
-    ) as Record<string, HarnessProbeResult>
+    ? (Object.fromEntries(
+        Object.entries(value.probes).flatMap(([key, item]) => {
+          if (
+            !isRecord(item) ||
+            typeof item.reachable !== 'boolean' ||
+            !['boolean', 'unknown'].includes(
+              typeof item.rangeSupported === 'boolean'
+                ? 'boolean'
+                : String(item.rangeSupported),
+            ) ||
+            !['boolean', 'unknown'].includes(
+              typeof item.corsReadable === 'boolean'
+                ? 'boolean'
+                : String(item.corsReadable),
+            ) ||
+            !['boolean', 'unknown'].includes(
+              typeof item.copcDetected === 'boolean'
+                ? 'boolean'
+                : String(item.copcDetected),
+            )
+          ) {
+            return [];
+          }
+          return [
+            [
+              key,
+              {
+                reachable: item.reachable,
+                rangeSupported: item.rangeSupported as boolean | 'unknown',
+                corsReadable: item.corsReadable as boolean | 'unknown',
+                copcDetected: item.copcDetected as boolean | 'unknown',
+                ...(finiteNumber(item.status) !== undefined
+                  ? { status: finiteNumber(item.status) }
+                  : {}),
+                ...(finiteNumber(item.partialStatus) !== undefined
+                  ? { partialStatus: finiteNumber(item.partialStatus) }
+                  : {}),
+                warnings: stringArray(item.warnings),
+              } satisfies HarnessProbeResult,
+            ],
+          ];
+        }),
+      ) as Record<string, HarnessProbeResult>)
     : undefined;
 
   return {
@@ -509,29 +580,56 @@ function apiDiagnostics(value: unknown): HarnessApiDiagnostics | undefined {
       ? { entrypoints: stringArray(value.entrypoints) }
       : {}),
     operations: operationMap(value.operations),
-    ...(isRecord(value.colorModes) ? { colorModes: operationMap(value.colorModes) } : {}),
+    ...(isRecord(value.colorModes)
+      ? { colorModes: operationMap(value.colorModes) }
+      : {}),
     ...(probes ? { probes } : {}),
     ...(isRecord(value.metadata)
       ? {
           metadata: {
             ...(finiteNumber(value.metadata.pointCount) !== undefined
-              ? { pointCount: finiteNumber(value.metadata.pointCount) } : {}),
-            ...(typeof value.metadata.hasBounds === 'boolean' ? { hasBounds: value.metadata.hasBounds } : {}),
-            ...(typeof value.metadata.hasCrs === 'boolean' ? { hasCrs: value.metadata.hasCrs } : {}),
-            ...(typeof value.metadata.lasVersion === 'string' ? { lasVersion: value.metadata.lasVersion } : {}),
+              ? { pointCount: finiteNumber(value.metadata.pointCount) }
+              : {}),
+            ...(typeof value.metadata.hasBounds === 'boolean'
+              ? { hasBounds: value.metadata.hasBounds }
+              : {}),
+            ...(typeof value.metadata.hasCrs === 'boolean'
+              ? { hasCrs: value.metadata.hasCrs }
+              : {}),
+            ...(typeof value.metadata.lasVersion === 'string'
+              ? { lasVersion: value.metadata.lasVersion }
+              : {}),
             ...(finiteNumber(value.metadata.pointFormat) !== undefined
-              ? { pointFormat: finiteNumber(value.metadata.pointFormat) } : {}),
-            ...(typeof value.metadata.crsFamily === 'string'
-              && ['projected', 'geographic', 'unknown'].includes(value.metadata.crsFamily)
-              ? { crsFamily: value.metadata.crsFamily as 'projected' | 'geographic' | 'unknown' } : {}),
+              ? { pointFormat: finiteNumber(value.metadata.pointFormat) }
+              : {}),
+            ...(typeof value.metadata.crsFamily === 'string' &&
+            ['projected', 'geographic', 'unknown'].includes(
+              value.metadata.crsFamily,
+            )
+              ? {
+                  crsFamily: value.metadata.crsFamily as
+                    | 'projected'
+                    | 'geographic'
+                    | 'unknown',
+                }
+              : {}),
             ...(Array.isArray(value.metadata.wktVariants)
-              ? { wktVariants: stringArray(value.metadata.wktVariants) } : {}),
-            ...(Array.isArray(value.metadata.scale) && value.metadata.scale.length === 3
-              && value.metadata.scale.every((item) => finiteNumber(item) !== undefined)
-              ? { scale: value.metadata.scale as [number, number, number] } : {}),
-            ...(Array.isArray(value.metadata.offset) && value.metadata.offset.length === 3
-              && value.metadata.offset.every((item) => finiteNumber(item) !== undefined)
-              ? { offset: value.metadata.offset as [number, number, number] } : {}),
+              ? { wktVariants: stringArray(value.metadata.wktVariants) }
+              : {}),
+            ...(Array.isArray(value.metadata.scale) &&
+            value.metadata.scale.length === 3 &&
+            value.metadata.scale.every(
+              (item) => finiteNumber(item) !== undefined,
+            )
+              ? { scale: value.metadata.scale as [number, number, number] }
+              : {}),
+            ...(Array.isArray(value.metadata.offset) &&
+            value.metadata.offset.length === 3 &&
+            value.metadata.offset.every(
+              (item) => finiteNumber(item) !== undefined,
+            )
+              ? { offset: value.metadata.offset as [number, number, number] }
+              : {}),
           },
         }
       : {}),
@@ -539,28 +637,50 @@ function apiDiagnostics(value: unknown): HarnessApiDiagnostics | undefined {
       ? {
           hierarchy: {
             ...(finiteNumber(value.hierarchy.requestCount) !== undefined
-              ? { requestCount: finiteNumber(value.hierarchy.requestCount) } : {}),
+              ? { requestCount: finiteNumber(value.hierarchy.requestCount) }
+              : {}),
             ...(finiteNumber(value.hierarchy.cacheHitCount) !== undefined
-              ? { cacheHitCount: finiteNumber(value.hierarchy.cacheHitCount) } : {}),
+              ? { cacheHitCount: finiteNumber(value.hierarchy.cacheHitCount) }
+              : {}),
             ...(finiteNumber(value.hierarchy.cacheMissCount) !== undefined
-              ? { cacheMissCount: finiteNumber(value.hierarchy.cacheMissCount) } : {}),
+              ? { cacheMissCount: finiteNumber(value.hierarchy.cacheMissCount) }
+              : {}),
             ...(finiteNumber(value.hierarchy.bytesFetched) !== undefined
-              ? { bytesFetched: finiteNumber(value.hierarchy.bytesFetched) } : {}),
+              ? { bytesFetched: finiteNumber(value.hierarchy.bytesFetched) }
+              : {}),
             ...(finiteNumber(value.hierarchy.loadedPageCount) !== undefined
-              ? { loadedPageCount: finiteNumber(value.hierarchy.loadedPageCount) } : {}),
+              ? {
+                  loadedPageCount: finiteNumber(
+                    value.hierarchy.loadedPageCount,
+                  ),
+                }
+              : {}),
             ...(finiteNumber(value.hierarchy.loadedEntryCount) !== undefined
-              ? { loadedEntryCount: finiteNumber(value.hierarchy.loadedEntryCount) } : {}),
+              ? {
+                  loadedEntryCount: finiteNumber(
+                    value.hierarchy.loadedEntryCount,
+                  ),
+                }
+              : {}),
           },
         }
       : {}),
     ...(isRecord(value.streaming)
       ? {
           streaming: {
-            ...(typeof value.streaming.lifecycle === 'string' ? { lifecycle: value.streaming.lifecycle } : {}),
+            ...(typeof value.streaming.lifecycle === 'string'
+              ? { lifecycle: value.streaming.lifecycle }
+              : {}),
             ...(finiteNumber(value.streaming.updateCount) !== undefined
-              ? { updateCount: finiteNumber(value.streaming.updateCount) } : {}),
+              ? { updateCount: finiteNumber(value.streaming.updateCount) }
+              : {}),
             ...(finiteNumber(value.streaming.selectedNodeCount) !== undefined
-              ? { selectedNodeCount: finiteNumber(value.streaming.selectedNodeCount) } : {}),
+              ? {
+                  selectedNodeCount: finiteNumber(
+                    value.streaming.selectedNodeCount,
+                  ),
+                }
+              : {}),
           },
         }
       : {}),
@@ -571,14 +691,17 @@ function apiDiagnostics(value: unknown): HarnessApiDiagnostics | undefined {
 export function normalizeSnapshot(snapshot: unknown): HarnessDiagnostics {
   const source = isRecord(snapshot) ? snapshot : {};
   const metadata = isRecord(source.metadata) ? source.metadata : undefined;
-  const lifecycle = typeof source.lifecycle === 'string' ? source.lifecycle : undefined;
+  const lifecycle =
+    typeof source.lifecycle === 'string' ? source.lifecycle : undefined;
   const ready = lifecycle === 'ready';
 
   return {
     backend: typeof source.backend === 'string' ? source.backend : undefined,
     lifecycle,
-    datasetUrl: typeof source.datasetUrl === 'string' ? source.datasetUrl : undefined,
-    attached: typeof source.attached === 'boolean' ? source.attached : undefined,
+    datasetUrl:
+      typeof source.datasetUrl === 'string' ? source.datasetUrl : undefined,
+    attached:
+      typeof source.attached === 'boolean' ? source.attached : undefined,
     selectedNodeKeys: stringArray(source.selectedNodeKeys),
     renderedNodeKeys: stringArray(source.renderedNodeKeys),
     renderedPointCount: finiteNumber(source.renderedPointCount),
@@ -591,7 +714,9 @@ export function normalizeSnapshot(snapshot: unknown): HarnessDiagnostics {
       typeof source.hierarchyLoaded === 'boolean'
         ? source.hierarchyLoaded
         : ready,
-    ...(selectedPoint(source.selectedPoint) ? { selectedPoint: selectedPoint(source.selectedPoint) } : {}),
+    ...(selectedPoint(source.selectedPoint)
+      ? { selectedPoint: selectedPoint(source.selectedPoint) }
+      : {}),
     ...(cacheDiagnostics(source.cache ?? source.pointCache)
       ? { cache: cacheDiagnostics(source.cache ?? source.pointCache) }
       : {}),
@@ -616,14 +741,24 @@ export function normalizeSnapshot(snapshot: unknown): HarnessDiagnostics {
 
 function toError(error: unknown): HarnessError {
   if (error instanceof Error) {
-    const errorWithDetails = error as Error & { category?: unknown; stage?: unknown; code?: unknown };
+    const errorWithDetails = error as Error & {
+      category?: unknown;
+      stage?: unknown;
+      code?: unknown;
+    };
     return {
       name: error.name,
       message: error.message,
       ...(error.stack ? { stack: error.stack } : {}),
-      ...(typeof errorWithDetails.category === 'string' ? { category: errorWithDetails.category } : {}),
-      ...(typeof errorWithDetails.stage === 'string' ? { stage: errorWithDetails.stage } : {}),
-      ...(typeof errorWithDetails.code === 'string' ? { code: errorWithDetails.code } : {}),
+      ...(typeof errorWithDetails.category === 'string'
+        ? { category: errorWithDetails.category }
+        : {}),
+      ...(typeof errorWithDetails.stage === 'string'
+        ? { stage: errorWithDetails.stage }
+        : {}),
+      ...(typeof errorWithDetails.code === 'string'
+        ? { code: errorWithDetails.code }
+        : {}),
     };
   }
 
@@ -677,7 +812,9 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
       const diagnostics = {
         ...normalized,
         backend: normalized.backend ?? current.config.backend,
-        ...(current.diagnostics.api && !normalized.api ? { api: current.diagnostics.api } : {}),
+        ...(current.diagnostics.api && !normalized.api
+          ? { api: current.diagnostics.api }
+          : {}),
       };
       publish({
         ...current,
@@ -694,21 +831,48 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
         },
         ...(diagnosticsPatch.entrypoints
           ? { entrypoints: [...diagnosticsPatch.entrypoints] }
-          : previous?.entrypoints ? { entrypoints: [...previous.entrypoints] } : {}),
+          : previous?.entrypoints
+            ? { entrypoints: [...previous.entrypoints] }
+            : {}),
         ...(diagnosticsPatch.colorModes || previous?.colorModes
-          ? { colorModes: { ...(previous?.colorModes ?? {}), ...(diagnosticsPatch.colorModes ?? {}) } }
+          ? {
+              colorModes: {
+                ...(previous?.colorModes ?? {}),
+                ...(diagnosticsPatch.colorModes ?? {}),
+              },
+            }
           : {}),
         ...(diagnosticsPatch.probes || previous?.probes
-          ? { probes: { ...(previous?.probes ?? {}), ...(diagnosticsPatch.probes ?? {}) } }
+          ? {
+              probes: {
+                ...(previous?.probes ?? {}),
+                ...(diagnosticsPatch.probes ?? {}),
+              },
+            }
           : {}),
         ...(diagnosticsPatch.metadata || previous?.metadata
-          ? { metadata: { ...(previous?.metadata ?? {}), ...(diagnosticsPatch.metadata ?? {}) } }
+          ? {
+              metadata: {
+                ...(previous?.metadata ?? {}),
+                ...(diagnosticsPatch.metadata ?? {}),
+              },
+            }
           : {}),
         ...(diagnosticsPatch.hierarchy || previous?.hierarchy
-          ? { hierarchy: { ...(previous?.hierarchy ?? {}), ...(diagnosticsPatch.hierarchy ?? {}) } }
+          ? {
+              hierarchy: {
+                ...(previous?.hierarchy ?? {}),
+                ...(diagnosticsPatch.hierarchy ?? {}),
+              },
+            }
           : {}),
         ...(diagnosticsPatch.streaming || previous?.streaming
-          ? { streaming: { ...(previous?.streaming ?? {}), ...(diagnosticsPatch.streaming ?? {}) } }
+          ? {
+              streaming: {
+                ...(previous?.streaming ?? {}),
+                ...(diagnosticsPatch.streaming ?? {}),
+              },
+            }
           : {}),
       };
       publish({
@@ -716,7 +880,10 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
         diagnostics: { ...current.diagnostics, api: next },
       });
     },
-    registerCommand<K extends keyof HarnessCommandMap>(name: K, command: HarnessCommandMap[K]): void {
+    registerCommand<K extends keyof HarnessCommandMap>(
+      name: K,
+      command: HarnessCommandMap[K],
+    ): void {
       commands[name] = command;
     },
     unregisterCommand<K extends keyof HarnessCommandMap>(name: K): void {
@@ -755,7 +922,11 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
       // Consumer status callbacks may report the same failure as a message
       // immediately after publishing the original Error. Preserve structured
       // backend details instead of replacing them with `name: Error`.
-      if (typeof error === 'string' && current.status === 'error' && current.error) {
+      if (
+        typeof error === 'string' &&
+        current.status === 'error' &&
+        current.error
+      ) {
         return;
       }
       const normalized = toError(error);
@@ -775,10 +946,22 @@ export function createTestContract(config: HarnessConfig): CopcTestContract {
       });
     },
     recordMount(): void {
-      publish({ ...current, lifecycleCounts: { ...current.lifecycleCounts, mounts: current.lifecycleCounts.mounts + 1 } });
+      publish({
+        ...current,
+        lifecycleCounts: {
+          ...current.lifecycleCounts,
+          mounts: current.lifecycleCounts.mounts + 1,
+        },
+      });
     },
     recordUnmount(): void {
-      publish({ ...current, lifecycleCounts: { ...current.lifecycleCounts, unmounts: current.lifecycleCounts.unmounts + 1 } });
+      publish({
+        ...current,
+        lifecycleCounts: {
+          ...current.lifecycleCounts,
+          unmounts: current.lifecycleCounts.unmounts + 1,
+        },
+      });
     },
   };
 

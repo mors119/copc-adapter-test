@@ -143,7 +143,7 @@ npm run dev:next
 | React | `http://127.0.0.1:4174` | Choose Cesium, Three.js, or R3F in the Control Panel. |
 | Next | `http://127.0.0.1:4175/cesium` or `http://127.0.0.1:4175/three` | Each route starts its renderer after hydration. |
 
-Cesium runs a real Viewer with local assets and bundled NaturalEarthII imagery, without an Ion token. Three.js runs a real WebGL scene and adapter layer. R3F is available only in the React host. Next uses a browser-only renderer boundary so renderer startup happens after hydration.
+Cesium runs a real Viewer with local assets. Vanilla, React, and Next use `VITE_CESIUM_ION_TOKEN` from the repository-root `.env` to load Cesium ion's world imagery tiles; without it, the viewer uses bundled NaturalEarthII imagery. The token is included in the browser bundle, so use a Cesium ion token scoped for browser use. Three.js runs a real WebGL scene and adapter layer. R3F is available only in the React host. Next uses a browser-only renderer boundary so renderer startup happens after hydration.
 
 `npm run test:local` combines local checkout bootstrap and the fast validation tier. If the package has already been bootstrapped, `npm run test:fast` runs the fast checks directly.
 

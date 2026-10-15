@@ -7,7 +7,9 @@ export function readAdapterSourceMetadata(): {
   packageVersion: string;
 };
 export function vitePackageDefines(prefix?: string): Record<string, string>;
-export function validateTarball(tarball: string): Promise<Record<string, unknown>>;
+export function validateTarball(
+  tarball: string,
+): Promise<Record<string, unknown>>;
 export function resolveLocalAdapterTarball(options?: {
   tarball?: string;
   directory?: string;
@@ -17,11 +19,16 @@ export function validateInstalledPackage(): Promise<{
   packageRoot: string;
   metadata: Record<string, unknown>;
 }>;
-export function packAdapterCheckout(checkout?: string, destination?: string): Promise<{
+export function packAdapterCheckout(
+  checkout?: string,
+  destination?: string,
+): Promise<{
   checkout: string;
   packageDirectory: string;
   tarball: string;
   metadata: Record<string, unknown>;
 }>;
-export function bootstrapAdapterSource(source?: 'checkout' | 'tarball' | 'npm'): Promise<Record<string, unknown>>;
+export function bootstrapAdapterSource(
+  source?: 'checkout' | 'tarball' | 'npm',
+): Promise<Record<string, unknown>>;
 export function clearViteCaches(): Promise<string[]>;

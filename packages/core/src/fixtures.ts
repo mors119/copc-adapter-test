@@ -54,11 +54,20 @@ export type FixtureCatalog = {
   fixtures: FixtureCatalogEntry[];
 };
 
-export async function loadFixtureCatalog(baseUrl = ''): Promise<FixtureCatalog> {
-  const response = await fetch(`${baseUrl.replace(/\/$/, '')}${FIXTURE_CATALOG_PATH}`);
-  if (!response.ok) throw new Error(`Fixture catalog request failed (${response.status}).`);
+export async function loadFixtureCatalog(
+  baseUrl = '',
+): Promise<FixtureCatalog> {
+  const response = await fetch(
+    `${baseUrl.replace(/\/$/, '')}${FIXTURE_CATALOG_PATH}`,
+  );
+  if (!response.ok)
+    throw new Error(`Fixture catalog request failed (${response.status}).`);
   const value: unknown = await response.json();
-  if (typeof value !== 'object' || value === null || !Array.isArray((value as { fixtures?: unknown }).fixtures)) {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !Array.isArray((value as { fixtures?: unknown }).fixtures)
+  ) {
     throw new Error('Fixture catalog response has an invalid shape.');
   }
   return value as FixtureCatalog;

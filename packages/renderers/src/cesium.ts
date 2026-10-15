@@ -52,7 +52,7 @@ export function mountCesiumRenderer(
       geocoder: false,
       baseLayerPicker: false,
       baseLayer: cesiumIonToken
-        ? Cesium.ImageryLayer.fromWorldImagery()
+        ? Cesium.ImageryLayer.fromWorldImagery({})
         : false,
       terrainProvider: new Cesium.EllipsoidTerrainProvider(),
       sceneModePicker: false,

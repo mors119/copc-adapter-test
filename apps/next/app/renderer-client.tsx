@@ -13,8 +13,10 @@ import {
   createHarnessConfig,
   createTestContract,
   loadFixtureCatalog,
+  renderDistanceFromSearch,
   resolveCopcSourceSelection,
   sourceSelectionFromSearch,
+  streamingSettingsFromSearch,
   type FixtureCatalogEntry,
   type HarnessRenderer,
   type HarnessView,
@@ -33,6 +35,11 @@ type BackendName = 'copc-js' | 'rust';
 type ColorMode = 'rgb' | 'elevation' | 'intensity' | 'classification';
 function validBackend(value: string | undefined): BackendName {
   return value === 'rust' ? 'rust' : 'copc-js';
+}
+function firstSearchValue(
+  value: string | string[] | undefined,
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 function validSourceSelection(
   sourceId: string | undefined,
@@ -69,20 +76,34 @@ if (typeof window !== 'undefined') window.__COPC_TEST__ = contract;
 
 export function RendererClient({
   renderer,
-  backend,
-  fixtureId,
-  sourceId,
+  initialSearchParams,
 }: {
   renderer: RendererName;
-  backend?: string;
-  fixtureId?: string;
-  sourceId?: string;
+  initialSearchParams: Record<string, string | string[] | undefined>;
 }): ReactNode {
-  const initialSourceId = validSourceSelection(sourceId, fixtureId);
+  const initialSourceId = validSourceSelection(
+    firstSearchValue(initialSearchParams.sourceId),
+    firstSearchValue(initialSearchParams.fixtureId),
+  );
+  const initialBackend = validBackend(
+    firstSearchValue(initialSearchParams.backend),
+  );
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(initialSearchParams)) {
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, item);
+    } else if (value !== undefined) {
+      params.set(key, value);
+    }
+  }
+  const initialStreaming = streamingSettingsFromSearch(params, renderer);
+  const initialRenderDistance = renderDistanceFromSearch(params);
   const [selection, setSelection] = useState<PanelSelection>({
     renderer,
-    backend: validBackend(backend),
+    backend: initialBackend,
     fixtureId: initialSourceId,
+    streaming: initialStreaming,
+    renderDistance: initialRenderDistance,
   });
   const [status, setStatus] = useState<PanelState['status']>('idle');
   const [snapshot, setSnapshot] = useState<unknown>();
@@ -106,7 +127,11 @@ export function RendererClient({
     [renderer, selection.backend, fixtureUrl],
   );
   const [panelState, setPanelState] = useState<PanelState>(() =>
-    panelStateFromConfig(config, 'next', selection.fixtureId),
+    ({
+      ...panelStateFromConfig(config, 'next', selection.fixtureId),
+      streaming: initialStreaming,
+      renderDistance: initialRenderDistance,
+    }),
   );
 
   useEffect(
@@ -218,6 +243,8 @@ export function RendererClient({
           sourceKind: source.kind,
           colorMode: colorModeRef.current,
           backend: selection.backend,
+          streaming: selection.streaming,
+          renderDistance: selection.renderDistance,
           cesiumIonToken:
             renderer === 'cesium'
               ? process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN
@@ -262,6 +289,8 @@ export function RendererClient({
     fixtureUrl,
     source.kind,
     selection.backend,
+    selection.streaming,
+    selection.renderDistance,
     reloadKey,
     onStatus,
     onSnapshot,
@@ -300,7 +329,16 @@ export function RendererClient({
           ...(next.fixtureId.startsWith('remote:')
             ? { sourceId: next.fixtureId }
             : { fixtureId: next.fixtureId }),
+          maxNodes: String(next.streaming.maxNodes),
+          maxRenderedPoints: String(next.streaming.maxRenderedPoints),
+          maxDepth: String(next.streaming.maxDepth),
+          maxScreenSpaceError: String(next.streaming.maxScreenSpaceError),
+          maxRenderDistanceMeters: String(
+            next.streaming.maxRenderDistanceMeters,
+          ),
         });
+        if (next.renderDistance !== undefined)
+          params.set('renderDistance', String(next.renderDistance));
         window.location.assign(
           `${next.renderer === 'three' ? '/three' : '/cesium'}?${params}`,
         );
@@ -326,7 +364,10 @@ export function RendererClient({
       setSourceProbe(undefined);
       if (
         next.backend === selection.backend &&
-        next.fixtureId === selection.fixtureId
+        next.fixtureId === selection.fixtureId &&
+        JSON.stringify(next.streaming) ===
+          JSON.stringify(selection.streaming) &&
+        next.renderDistance === selection.renderDistance
       )
         setReloadKey((value) => value + 1);
     },

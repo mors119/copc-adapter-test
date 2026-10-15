@@ -1,11 +1,7 @@
 import { RendererClient } from '../renderer-client';
 
 type PageProps = {
-  searchParams: Promise<{
-    backend?: string;
-    fixtureId?: string;
-    sourceId?: string;
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function CesiumPage({ searchParams }: PageProps) {
@@ -13,9 +9,7 @@ export default async function CesiumPage({ searchParams }: PageProps) {
   return (
     <RendererClient
       renderer="cesium"
-      backend={params.backend}
-      fixtureId={params.fixtureId}
-      sourceId={params.sourceId}
+      initialSearchParams={params}
     />
   );
 }

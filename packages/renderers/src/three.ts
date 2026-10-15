@@ -45,12 +45,12 @@ export function mountThreeRenderer(
         backend: options.backend,
         colorMode: 'elevation',
         pointSize: 3,
-        maxRenderedPoints: 1_000_000,
+        maxRenderedPoints: options.streaming.maxRenderedPoints,
         streaming: {
-          maxNodes: 8,
-          maxDepth: 6,
-          maxScreenSpaceError: 8,
-          maxRenderDistanceMeters: 20_000,
+          maxNodes: options.streaming.maxNodes,
+          maxDepth: options.streaming.maxDepth,
+          maxScreenSpaceError: options.streaming.maxScreenSpaceError,
+          maxRenderDistanceMeters: options.streaming.maxRenderDistanceMeters,
         },
         debug: true,
       });
@@ -87,7 +87,13 @@ export function mountThreeRenderer(
       await currentLayer.update();
       if (
         disposed ||
-        !fitCamera(THREE, currentLayer, camera, controls.target)
+        !fitCamera(
+          THREE,
+          currentLayer,
+          camera,
+          controls.target,
+          options.renderDistance,
+        )
       ) {
         if (!disposed)
           throw new Error('COPC loaded, but Three.js rendered no points.');
@@ -111,11 +117,19 @@ export function mountThreeRenderer(
   ): Promise<void> => {
     await ready;
     if (!layer || !camera || !controls || disposed) return;
-    if (view === 'overview') {
-      const THREE = await import('three');
-      fitCamera(THREE, layer, camera, controls.target);
-    } else {
-      const scale = view === 'near' ? 0.65 : 1.5;
+    const THREE = await import('three');
+    if (
+      !fitCamera(
+        THREE,
+        layer,
+        camera,
+        controls.target,
+        options.renderDistance,
+      )
+    )
+      return;
+    if (view !== 'overview') {
+      const scale = view === 'near' ? 0.5 : 2;
       const offset = camera.position
         .clone()
         .sub(controls.target)
@@ -156,20 +170,27 @@ function fitCamera(
   layer: CopcThreeLayer,
   camera: THREE_TYPES.PerspectiveCamera,
   target: THREE_TYPES.Vector3,
+  renderDistance?: number,
 ): boolean {
   const bounds = new THREE.Box3().setFromObject(layer.getRoot());
   if (bounds.isEmpty()) return false;
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
   const radius = Math.max(size.length() / 2, 10);
-  camera.position.set(
-    center.x + radius * 1.55,
-    center.y - radius * 1.55,
-    center.z + radius * 0.95,
+  const offset = new THREE.Vector3(
+    radius * 1.55,
+    -radius * 1.55,
+    radius * 0.95,
   );
+  if (renderDistance !== undefined) offset.setLength(renderDistance);
+  camera.position.copy(center).add(offset);
   camera.lookAt(center);
   camera.near = Math.max(radius / 10_000, 0.1);
-  camera.far = Math.max(radius * 12, 20_000);
+  camera.far = Math.max(
+    radius * 12,
+    (renderDistance ?? 0) * 2 + radius,
+    20_000,
+  );
   camera.updateProjectionMatrix();
   target.copy(center);
   camera.updateMatrixWorld(true);

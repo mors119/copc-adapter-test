@@ -1,4 +1,8 @@
-import type { CopcSourceKind, HarnessView } from '@copc-test/core';
+import type {
+  CopcSourceKind,
+  HarnessStreamingSettings,
+  HarnessView,
+} from '@copc-test/core';
 import type { CopcSourceProbeResult } from '@frillab/copc-adapter/cesium';
 
 export type RendererStatus = 'loading' | 'ready' | 'error';
@@ -12,6 +16,8 @@ export type RendererOptions = {
   fixtureUrl: string;
   backend: 'copc-js' | 'rust';
   sourceKind: CopcSourceKind;
+  streaming: HarnessStreamingSettings;
+  renderDistance?: number;
   colorMode?: RendererColorMode;
   cesiumIonToken?: string;
   onStatus(status: RendererStatus, error?: string): void;

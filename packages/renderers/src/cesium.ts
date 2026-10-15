@@ -1,9 +1,9 @@
 import type * as CesiumTypes from 'cesium';
 import type { CopcCesiumLayer, CopcSourceProbeResult } from '@frillab/copc-adapter';
 import type { HarnessView } from '@copc-test/core';
-import type { RendererOptions, TestRenderer } from './types';
+import type { RendererColorMode, RendererOptions, TestRenderer } from './types';
 
-type ColorMode = 'rgb' | 'elevation' | 'intensity' | 'classification';
+type ColorMode = RendererColorMode;
 type CesiumAdapterModule = typeof import('@frillab/copc-adapter/cesium');
 type AdapterRootModule = typeof import('@frillab/copc-adapter');
 
@@ -80,7 +80,11 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
     };
   }
 
-  async function changeSource(sourceUrl: string, sourceKind: RendererOptions['sourceKind']): Promise<void> {
+  async function changeSource(
+    sourceUrl: string,
+    sourceKind: RendererOptions['sourceKind'],
+    candidateColorMode: ColorMode = colorMode,
+  ): Promise<void> {
     await viewerReady;
     if (disposed) return;
     const currentViewer = viewer;
@@ -118,7 +122,7 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
       candidate = new currentAdapter.CopcCesiumLayer({
         url: sourceUrl,
         backend: options.backend,
-        colorMode,
+        colorMode: candidateColorMode,
         pointSize: 3,
         maxRenderedPoints: 1_000_000,
         streaming: { maxNodes: 8, maxDepth: 8, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
@@ -144,6 +148,7 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
         const previousLayer = layer;
         const previousProbe = activeProbe;
         const previousKind = activeSourceKind;
+        const previousColorMode = colorMode;
         try {
           candidate.attachTo(currentViewer);
           await waitForRenderedPoints(candidate, () => disposed || currentGeneration !== sourceGeneration);
@@ -155,6 +160,7 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
           layer = candidate;
           activeProbe = candidateProbe;
           activeSourceKind = sourceKind;
+          colorMode = candidateColorMode;
           pickedPoint = undefined;
           frameViewerToLayer(cesiumModule!, currentViewer, layer);
           previousLayer?.destroy();
@@ -167,6 +173,7 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
           else if (layer === candidate) layer = undefined;
           activeProbe = previousProbe;
           activeSourceKind = previousKind;
+          colorMode = previousColorMode;
           throw error;
         }
       });
@@ -187,7 +194,7 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
 
   const ready = (async (): Promise<void> => {
     await viewerReady;
-    await changeSource(options.fixtureUrl, options.sourceKind);
+    await changeSource(options.fixtureUrl, options.sourceKind, colorMode);
     timer = window.setInterval(() => {
       if (!disposed && layer) options.onSnapshot(snapshotOf(layer));
     }, 250);
@@ -202,8 +209,8 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
       frameViewerToLayer(cesiumModule, viewer, layer, view);
       options.onSnapshot(snapshotOf(layer));
     },
-    async setSource(sourceUrl, sourceKind): Promise<void> {
-      await changeSource(sourceUrl, sourceKind);
+    async setSource(sourceUrl, sourceKind, candidateColorMode): Promise<void> {
+      await changeSource(sourceUrl, sourceKind, candidateColorMode);
     },
     setStyle(mode): void {
       colorMode = mode;

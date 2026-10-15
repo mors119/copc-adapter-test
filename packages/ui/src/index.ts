@@ -155,22 +155,29 @@ export function mountControlPanel(target: HTMLElement, options: MountPanelOption
   let localFixtures = [] as FixtureCatalogEntry[];
   const backendSelect = byTestId<HTMLSelectElement>('backend-select');
   const fixtureSelect = byTestId<HTMLSelectElement>('fixture-select');
+  const customSourceInput = byTestId<HTMLInputElement>('custom-source-url');
   const sourceUrl = byTestId<HTMLElement>('source-url');
   const styleSelect = byTestId<HTMLSelectElement>('style-select');
   rendererSelect.value = state.renderer;
   backendSelect.value = state.backend;
   fixtureSelect.value = state.fixtureId;
+  const selectedFixtureId = (): string => {
+    if (fixtureSelect.value !== 'custom:') return fixtureSelect.value;
+    const enteredUrl = customSourceInput.value.trim();
+    if (enteredUrl) return `custom:${enteredUrl}`;
+    return state.fixtureId.startsWith('custom:') ? state.fixtureId : 'custom:';
+  };
   const onApply = (): void => actions.apply({
     renderer: rendererSelect.value as HarnessRenderer,
     backend: backendSelect.value as PanelSelection['backend'],
-    fixtureId: fixtureSelect.value,
+    fixtureId: selectedFixtureId(),
   });
   fixtureSelect.addEventListener('change', () => {
     if (fixtureSelect.value !== 'custom:') onApply();
   });
   byTestId<HTMLButtonElement>('apply-settings').addEventListener('click', onApply);
   byTestId<HTMLButtonElement>('load-custom-source').addEventListener('click', () => {
-    const url = byTestId<HTMLInputElement>('custom-source-url').value.trim();
+    const url = customSourceInput.value.trim();
     if (!url) return;
     actions.apply({
       renderer: rendererSelect.value as HarnessRenderer,

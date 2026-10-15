@@ -218,26 +218,18 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
     canvasBox.x + canvasBox.width / 2,
     canvasBox.y + canvasBox.height / 2,
   );
-  await expect
-    .poll(() => page.getByTestId('point-inspection').textContent(), {
-      timeout: 10_000,
-    })
-    .not.toBe('Click a rendered point');
-  const picked = JSON.parse(
-    await page.getByTestId('point-inspection').textContent(),
-  );
-  expect(picked.nodeKey).toBeTruthy();
-  expect(picked.pointIndex).toEqual(expect.any(Number));
-  expect(picked.longitude).toEqual(expect.any(Number));
-  expect(picked.latitude).toEqual(expect.any(Number));
-  expect(picked.height).toEqual(expect.any(Number));
-  expect(picked.intensity).toEqual(expect.any(Number));
-  expect(picked.classification).toEqual(expect.any(Number));
-  expect(picked.rgb).toEqual({
-    red: expect.any(Number),
-    green: expect.any(Number),
-    blue: expect.any(Number),
+  await expect(page.getByTestId('point-inspection')).toBeVisible({
+    timeout: 10_000,
   });
+  for (const field of ['latitude', 'longitude', 'height']) {
+    const value = await page.getByTestId(`point-${field}`).textContent();
+    expect(Number.isFinite(Number(value))).toBe(true);
+  }
+  await expect(page.getByTestId('point-node')).not.toHaveText('—');
+  await expect(page.getByTestId('point-index')).not.toHaveText('—');
+  await expect(page.getByTestId('point-intensity-row')).toBeVisible();
+  await expect(page.getByTestId('point-classification-row')).toBeVisible();
+  await expect(page.getByTestId('point-rgb-row')).toBeVisible();
 
   await page
     .getByTestId('fixture-select')

@@ -152,6 +152,7 @@ export function mountCesiumRenderer(
 
       candidate = new currentAdapter.CopcCesiumLayer({
         url: sourceUrl,
+        renderer: new currentAdapter.PointPrimitiveRenderer(),
         backend: options.backend,
         colorMode: candidateColorMode,
         pointSize: 3,

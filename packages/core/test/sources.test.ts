@@ -28,4 +28,8 @@ test('source selection keeps remote choices, custom URLs, and fixture overrides 
   assert.equal(sourceSelectionFromSearch(new URLSearchParams()), DEFAULT_SOURCE_SELECTION);
   assert.equal(sourceSelectionFromSearch(new URLSearchParams('sourceId=chicago-downtown')), 'remote:chicago-downtown');
   assert.equal(sourceSelectionFromSearch(new URLSearchParams('fixtureId=small-valid-copc')), 'small-valid-copc');
+  assert.equal(
+    sourceSelectionFromSearch(new URLSearchParams({ fixtureId: 'custom:https://example.test/scan.copc.laz' })),
+    'custom:https://example.test/scan.copc.laz',
+  );
 });

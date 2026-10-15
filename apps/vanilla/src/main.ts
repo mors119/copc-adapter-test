@@ -58,7 +58,9 @@ async function apply(selection: PanelSelection): Promise<void> {
     update({ status: 'error', error: message });
     return;
   }
-  if (colorMode !== 'elevation' && nextSource.remote?.expectedCapabilities[colorMode] === false) colorMode = 'elevation';
+  const nextColorMode = colorMode !== 'elevation' && nextSource.remote?.expectedCapabilities[colorMode] === false
+    ? 'elevation'
+    : colorMode;
   const canSwitchSourceInPlace = renderer !== undefined
     && selection.renderer === selected.renderer
     && selection.backend === selected.backend
@@ -71,10 +73,12 @@ async function apply(selection: PanelSelection): Promise<void> {
     resolvedSource = nextSource;
     const fixtureUrl = nextSource.url;
     contract.setConfig({ renderer: selection.renderer, backend: selection.backend, fixtureUrl });
-    update({ ...selection, fixtureUrl, status: 'loading', error: undefined, sourceProbe: undefined, colorMode });
+    update({ ...selection, fixtureUrl, status: 'loading', error: undefined, sourceProbe: undefined });
     contract.markLoading();
     try {
-      await renderer.setSource?.(fixtureUrl, nextSource.kind);
+      await renderer.setSource?.(fixtureUrl, nextSource.kind, nextColorMode);
+      colorMode = nextColorMode;
+      update({ colorMode });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       contract.markError(error);
@@ -93,6 +97,7 @@ async function apply(selection: PanelSelection): Promise<void> {
   selected = selection;
   fixtureId = selection.fixtureId;
   resolvedSource = nextSource;
+  colorMode = nextColorMode;
   const fixtureUrl = nextSource.url;
   contract.setConfig({ renderer: selection.renderer, backend: selection.backend, fixtureUrl });
   update({ ...selection, fixtureUrl, status: 'loading', error: undefined, snapshot: undefined, sourceProbe: undefined, activeDatasetUrl: undefined, activeSourceKind: undefined, colorMode });

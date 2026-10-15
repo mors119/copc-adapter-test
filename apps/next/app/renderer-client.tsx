@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SOURCE_SELECTION, createHarnessConfig, createTestContract, loadFixtureCatalog, resolveCopcSourceSelection, type FixtureCatalogEntry, type HarnessRenderer, type HarnessView } from '@copc-test/core';
+import { DEFAULT_SOURCE_SELECTION, createHarnessConfig, createTestContract, loadFixtureCatalog, resolveCopcSourceSelection, sourceSelectionFromSearch, type FixtureCatalogEntry, type HarnessRenderer, type HarnessView } from '@copc-test/core';
 import { ReactControlPanel, panelStateFromConfig, type PanelActions, type PanelSelection, type PanelState } from '@copc-test/ui/react';
 import type { TestRenderer, RendererStatus } from '@copc-test/renderers';
 
@@ -12,10 +12,14 @@ function validBackend(value: string | undefined): BackendName {
   return value === 'rust' ? 'rust' : 'copc-js';
 }
 function validSourceSelection(sourceId: string | undefined, fixtureId: string | undefined): string {
-  if (sourceId?.startsWith('remote:')) {
-    try { resolveCopcSourceSelection(sourceId); return sourceId; } catch { return DEFAULT_SOURCE_SELECTION; }
+  const params = new URLSearchParams();
+  if (sourceId) params.set('sourceId', sourceId);
+  if (fixtureId) params.set('fixtureId', fixtureId);
+  const selection = sourceSelectionFromSearch(params);
+  if (selection.startsWith('remote:') || selection.startsWith('custom:')) {
+    try { resolveCopcSourceSelection(selection); return selection; } catch { return DEFAULT_SOURCE_SELECTION; }
   }
-  return fixtureId && /^[a-z0-9-]+$/u.test(fixtureId) ? fixtureId : DEFAULT_SOURCE_SELECTION;
+  return /^[a-z0-9-]+$/u.test(selection) ? selection : DEFAULT_SOURCE_SELECTION;
 }
 const nextConfig = createHarnessConfig({
   appId: 'next', host: 'next', renderer: 'cesium', fixtureUrl: resolveCopcSourceSelection(DEFAULT_SOURCE_SELECTION).url,

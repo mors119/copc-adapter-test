@@ -124,6 +124,49 @@ test('Next Cesium client boundary hydrates and renders a remote COPC after SSR',
   }
 });
 
+test('Next preserves shared source IDs and custom URLs across renderer navigation', async ({ page }) => {
+  test.setTimeout(240_000);
+  const remoteResponses = [];
+  page.on('response', (response) => {
+    const url = new URL(response.url());
+    if (!url.pathname.endsWith('.copc.laz')) return;
+    remoteResponses.push({
+      url: url.href,
+      range: response.request().headers().range,
+      status: response.status(),
+      contentRange: response.headers()['content-range'],
+    });
+  });
+  await page.goto(`${origins.next}/cesium?sourceId=chicago-downtown`, { waitUntil: 'domcontentloaded' });
+  await expect(page.getByTestId('harness-status')).toHaveText('ready', { timeout: 90_000 });
+  const chicago = await page.evaluate(() => window.__COPC_TEST__.getResult());
+  expect(chicago.config.fixtureUrl).toBe('https://data.pointcloud.org/chicago-downtown/chicago-downtown.copc.laz');
+  expect(chicago.diagnostics.renderedPointCount).toBeGreaterThan(0);
+  expect(remoteResponses.some((response) => response.url.includes('/chicago-downtown/chicago-downtown.copc.laz'))).toBe(true);
+
+  const customUrl = 'https://data.pointcloud.org/autzen/autzen-classified.copc.laz';
+  await page.getByTestId('custom-source-url').fill(customUrl);
+  await page.getByTestId('load-custom-source').click();
+  await expect.poll(() => page.evaluate(() => {
+    const result = window.__COPC_TEST__?.getResult();
+    return result?.status === 'ready' && result.config.fixtureUrl === 'https://data.pointcloud.org/autzen/autzen-classified.copc.laz';
+  }), { timeout: 90_000 }).toBe(true);
+  await page.getByTestId('renderer-select').selectOption('three');
+  await page.getByTestId('apply-settings').click();
+  await expect(page.getByTestId('harness-status')).toHaveText('ready', { timeout: 90_000 });
+  const switched = await page.evaluate(() => window.__COPC_TEST__.getResult());
+  expect(switched.config.renderer).toBe('three');
+  expect(switched.config.fixtureUrl).toBe(customUrl);
+  expect(switched.diagnostics.renderedPointCount).toBeGreaterThan(0);
+  expect(remoteResponses.some((response) => response.url.includes('/autzen/autzen-classified.copc.laz'))).toBe(true);
+  for (const response of remoteResponses) {
+    expect(new URL(response.url).hostname).toBe('data.pointcloud.org');
+    expect(response.range).toMatch(/^bytes=\d+-\d+$/u);
+    expect(response.status).toBe(206);
+    expect(response.contentRange).toMatch(/^bytes \d+-\d+\/\d+$/u);
+  }
+});
+
 test('Next Three client boundary resolves packed worker and WASM assets with Rust', async ({ page }) => {
   const result = await openHarness(page, 'next', 'three', 'rust');
   expect(result.diagnostics.backend).toBe('rust');

@@ -8,9 +8,15 @@ function run(command, args, env = process.env) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd: root, env, stdio: 'inherit' });
     child.once('error', reject);
-    child.once('exit', (code, signal) => code === 0
-      ? resolve()
-      : reject(new Error(`${command} ${args.join(' ')} failed (${signal ?? code}).`)));
+    child.once('exit', (code, signal) =>
+      code === 0
+        ? resolve()
+        : reject(
+            new Error(
+              `${command} ${args.join(' ')} failed (${signal ?? code}).`,
+            ),
+          ),
+    );
   });
 }
 
@@ -18,7 +24,8 @@ try {
   const source = process.env.COPC_ADAPTER_SOURCE ?? 'checkout';
   await bootstrapAdapterSource(source);
   await clearViteCaches();
-  if (process.env.CI) await run('npx', ['playwright', 'install', '--with-deps', 'chromium']);
+  if (process.env.CI)
+    await run('npx', ['playwright', 'install', '--with-deps', 'chromium']);
   await run('npm', ['run', 'test:full']);
   await run('npm', ['run', 'test:npm']);
 } catch (error) {

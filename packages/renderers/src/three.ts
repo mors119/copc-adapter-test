@@ -1,10 +1,16 @@
 import type * as THREE_TYPES from 'three';
 import type { OrbitControls as OrbitControlsType } from 'three/addons/controls/OrbitControls.js';
-import type { CopcThreeLayer, CopcThreeLayerSnapshot } from '@frillab/copc-adapter/three';
+import type {
+  CopcThreeLayer,
+  CopcThreeLayerSnapshot,
+} from '@frillab/copc-adapter/three';
 import type { HarnessView } from '@copc-test/core';
 import type { RendererOptions, TestRenderer } from './types';
 
-export function mountThreeRenderer(container: HTMLElement, options: RendererOptions): TestRenderer {
+export function mountThreeRenderer(
+  container: HTMLElement,
+  options: RendererOptions,
+): TestRenderer {
   let disposed = false;
   let frame = 0;
   let timer: number | undefined;
@@ -40,7 +46,12 @@ export function mountThreeRenderer(container: HTMLElement, options: RendererOpti
         colorMode: 'elevation',
         pointSize: 3,
         maxRenderedPoints: 1_000_000,
-        streaming: { maxNodes: 8, maxDepth: 6, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
+        streaming: {
+          maxNodes: 8,
+          maxDepth: 6,
+          maxScreenSpaceError: 8,
+          maxRenderDistanceMeters: 20_000,
+        },
         debug: true,
       });
       layer = currentLayer;
@@ -63,7 +74,9 @@ export function mountThreeRenderer(container: HTMLElement, options: RendererOpti
         frame = window.requestAnimationFrame(render);
       };
       render();
-      controls.addEventListener('change', () => { void currentLayer.update(); });
+      controls.addEventListener('change', () => {
+        void currentLayer.update();
+      });
       timer = window.setInterval(() => {
         if (!disposed) options.onSnapshot(currentLayer.getSnapshot());
       }, 250);
@@ -72,13 +85,19 @@ export function mountThreeRenderer(container: HTMLElement, options: RendererOpti
       await currentLayer.load();
       if (disposed) return;
       await currentLayer.update();
-      if (disposed || !fitCamera(THREE, currentLayer, camera, controls.target)) {
-        if (!disposed) throw new Error('COPC loaded, but Three.js rendered no points.');
+      if (
+        disposed ||
+        !fitCamera(THREE, currentLayer, camera, controls.target)
+      ) {
+        if (!disposed)
+          throw new Error('COPC loaded, but Three.js rendered no points.');
         return;
       }
       controls.update();
       await currentLayer.update();
-      options.onSnapshot(currentLayer.getSnapshot() satisfies CopcThreeLayerSnapshot);
+      options.onSnapshot(
+        currentLayer.getSnapshot() satisfies CopcThreeLayerSnapshot,
+      );
       options.onStatus('ready');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -87,7 +106,9 @@ export function mountThreeRenderer(container: HTMLElement, options: RendererOpti
     }
   })();
 
-  const setView = async (view: Exclude<HarnessView, 'visual'>): Promise<void> => {
+  const setView = async (
+    view: Exclude<HarnessView, 'visual'>,
+  ): Promise<void> => {
     await ready;
     if (!layer || !camera || !controls || disposed) return;
     if (view === 'overview') {
@@ -95,7 +116,10 @@ export function mountThreeRenderer(container: HTMLElement, options: RendererOpti
       fitCamera(THREE, layer, camera, controls.target);
     } else {
       const scale = view === 'near' ? 0.65 : 1.5;
-      const offset = camera.position.clone().sub(controls.target).multiplyScalar(scale);
+      const offset = camera.position
+        .clone()
+        .sub(controls.target)
+        .multiplyScalar(scale);
       camera.position.copy(controls.target).add(offset);
       camera.updateMatrixWorld(true);
     }
@@ -138,7 +162,11 @@ function fitCamera(
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
   const radius = Math.max(size.length() / 2, 10);
-  camera.position.set(center.x + radius * 1.55, center.y - radius * 1.55, center.z + radius * 0.95);
+  camera.position.set(
+    center.x + radius * 1.55,
+    center.y - radius * 1.55,
+    center.z + radius * 0.95,
+  );
   camera.lookAt(center);
   camera.near = Math.max(radius / 10_000, 0.1);
   camera.far = Math.max(radius * 12, 20_000);

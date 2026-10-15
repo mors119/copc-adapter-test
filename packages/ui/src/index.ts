@@ -1,4 +1,12 @@
-import { fixtureName, normalizeSnapshot, REMOTE_COPC_SOURCES, type CopcSourceKind, type FixtureCatalogEntry, type HarnessConfig, type HarnessRenderer } from '@copc-test/core';
+import {
+  fixtureName,
+  normalizeSnapshot,
+  REMOTE_COPC_SOURCES,
+  type CopcSourceKind,
+  type FixtureCatalogEntry,
+  type HarnessConfig,
+  type HarnessRenderer,
+} from '@copc-test/core';
 
 export type PanelSelection = {
   renderer: HarnessRenderer;
@@ -62,7 +70,10 @@ export type MountPanelOptions = {
   actions: PanelActions;
 };
 
-export function mountControlPanel(target: HTMLElement, options: MountPanelOptions): MountedPanel {
+export function mountControlPanel(
+  target: HTMLElement,
+  options: MountPanelOptions,
+): MountedPanel {
   const { config, renderers, actions } = options;
   const root = document.createElement('aside');
   root.className = 'copc-panel';
@@ -136,19 +147,26 @@ export function mountControlPanel(target: HTMLElement, options: MountPanelOption
 
   const byTestId = <T extends HTMLElement>(id: string): T => {
     const node = root.querySelector<T>(`[data-testid="${id}"]`);
-    if (!node) throw new Error(`Shared control panel is missing data-testid="${id}".`);
+    if (!node)
+      throw new Error(`Shared control panel is missing data-testid="${id}".`);
     return node;
   };
   const field = <T extends HTMLElement>(name: string): T => {
     const node = root.querySelector<T>(`[data-field="${name}"]`);
-    if (!node) throw new Error(`Shared control panel is missing data-field="${name}".`);
+    if (!node)
+      throw new Error(`Shared control panel is missing data-field="${name}".`);
     return node;
   };
   const rendererSelect = byTestId<HTMLSelectElement>('renderer-select');
   for (const renderer of renderers) {
     const option = document.createElement('option');
     option.value = renderer;
-    option.textContent = renderer === 'r3f' ? 'React Three Fiber' : renderer === 'three' ? 'Three.js' : 'Cesium';
+    option.textContent =
+      renderer === 'r3f'
+        ? 'React Three Fiber'
+        : renderer === 'three'
+          ? 'Three.js'
+          : 'Cesium';
     rendererSelect.append(option);
   }
   const state = { ...options.state };
@@ -167,29 +185,51 @@ export function mountControlPanel(target: HTMLElement, options: MountPanelOption
     if (enteredUrl) return `custom:${enteredUrl}`;
     return state.fixtureId.startsWith('custom:') ? state.fixtureId : 'custom:';
   };
-  const onApply = (): void => actions.apply({
-    renderer: rendererSelect.value as HarnessRenderer,
-    backend: backendSelect.value as PanelSelection['backend'],
-    fixtureId: selectedFixtureId(),
-  });
-  fixtureSelect.addEventListener('change', () => {
-    if (fixtureSelect.value !== 'custom:') onApply();
-  });
-  byTestId<HTMLButtonElement>('apply-settings').addEventListener('click', onApply);
-  byTestId<HTMLButtonElement>('load-custom-source').addEventListener('click', () => {
-    const url = customSourceInput.value.trim();
-    if (!url) return;
+  const onApply = (): void =>
     actions.apply({
       renderer: rendererSelect.value as HarnessRenderer,
       backend: backendSelect.value as PanelSelection['backend'],
-      fixtureId: `custom:${url}`,
+      fixtureId: selectedFixtureId(),
     });
+  fixtureSelect.addEventListener('change', () => {
+    if (fixtureSelect.value !== 'custom:') onApply();
   });
-  styleSelect.addEventListener('change', () => actions.setStyle(styleSelect.value as 'rgb' | 'elevation' | 'intensity' | 'classification'));
-  byTestId<HTMLButtonElement>('reload-renderer').addEventListener('click', actions.reload);
-  byTestId<HTMLButtonElement>('demo-start').addEventListener('click', actions.startDemo);
-  byTestId<HTMLButtonElement>('demo-stop').addEventListener('click', actions.stopDemo);
-  for (const button of root.querySelectorAll<HTMLButtonElement>('[data-action]')) {
+  byTestId<HTMLButtonElement>('apply-settings').addEventListener(
+    'click',
+    onApply,
+  );
+  byTestId<HTMLButtonElement>('load-custom-source').addEventListener(
+    'click',
+    () => {
+      const url = customSourceInput.value.trim();
+      if (!url) return;
+      actions.apply({
+        renderer: rendererSelect.value as HarnessRenderer,
+        backend: backendSelect.value as PanelSelection['backend'],
+        fixtureId: `custom:${url}`,
+      });
+    },
+  );
+  styleSelect.addEventListener('change', () =>
+    actions.setStyle(
+      styleSelect.value as 'rgb' | 'elevation' | 'intensity' | 'classification',
+    ),
+  );
+  byTestId<HTMLButtonElement>('reload-renderer').addEventListener(
+    'click',
+    actions.reload,
+  );
+  byTestId<HTMLButtonElement>('demo-start').addEventListener(
+    'click',
+    actions.startDemo,
+  );
+  byTestId<HTMLButtonElement>('demo-stop').addEventListener(
+    'click',
+    actions.stopDemo,
+  );
+  for (const button of root.querySelectorAll<HTMLButtonElement>(
+    '[data-action]',
+  )) {
     button.addEventListener('click', () => {
       if (button.dataset.action === 'overview') actions.overview();
       else if (button.dataset.action === 'far') actions.far();
@@ -208,42 +248,90 @@ export function mountControlPanel(target: HTMLElement, options: MountPanelOption
       Object.assign(state, next);
       if (selectionChanged.renderer) rendererSelect.value = state.renderer;
       if (selectionChanged.backend) backendSelect.value = state.backend;
-      if (selectionChanged.fixtureId) fixtureSelect.value = state.fixtureId.startsWith('custom:') ? 'custom:' : state.fixtureId;
+      if (selectionChanged.fixtureId)
+        fixtureSelect.value = state.fixtureId.startsWith('custom:')
+          ? 'custom:'
+          : state.fixtureId;
       field('host').textContent = `Host: ${state.host}`;
       field('renderer-label').textContent = state.renderer;
-      field('adapter').textContent = `${state.packageName}@${state.packageVersion}`;
+      field('adapter').textContent =
+        `${state.packageName}@${state.packageVersion}`;
       byTestId('adapter-source').textContent = `${state.packageSource} package`;
-      const selectedRemote = REMOTE_COPC_SOURCES.find((source) => `remote:${source.id}` === state.fixtureId);
-      const selectedFixture = localFixtures.find((fixture) => fixture.id === state.fixtureId);
-      field('fixture').textContent = selectedRemote?.name ?? selectedFixture?.title ?? (state.fixtureId.startsWith('custom:') ? 'Custom URL' : state.fixtureId || fixtureName(state.fixtureUrl));
+      const selectedRemote = REMOTE_COPC_SOURCES.find(
+        (source) => `remote:${source.id}` === state.fixtureId,
+      );
+      const selectedFixture = localFixtures.find(
+        (fixture) => fixture.id === state.fixtureId,
+      );
+      field('fixture').textContent =
+        selectedRemote?.name ??
+        selectedFixture?.title ??
+        (state.fixtureId.startsWith('custom:')
+          ? 'Custom URL'
+          : state.fixtureId || fixtureName(state.fixtureUrl));
       sourceUrl.textContent = state.fixtureUrl;
-      byTestId('source-type').textContent = state.activeSourceKind === 'local-fixture'
-        || (!state.activeSourceKind && !state.fixtureId.startsWith('remote:') && !state.fixtureId.startsWith('custom:'))
-        ? 'Local Fixture'
-        : state.fixtureId.startsWith('custom:') ? 'Custom Remote HTTP' : 'Remote HTTP';
+      byTestId('source-type').textContent =
+        state.activeSourceKind === 'local-fixture' ||
+        (!state.activeSourceKind &&
+          !state.fixtureId.startsWith('remote:') &&
+          !state.fixtureId.startsWith('custom:'))
+          ? 'Local Fixture'
+          : state.fixtureId.startsWith('custom:')
+            ? 'Custom Remote HTTP'
+            : 'Remote HTTP';
       byTestId('active-dataset').textContent = state.activeDatasetUrl ?? '—';
       const camera = nestedRecord(state.snapshot, 'camera');
       byTestId('camera-location').textContent = camera
         ? `${Number(camera.latitude).toFixed(4)}°, ${Number(camera.longitude).toFixed(4)}° · ${new Intl.NumberFormat('en-US').format(Math.round(Number(camera.height)))} m`
         : '—';
       const probe = state.sourceProbe;
-      const yesNo = (value: boolean | 'unknown' | undefined): string => value === undefined ? '—' : value === 'unknown' ? 'Unknown' : value ? 'Supported' : 'Unsupported';
-      byTestId('source-reachable').textContent = probe ? yesNo(probe.reachable) : 'Not probed';
-      byTestId('source-range').textContent = probe ? yesNo(probe.rangeSupported) : 'Not probed';
-      byTestId('source-http-status').textContent = probe?.partialStatus === undefined ? '—' : String(probe.partialStatus);
+      const yesNo = (value: boolean | 'unknown' | undefined): string =>
+        value === undefined
+          ? '—'
+          : value === 'unknown'
+            ? 'Unknown'
+            : value
+              ? 'Supported'
+              : 'Unsupported';
+      byTestId('source-reachable').textContent = probe
+        ? yesNo(probe.reachable)
+        : 'Not probed';
+      byTestId('source-range').textContent = probe
+        ? yesNo(probe.rangeSupported)
+        : 'Not probed';
+      byTestId('source-http-status').textContent =
+        probe?.partialStatus === undefined ? '—' : String(probe.partialStatus);
       byTestId('source-content-range').textContent = probe?.contentRange ?? '—';
-      byTestId('source-copc').textContent = probe ? yesNo(probe.copcDetected) : 'Not probed';
-      byTestId('source-cors').textContent = probe ? yesNo(probe.corsReadable) : 'Not probed';
+      byTestId('source-copc').textContent = probe
+        ? yesNo(probe.copcDetected)
+        : 'Not probed';
+      byTestId('source-cors').textContent = probe
+        ? yesNo(probe.corsReadable)
+        : 'Not probed';
       const capabilityText = selectedRemote
-        ? ['rgb', 'intensity', 'classification'].map((field) => `${field.toUpperCase()} ${selectedRemote.expectedCapabilities[field as 'rgb' | 'intensity' | 'classification'] ? 'available' : 'unavailable'}`).join(' · ')
-        : selectedFixture ? selectedFixture.capabilities.join(' · ') : state.fixtureId.startsWith('custom:') ? 'Not known until source metadata loads' : '—';
+        ? ['rgb', 'intensity', 'classification']
+            .map(
+              (field) =>
+                `${field.toUpperCase()} ${selectedRemote.expectedCapabilities[field as 'rgb' | 'intensity' | 'classification'] ? 'available' : 'unavailable'}`,
+            )
+            .join(' · ')
+        : selectedFixture
+          ? selectedFixture.capabilities.join(' · ')
+          : state.fixtureId.startsWith('custom:')
+            ? 'Not known until source metadata loads'
+            : '—';
       byTestId('source-capabilities').textContent = capabilityText;
       const styles = ['rgb', 'intensity', 'classification'] as const;
       for (const style of styles) {
-        const option = styleSelect.querySelector<HTMLOptionElement>(`option[value="${style}"]`);
+        const option = styleSelect.querySelector<HTMLOptionElement>(
+          `option[value="${style}"]`,
+        );
         if (option) {
-          const capability = selectedRemote?.expectedCapabilities[style]
-            ?? selectedFixture?.capabilities.some((value) => value.toLowerCase().includes(style));
+          const capability =
+            selectedRemote?.expectedCapabilities[style] ??
+            selectedFixture?.capabilities.some((value) =>
+              value.toLowerCase().includes(style),
+            );
           option.disabled = capability === false;
         }
       }
@@ -252,26 +340,67 @@ export function mountControlPanel(target: HTMLElement, options: MountPanelOption
       status.dataset.status = state.status;
       status.textContent = state.status;
       byTestId('harness-error').textContent = state.error ?? '—';
-      const snapshot = state.snapshot === undefined ? undefined : normalizeSnapshot(state.snapshot);
-      const number = (value: number | undefined): string => value === undefined ? '0' : new Intl.NumberFormat('en-US').format(value);
-      const snapshotRecord = state.snapshot && typeof state.snapshot === 'object' ? state.snapshot as Record<string, unknown> : undefined;
+      const snapshot =
+        state.snapshot === undefined
+          ? undefined
+          : normalizeSnapshot(state.snapshot);
+      const number = (value: number | undefined): string =>
+        value === undefined
+          ? '0'
+          : new Intl.NumberFormat('en-US').format(value);
+      const snapshotRecord =
+        state.snapshot && typeof state.snapshot === 'object'
+          ? (state.snapshot as Record<string, unknown>)
+          : undefined;
       const nested = (key: string): Record<string, unknown> | undefined => {
         const value = snapshotRecord?.[key];
-        return value && typeof value === 'object' ? value as Record<string, unknown> : undefined;
+        return value && typeof value === 'object'
+          ? (value as Record<string, unknown>)
+          : undefined;
       };
       const rangeRequests = nested('rangeRequests');
       const hierarchy = nested('hierarchy');
       const pointCache = nested('pointCache');
-      const selectedKeys = Array.isArray(snapshotRecord?.selectedNodeKeys) ? snapshotRecord.selectedNodeKeys.filter((key): key is string => typeof key === 'string') : [];
-      const lod = selectedKeys.map((key) => /^(\d+)(?:[-/])/.exec(key)?.[1]).filter((value): value is string => value !== undefined).map(Number);
-      byTestId('selected-nodes').textContent = number(state.selectedNodes ?? snapshot?.selectedNodeKeys.length);
-      byTestId('rendered-nodes').textContent = number(state.renderedNodes ?? snapshot?.renderedNodeKeys.length);
-      byTestId('rendered-points').textContent = number(state.renderedPoints ?? snapshot?.renderedPointCount);
-      byTestId('stream-updates').textContent = number(state.streamUpdates ?? snapshot?.streamingUpdateCount);
-      byTestId('render-distance').textContent = state.renderDistance === undefined ? '—' : `${number(state.renderDistance)} m`;
-      byTestId('range-requests').textContent = number(typeof rangeRequests?.requested === 'number' ? rangeRequests.requested : undefined);
-      byTestId('hierarchy-requests').textContent = number(typeof hierarchy?.pageRequests === 'number' ? hierarchy.pageRequests : undefined);
-      byTestId('hierarchy-cache-hits').textContent = number(typeof hierarchy?.pageCacheHits === 'number' ? hierarchy.pageCacheHits : undefined);
+      const selectedKeys = Array.isArray(snapshotRecord?.selectedNodeKeys)
+        ? snapshotRecord.selectedNodeKeys.filter(
+            (key): key is string => typeof key === 'string',
+          )
+        : [];
+      const lod = selectedKeys
+        .map((key) => /^(\d+)(?:[-/])/.exec(key)?.[1])
+        .filter((value): value is string => value !== undefined)
+        .map(Number);
+      byTestId('selected-nodes').textContent = number(
+        state.selectedNodes ?? snapshot?.selectedNodeKeys.length,
+      );
+      byTestId('rendered-nodes').textContent = number(
+        state.renderedNodes ?? snapshot?.renderedNodeKeys.length,
+      );
+      byTestId('rendered-points').textContent = number(
+        state.renderedPoints ?? snapshot?.renderedPointCount,
+      );
+      byTestId('stream-updates').textContent = number(
+        state.streamUpdates ?? snapshot?.streamingUpdateCount,
+      );
+      byTestId('render-distance').textContent =
+        state.renderDistance === undefined
+          ? '—'
+          : `${number(state.renderDistance)} m`;
+      byTestId('range-requests').textContent = number(
+        typeof rangeRequests?.requested === 'number'
+          ? rangeRequests.requested
+          : undefined,
+      );
+      byTestId('hierarchy-requests').textContent = number(
+        typeof hierarchy?.pageRequests === 'number'
+          ? hierarchy.pageRequests
+          : undefined,
+      );
+      byTestId('hierarchy-cache-hits').textContent = number(
+        typeof hierarchy?.pageCacheHits === 'number'
+          ? hierarchy.pageCacheHits
+          : undefined,
+      );
       byTestId('point-cache').textContent = pointCache
         ? `${number(typeof pointCache.cachedNodeCount === 'number' ? pointCache.cachedNodeCount : undefined)} entries · ${number(typeof pointCache.hits === 'number' ? pointCache.hits : undefined)} hits`
         : '—';
@@ -279,11 +408,17 @@ export function mountControlPanel(target: HTMLElement, options: MountPanelOption
         ? `${Math.min(...lod)}–${Math.max(...lod)}`
         : '—';
       const picked = state.pickedPoint;
-      byTestId('point-inspection').textContent = picked && typeof picked === 'object'
-        ? JSON.stringify(picked, (_key, value: unknown) => typeof value === 'bigint' ? value.toString() : value)
-        : 'Click a rendered point';
-      byTestId<HTMLButtonElement>('apply-settings').disabled = state.status === 'loading';
-      styleSelect.disabled = state.renderer !== 'cesium' || (state.status !== 'ready' && !state.activeDatasetUrl);
+      byTestId('point-inspection').textContent =
+        picked && typeof picked === 'object'
+          ? JSON.stringify(picked, (_key, value: unknown) =>
+              typeof value === 'bigint' ? value.toString() : value,
+            )
+          : 'Click a rendered point';
+      byTestId<HTMLButtonElement>('apply-settings').disabled =
+        state.status === 'loading';
+      styleSelect.disabled =
+        state.renderer !== 'cesium' ||
+        (state.status !== 'ready' && !state.activeDatasetUrl);
     },
     setFixtures(fixtures) {
       const selected = fixtureSelect.value || state.fixtureId;
@@ -295,7 +430,15 @@ export function mountControlPanel(target: HTMLElement, options: MountPanelOption
         const option = document.createElement('option');
         option.value = `remote:${source.id}`;
         option.textContent = source.name;
-        option.title = [source.approximateSize, source.description, ...Object.entries(source.expectedCapabilities).filter(([key, value]) => key !== 'range' && value).map(([key]) => key)].filter(Boolean).join(' · ');
+        option.title = [
+          source.approximateSize,
+          source.description,
+          ...Object.entries(source.expectedCapabilities)
+            .filter(([key, value]) => key !== 'range' && value)
+            .map(([key]) => key),
+        ]
+          .filter(Boolean)
+          .join(' · ');
         remoteGroup.append(option);
       }
       fixtureSelect.append(remoteGroup);
@@ -315,8 +458,13 @@ export function mountControlPanel(target: HTMLElement, options: MountPanelOption
       customOption.value = 'custom:';
       customOption.textContent = 'Custom URL (use field below)';
       fixtureSelect.append(customOption);
-      if (fixtures.some(({ id }) => id === selected)) fixtureSelect.value = selected;
-      else if (selected.startsWith('remote:') && REMOTE_COPC_SOURCES.some(({ id }) => `remote:${id}` === selected)) fixtureSelect.value = selected;
+      if (fixtures.some(({ id }) => id === selected))
+        fixtureSelect.value = selected;
+      else if (
+        selected.startsWith('remote:') &&
+        REMOTE_COPC_SOURCES.some(({ id }) => `remote:${id}` === selected)
+      )
+        fixtureSelect.value = selected;
       else if (selected.startsWith('custom:')) fixtureSelect.value = 'custom:';
     },
     destroy() {
@@ -347,8 +495,13 @@ export function panelStateFromConfig(
   };
 }
 
-function nestedRecord(value: unknown, key: string): Record<string, unknown> | undefined {
+function nestedRecord(
+  value: unknown,
+  key: string,
+): Record<string, unknown> | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const nested = (value as Record<string, unknown>)[key];
-  return nested && typeof nested === 'object' ? nested as Record<string, unknown> : undefined;
+  return nested && typeof nested === 'object'
+    ? (nested as Record<string, unknown>)
+    : undefined;
 }

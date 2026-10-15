@@ -11,7 +11,11 @@ const fixture = {
   title: 'fixture',
   filename: 'fixture.copc.laz',
   capabilities: ['valid-copc'],
-  source: { url: 'https://example.test/fixture.copc.laz', provenance: 'test', license: 'MIT' },
+  source: {
+    url: 'https://example.test/fixture.copc.laz',
+    provenance: 'test',
+    license: 'MIT',
+  },
   checksum: { algorithm: 'sha256' as const, value: null },
   sizeBytes: 1000,
   coverage: {
@@ -30,15 +34,37 @@ test('parses and validates the LAS/COPC header contract', () => {
   bytes[25] = 4;
   bytes[104] = 0x87;
   const header = parseCopcHeader(bytes);
-  assert.deepEqual(header, { signature: 'LASF', lasVersion: '1.4', pointFormat: 7 });
+  assert.deepEqual(header, {
+    signature: 'LASF',
+    lasVersion: '1.4',
+    pointFormat: 7,
+  });
   assert.doesNotThrow(() => assertCopcHeader(header, fixture));
 });
 test('rejects a whole-file or over-budget streaming load', () => {
-  assert.throws(() => assertBoundedRangeStreaming({
-    requests: [{ fixtureId: 'fixture', range: 'bytes=0-600', bytesServed: 601 }],
-  }, fixture), /one range/);
-  assert.throws(() => assertBoundedRangeStreaming({
-    bytesServed: 950,
-    requests: [{ fixtureId: 'fixture', range: 'bytes=0-400', bytesServed: 100 }],
-  }, fixture), /served 950 bytes/);
+  assert.throws(
+    () =>
+      assertBoundedRangeStreaming(
+        {
+          requests: [
+            { fixtureId: 'fixture', range: 'bytes=0-600', bytesServed: 601 },
+          ],
+        },
+        fixture,
+      ),
+    /one range/,
+  );
+  assert.throws(
+    () =>
+      assertBoundedRangeStreaming(
+        {
+          bytesServed: 950,
+          requests: [
+            { fixtureId: 'fixture', range: 'bytes=0-400', bytesServed: 100 },
+          ],
+        },
+        fixture,
+      ),
+    /served 950 bytes/,
+  );
 });

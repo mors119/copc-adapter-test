@@ -1,5 +1,8 @@
 import type * as CesiumTypes from 'cesium';
-import type { CopcCesiumLayer, CopcSourceProbeResult } from '@frillab/copc-adapter';
+import type {
+  CopcCesiumLayer,
+  CopcSourceProbeResult,
+} from '@frillab/copc-adapter';
 import type { HarnessView } from '@copc-test/core';
 import type { RendererColorMode, RendererOptions, TestRenderer } from './types';
 
@@ -7,7 +10,10 @@ type ColorMode = RendererColorMode;
 type CesiumAdapterModule = typeof import('@frillab/copc-adapter/cesium');
 type AdapterRootModule = typeof import('@frillab/copc-adapter');
 
-export function mountCesiumRenderer(container: HTMLElement, options: RendererOptions): TestRenderer {
+export function mountCesiumRenderer(
+  container: HTMLElement,
+  options: RendererOptions,
+): TestRenderer {
   let disposed = false;
   let cesiumModule: typeof import('cesium') | undefined;
   let adapter: CesiumAdapterModule | undefined;
@@ -26,7 +32,8 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
   options.onStatus('loading');
 
   const viewerReady = (async (): Promise<void> => {
-    (window as Window & { CESIUM_BASE_URL?: string }).CESIUM_BASE_URL = '/cesium/';
+    (window as Window & { CESIUM_BASE_URL?: string }).CESIUM_BASE_URL =
+      '/cesium/';
     const [Cesium, cesiumAdapter, rootAdapter] = await Promise.all([
       import('cesium'),
       import('@frillab/copc-adapter/cesium'),
@@ -36,13 +43,17 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
     cesiumModule = Cesium;
     adapter = cesiumAdapter;
     probeCopcSource = rootAdapter.probeCopcSource;
+    const cesiumIonToken = options.cesiumIonToken?.trim();
+    if (cesiumIonToken) Cesium.Ion.defaultAccessToken = cesiumIonToken;
 
     const currentViewer = new Cesium.Viewer(container, {
       animation: false,
       timeline: false,
       geocoder: false,
       baseLayerPicker: false,
-      baseLayer: false,
+      baseLayer: cesiumIonToken
+        ? Cesium.ImageryLayer.fromWorldImagery()
+        : false,
       terrainProvider: new Cesium.EllipsoidTerrainProvider(),
       sceneModePicker: false,
       navigationHelpButton: false,
@@ -53,14 +64,17 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
     });
     viewer = currentViewer;
     container.dataset.cesiumViewerInstance = String(++nextViewerInstanceId);
-    currentViewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#06101d');
+    currentViewer.scene.backgroundColor =
+      Cesium.Color.fromCssColorString('#06101d');
     currentViewer.scene.globe.show = true;
     currentViewer.scene.globe.enableLighting = true;
-    const localImagery = await Cesium.TileMapServiceImageryProvider.fromUrl(
-      Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII'),
-    );
-    if (disposed) return;
-    currentViewer.imageryLayers.addImageryProvider(localImagery);
+    if (!cesiumIonToken) {
+      const localImagery = await Cesium.TileMapServiceImageryProvider.fromUrl(
+        Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII'),
+      );
+      if (disposed) return;
+      currentViewer.imageryLayers.addImageryProvider(localImagery);
+    }
   })();
 
   function snapshotOf(currentLayer: CopcCesiumLayer): unknown {
@@ -72,13 +86,15 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
       sourceProbe: activeProbe,
       sourceKind: activeSourceKind,
       pickedPoint,
-      ...(cartographic && cesiumModule ? {
-        camera: {
-          longitude: cesiumModule.Math.toDegrees(cartographic.longitude),
-          latitude: cesiumModule.Math.toDegrees(cartographic.latitude),
-          height: cartographic.height,
-        },
-      } : {}),
+      ...(cartographic && cesiumModule
+        ? {
+            camera: {
+              longitude: cesiumModule.Math.toDegrees(cartographic.longitude),
+              latitude: cesiumModule.Math.toDegrees(cartographic.latitude),
+              height: cartographic.height,
+            },
+          }
+        : {}),
     };
   }
 
@@ -92,7 +108,8 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
     if (disposed) return;
     const currentViewer = viewer;
     const currentAdapter = adapter;
-    if (!currentViewer || !currentAdapter) throw new Error('Cesium Viewer is not available.');
+    if (!currentViewer || !currentAdapter)
+      throw new Error('Cesium Viewer is not available.');
     const currentGeneration = ++sourceGeneration;
     options.onStatus('loading');
     options.onSourceProbe?.(undefined);
@@ -101,15 +118,24 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
     let candidateProbe: CopcSourceProbeResult | undefined;
     try {
       if (sourceKind !== 'local-fixture') {
-        if (!probeCopcSource) throw new Error('The installed adapter does not expose probeCopcSource.');
+        if (!probeCopcSource)
+          throw new Error(
+            'The installed adapter does not expose probeCopcSource.',
+          );
         candidateProbe = await probeCopcSource(sourceUrl);
         if (currentGeneration !== sourceGeneration || disposed) return;
         options.onSourceProbe?.(candidateProbe);
         const range = candidateProbe.contentRange;
-        const validRange = typeof range === 'string' && /^bytes\s+0-\d+\/(?:\d+)$/.test(range);
-        if (!candidateProbe.reachable || candidateProbe.corsReadable !== true
-          || candidateProbe.partialStatus !== 206 || candidateProbe.rangeSupported !== true
-          || !validRange || candidateProbe.copcDetected !== true) {
+        const validRange =
+          typeof range === 'string' && /^bytes\s+0-\d+\/(?:\d+)$/.test(range);
+        if (
+          !candidateProbe.reachable ||
+          candidateProbe.corsReadable !== true ||
+          candidateProbe.partialStatus !== 206 ||
+          candidateProbe.rangeSupported !== true ||
+          !validRange ||
+          candidateProbe.copcDetected !== true
+        ) {
           const details = [
             `reachable=${candidateProbe.reachable}`,
             `corsReadable=${candidateProbe.corsReadable}`,
@@ -118,7 +144,9 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
             `Content-Range=${candidateProbe.contentRange ?? 'unavailable'}`,
             `COPC=${candidateProbe.copcDetected}`,
           ].join(', ');
-          throw new Error(`Remote COPC source probe failed (${details}). The URL must be browser-readable and serve valid HTTP 206 byte ranges.`);
+          throw new Error(
+            `Remote COPC source probe failed (${details}). The URL must be browser-readable and serve valid HTTP 206 byte ranges.`,
+          );
         }
       }
 
@@ -128,7 +156,12 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
         colorMode: candidateColorMode,
         pointSize: 3,
         maxRenderedPoints: 1_000_000,
-        streaming: { maxNodes: 8, maxDepth: 8, maxScreenSpaceError: 8, maxRenderDistanceMeters: 20_000 },
+        streaming: {
+          maxNodes: 8,
+          maxDepth: 8,
+          maxScreenSpaceError: 8,
+          maxRenderDistanceMeters: 20_000,
+        },
         debug: true,
         onPointPicked: (point) => {
           pickedPoint = point;
@@ -141,7 +174,8 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
         candidate.destroy();
         return;
       }
-      const loadedColorMode = styleRevision === styleRevisionAtStart ? candidateColorMode : colorMode;
+      const loadedColorMode =
+        styleRevision === styleRevisionAtStart ? candidateColorMode : colorMode;
       candidate.setStyle({ colorMode: loadedColorMode });
       pendingLayer = candidate;
 
@@ -156,16 +190,25 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
         const previousProbe = activeProbe;
         const previousKind = activeSourceKind;
         try {
-          const attachColorMode = styleRevision === styleRevisionAtStart ? candidateColorMode : colorMode;
+          const attachColorMode =
+            styleRevision === styleRevisionAtStart
+              ? candidateColorMode
+              : colorMode;
           candidate.setStyle({ colorMode: attachColorMode });
           candidate.attachTo(currentViewer);
-          await waitForRenderedPoints(candidate, () => disposed || currentGeneration !== sourceGeneration);
+          await waitForRenderedPoints(
+            candidate,
+            () => disposed || currentGeneration !== sourceGeneration,
+          );
           if (disposed || currentGeneration !== sourceGeneration) {
             candidate.destroy();
             if (pendingLayer === candidate) pendingLayer = undefined;
             return;
           }
-          const committedColorMode = styleRevision === styleRevisionAtStart ? candidateColorMode : colorMode;
+          const committedColorMode =
+            styleRevision === styleRevisionAtStart
+              ? candidateColorMode
+              : colorMode;
           candidate.setStyle({ colorMode: committedColorMode });
           previousLayer?.detachFrom();
           layer = candidate;
@@ -198,7 +241,10 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
       if (pendingLayer === candidate) pendingLayer = undefined;
       if (!disposed && currentGeneration === sourceGeneration) {
         options.onSourceProbe?.(candidateProbe);
-        options.onStatus('error', error instanceof Error ? error.message : String(error));
+        options.onStatus(
+          'error',
+          error instanceof Error ? error.message : String(error),
+        );
       }
       throw error;
     }
@@ -217,7 +263,8 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
     async setView(view: Exclude<HarnessView, 'visual'>): Promise<void> {
       await viewerReady;
       if (!viewer || !layer || disposed) return;
-      if (!cesiumModule) throw new Error('Cesium module is not available for camera framing.');
+      if (!cesiumModule)
+        throw new Error('Cesium module is not available for camera framing.');
       frameViewerToLayer(cesiumModule, viewer, layer, view);
       options.onSnapshot(snapshotOf(layer));
     },
@@ -228,10 +275,11 @@ export function mountCesiumRenderer(container: HTMLElement, options: RendererOpt
       styleRevision += 1;
       colorMode = mode;
       layer?.setStyle({ colorMode: mode });
-      if (pendingLayer && pendingLayer !== layer) pendingLayer.setStyle({ colorMode: mode });
+      if (pendingLayer && pendingLayer !== layer)
+        pendingLayer.setStyle({ colorMode: mode });
       if (layer) options.onSnapshot(snapshotOf(layer));
     },
-    snapshot: () => layer ? snapshotOf(layer) : undefined,
+    snapshot: () => (layer ? snapshotOf(layer) : undefined),
     unload: () => {
       layer?.unload();
       options.onSnapshot(undefined);
@@ -260,14 +308,23 @@ function frameViewerToLayer(
 ): void {
   const sphere = getRenderedSphere(Cesium, viewer);
   if (!sphere) throw new Error('Cesium has no rendered COPC points to frame.');
-  const range = Math.max(sphere.radius * (view === 'near' ? 2 : view === 'far' ? 8 : 4), 150);
-  viewer.camera.viewBoundingSphere(sphere, new Cesium.HeadingPitchRange(0, -Math.PI / 3, range));
+  const range = Math.max(
+    sphere.radius * (view === 'near' ? 2 : view === 'far' ? 8 : 4),
+    150,
+  );
+  viewer.camera.viewBoundingSphere(
+    sphere,
+    new Cesium.HeadingPitchRange(0, -Math.PI / 3, range),
+  );
   viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
   viewer.scene.requestRender();
   void layer.getSnapshot();
 }
 
-function getRenderedSphere(Cesium: typeof import('cesium'), viewer: CesiumTypes.Viewer): CesiumTypes.BoundingSphere | undefined {
+function getRenderedSphere(
+  Cesium: typeof import('cesium'),
+  viewer: CesiumTypes.Viewer,
+): CesiumTypes.BoundingSphere | undefined {
   const positions: CesiumTypes.Cartesian3[] = [];
   for (let i = 0; i < viewer.scene.primitives.length; i += 1) {
     const primitive = viewer.scene.primitives.get(i);
@@ -278,14 +335,22 @@ function getRenderedSphere(Cesium: typeof import('cesium'), viewer: CesiumTypes.
       if (position) positions.push(Cesium.Cartesian3.clone(position));
     }
   }
-  return positions.length ? Cesium.BoundingSphere.fromPoints(positions) : undefined;
+  return positions.length
+    ? Cesium.BoundingSphere.fromPoints(positions)
+    : undefined;
 }
 
-async function waitForRenderedPoints(layer: CopcCesiumLayer, isCancelled: () => boolean): Promise<void> {
+async function waitForRenderedPoints(
+  layer: CopcCesiumLayer,
+  isCancelled: () => boolean,
+): Promise<void> {
   const deadline = performance.now() + 25_000;
   while (!isCancelled() && performance.now() < deadline) {
     if (layer.getSnapshot().renderedPointCount > 0) return;
     await new Promise((resolve) => window.setTimeout(resolve, 100));
   }
-  if (!isCancelled()) throw new Error('Cesium attached the COPC layer but rendered no points within 25 seconds.');
+  if (!isCancelled())
+    throw new Error(
+      'Cesium attached the COPC layer but rendered no points within 25 seconds.',
+    );
 }

@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "engines": { "node": ">=22.12" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "bootstrap": "node tools/adapter-source/cli.mjs bootstrap",
     "bootstrap:local": "node tools/adapter-source/cli.mjs bootstrap --source checkout",
@@ -34,7 +36,12 @@
     "fixtures:verify": "npm run fixtures -- verify",
     "fixtures:serve": "npm run fixtures -- serve"
   },
-  "workspaces": ["packages/*", "apps/vanilla", "apps/react", "apps/next"],
+  "workspaces": [
+    "packages/*",
+    "apps/vanilla",
+    "apps/react",
+    "apps/next"
+  ],
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "copc": "^0.0.9",

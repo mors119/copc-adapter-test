@@ -17,6 +17,8 @@ export async function mountTestRenderer(
   return module.mountThreeRenderer(container, options);
 }
 
-export function isSharedRenderer(renderer: HarnessRenderer): renderer is 'cesium' | 'three' {
+export function isSharedRenderer(
+  renderer: HarnessRenderer,
+): renderer is 'cesium' | 'three' {
   return renderer === 'cesium' || renderer === 'three';
 }

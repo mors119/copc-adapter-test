@@ -16,7 +16,12 @@ export type {
   HarnessDiagnostics,
   HarnessView,
 } from './test-contract.ts';
-export { createTestContract, normalizeSnapshot, TEST_CONTRACT_GLOBAL, TEST_CONTRACT_VERSION } from './test-contract.ts';
+export {
+  createTestContract,
+  normalizeSnapshot,
+  TEST_CONTRACT_GLOBAL,
+  TEST_CONTRACT_VERSION,
+} from './test-contract.ts';
 
 export * from './fixtures.ts';
 export * from './sources.ts';
@@ -24,7 +29,10 @@ export * from './fixture-assertions.ts';
 
 export const DEFAULT_PACKAGE_VERSION = '0.5.0';
 
-export type HarnessDefaults = Omit<HarnessConfig, 'fixtureUrl' | 'backend' | 'scenario' | 'packageSource' | 'packageVersion'> & {
+export type HarnessDefaults = Omit<
+  HarnessConfig,
+  'fixtureUrl' | 'backend' | 'scenario' | 'packageSource' | 'packageVersion'
+> & {
   fixtureUrl: string;
   backend?: HarnessBackend;
   scenario?: HarnessScenario;
@@ -38,13 +46,24 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
-function enumValue<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+function enumValue<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+): T | undefined {
   const candidate = stringValue(value);
-  return candidate !== undefined && allowed.includes(candidate as T) ? (candidate as T) : undefined;
+  return candidate !== undefined && allowed.includes(candidate as T)
+    ? (candidate as T)
+    : undefined;
 }
 
-function environmentValue(environment: HarnessEnvironment, prefix: string, key: string): string | undefined {
-  return stringValue(environment[`${prefix}${key}`]) ?? stringValue(environment[key]);
+function environmentValue(
+  environment: HarnessEnvironment,
+  prefix: string,
+  key: string,
+): string | undefined {
+  return (
+    stringValue(environment[`${prefix}${key}`]) ?? stringValue(environment[key])
+  );
 }
 
 function definedConfig(values: Partial<HarnessConfig>): Partial<HarnessConfig> {
@@ -53,13 +72,29 @@ function definedConfig(values: Partial<HarnessConfig>): Partial<HarnessConfig> {
   ) as Partial<HarnessConfig>;
 }
 
-function environmentConfig(environment: HarnessEnvironment, prefix: string): Partial<HarnessConfig> {
+function environmentConfig(
+  environment: HarnessEnvironment,
+  prefix: string,
+): Partial<HarnessConfig> {
   return definedConfig({
     fixtureUrl: environmentValue(environment, prefix, 'COPC_FIXTURE_URL'),
-    backend: enumValue(environmentValue(environment, prefix, 'COPC_BACKEND'), ['copc-js', 'rust']),
-    scenario: enumValue(environmentValue(environment, prefix, 'COPC_SCENARIO'), ['load-and-stream', 'camera-stream', 'static']),
-    packageSource: enumValue(environmentValue(environment, prefix, 'COPC_PACKAGE_SOURCE'), ['checkout', 'tarball', 'npm']),
-    packageVersion: environmentValue(environment, prefix, 'COPC_PACKAGE_VERSION'),
+    backend: enumValue(environmentValue(environment, prefix, 'COPC_BACKEND'), [
+      'copc-js',
+      'rust',
+    ]),
+    scenario: enumValue(
+      environmentValue(environment, prefix, 'COPC_SCENARIO'),
+      ['load-and-stream', 'camera-stream', 'static'],
+    ),
+    packageSource: enumValue(
+      environmentValue(environment, prefix, 'COPC_PACKAGE_SOURCE'),
+      ['checkout', 'tarball', 'npm'],
+    ),
+    packageVersion: environmentValue(
+      environment,
+      prefix,
+      'COPC_PACKAGE_VERSION',
+    ),
   });
 }
 
@@ -70,12 +105,18 @@ function queryConfig(): Partial<HarnessConfig> {
   return definedConfig({
     fixtureUrl: params.get('fixture') ?? undefined,
     backend: enumValue(params.get('backend'), ['copc-js', 'rust']),
-    scenario: enumValue(params.get('scenario'), ['load-and-stream', 'camera-stream', 'static']),
+    scenario: enumValue(params.get('scenario'), [
+      'load-and-stream',
+      'camera-stream',
+      'static',
+    ]),
   });
 }
 
 function runtimeConfig(): Partial<HarnessConfig> {
-  return typeof window === 'undefined' ? {} : (window.__COPC_HARNESS_CONFIG__ ?? {});
+  return typeof window === 'undefined'
+    ? {}
+    : (window.__COPC_HARNESS_CONFIG__ ?? {});
 }
 
 /**
@@ -103,6 +144,9 @@ export function createHarnessConfig(
     backend: values.backend ?? defaults.backend ?? 'copc-js',
     scenario: values.scenario ?? defaults.scenario ?? 'load-and-stream',
     packageSource: values.packageSource ?? defaults.packageSource ?? 'npm',
-    packageVersion: values.packageVersion ?? defaults.packageVersion ?? DEFAULT_PACKAGE_VERSION,
+    packageVersion:
+      values.packageVersion ??
+      defaults.packageVersion ??
+      DEFAULT_PACKAGE_VERSION,
   };
 }

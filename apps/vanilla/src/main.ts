@@ -137,7 +137,7 @@ async function apply(selection: PanelSelection): Promise<void> {
     try {
       await renderer.setSource?.(fixtureUrl, nextSource.kind, nextColorMode);
       if (styleRevision === styleRevisionAtStart) colorMode = nextColorMode;
-      update({ colorMode });
+      update({ colorMode, activeView: 'overview' });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       contract.markError(error);
@@ -227,10 +227,11 @@ async function apply(selection: PanelSelection): Promise<void> {
 }
 
 async function setView(view: 'overview' | 'near' | 'far'): Promise<void> {
+  const activeRenderer = renderer;
+  if (!activeRenderer) return;
   try {
-    if (!renderer) return;
-    await renderer.setView(view);
-    update({ activeView: view });
+    await activeRenderer.setView(view);
+    if (renderer === activeRenderer) update({ activeView: view });
   } catch (error) {
     contract.markError(error);
     update({

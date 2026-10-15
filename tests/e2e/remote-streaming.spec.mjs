@@ -253,10 +253,13 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await expect(page.getByTestId('point-classification-row')).toBeVisible();
   await expect(page.getByTestId('point-rgb-row')).toBeVisible();
 
+  await page.getByRole('button', { name: 'Far' }).click();
+  await expect(page.getByTestId('hud-view')).toHaveText('Far');
   await page
     .getByTestId('fixture-select')
     .selectOption('remote:chicago-downtown');
   await waitForActiveUrl(page, '/chicago-downtown/chicago-downtown.copc.laz');
+  await expect(page.getByTestId('hud-view')).toHaveText('Overview');
   await expect(page.getByTestId('style-select')).toHaveValue('elevation');
   const chicago = ranges.filter(({ url }) =>
     url.includes('/chicago-downtown/chicago-downtown.copc.laz'),

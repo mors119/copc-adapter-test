@@ -137,6 +137,22 @@ export function RendererClient({
     (probe: PanelState['sourceProbe']): void => setSourceProbe(probe),
     [],
   );
+  const setView = useCallback(
+    async (view: Exclude<HarnessView, 'visual'>): Promise<void> => {
+      const activeRenderer = rendererRef.current;
+      if (!activeRenderer) return;
+      try {
+        await activeRenderer.setView(view);
+        if (rendererRef.current === activeRenderer) setActiveView(view);
+      } catch (cause) {
+        onStatus(
+          'error',
+          cause instanceof Error ? cause.message : String(cause),
+        );
+      }
+    },
+    [onStatus],
+  );
 
   useEffect(() => {
     contract.setConfig({ renderer, backend: selection.backend, fixtureUrl });
@@ -257,11 +273,9 @@ export function RendererClient({
     contract.registerCommand('reload', () =>
       setReloadKey((value) => value + 1),
     );
-    contract.registerCommand('setView', (view) => {
-      const nextView = view === 'visual' ? 'overview' : view;
-      setActiveView(nextView);
-      return rendererRef.current?.setView(nextView);
-    });
+    contract.registerCommand('setView', (view) =>
+      setView(view === 'visual' ? 'overview' : view),
+    );
     contract.registerCommand('unload', () => rendererRef.current?.unload());
     contract.registerCommand('destroy', () => {
       rendererRef.current?.destroy();
@@ -273,7 +287,7 @@ export function RendererClient({
       contract.unregisterCommand('unload');
       contract.unregisterCommand('destroy');
     };
-  }, []);
+  }, [setView]);
 
   const apply = useCallback(
     (next: PanelSelection): void => {
@@ -318,10 +332,6 @@ export function RendererClient({
     },
     [renderer, selection, colorMode],
   );
-  const setView = (view: Exclude<HarnessView, 'visual'>): void => {
-    setActiveView(view);
-    void rendererRef.current?.setView(view);
-  };
   const setStyle = (mode: ColorMode): void => {
     setColorMode(mode);
     rendererRef.current?.setStyle?.(mode);

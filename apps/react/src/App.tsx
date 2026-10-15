@@ -127,6 +127,22 @@ export function App(): ReactNode {
   const onR3FHandle = useCallback((handle: R3FHandle | undefined): void => {
     rendererRef.current = handle;
   }, []);
+  const setView = useCallback(
+    async (view: Exclude<HarnessView, 'visual'>): Promise<void> => {
+      const activeRenderer = rendererRef.current;
+      if (!activeRenderer) return;
+      try {
+        await activeRenderer.setView(view);
+        if (rendererRef.current === activeRenderer) setActiveView(view);
+      } catch (cause) {
+        onStatus(
+          'error',
+          cause instanceof Error ? cause.message : String(cause),
+        );
+      }
+    },
+    [onStatus],
+  );
 
   useEffect(() => {
     contract.setConfig({
@@ -249,11 +265,9 @@ export function App(): ReactNode {
     contract.registerCommand('reload', () =>
       setReloadKey((value) => value + 1),
     );
-    contract.registerCommand('setView', (view) => {
-      const nextView = view === 'visual' ? 'overview' : view;
-      setActiveView(nextView);
-      return rendererRef.current?.setView(nextView);
-    });
+    contract.registerCommand('setView', (view) =>
+      setView(view === 'visual' ? 'overview' : view),
+    );
     contract.registerCommand('unload', () => rendererRef.current?.unload());
     contract.registerCommand('destroy', () => {
       rendererRef.current?.destroy();
@@ -266,7 +280,7 @@ export function App(): ReactNode {
       contract.unregisterCommand('unload');
       contract.unregisterCommand('destroy');
     };
-  }, []);
+  }, [setView]);
 
   const apply = useCallback(
     (next: PanelSelection): void => {
@@ -300,10 +314,6 @@ export function App(): ReactNode {
     },
     [selection, colorMode],
   );
-  const setView = useCallback((view: Exclude<HarnessView, 'visual'>): void => {
-    setActiveView(view);
-    void rendererRef.current?.setView(view);
-  }, []);
   const setStyle = useCallback((mode: ColorMode): void => {
     setColorMode(mode);
     rendererRef.current?.setStyle?.(mode);

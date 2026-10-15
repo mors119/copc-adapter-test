@@ -70,6 +70,43 @@ export type MountPanelOptions = {
   actions: PanelActions;
 };
 
+type ValueRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): ValueRecord | undefined {
+  return value !== null && typeof value === 'object'
+    ? (value as ValueRecord)
+    : undefined;
+}
+
+function formatPointValue(
+  value: unknown,
+  maximumFractionDigits = 3,
+): string | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Intl.NumberFormat('en-US', {
+      maximumFractionDigits,
+      useGrouping: false,
+    }).format(value);
+  }
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'string' && value.trim()) return value;
+  return undefined;
+}
+
+function formatPointVector(
+  value: unknown,
+  maximumFractionDigits: number,
+): string | undefined {
+  const vector = asRecord(value);
+  if (!vector) return undefined;
+  const coordinates = ['x', 'y', 'z'].map((axis) =>
+    formatPointValue(vector[axis], maximumFractionDigits),
+  );
+  return coordinates.every((coordinate) => coordinate !== undefined)
+    ? coordinates.join(', ')
+    : undefined;
+}
+
 export function mountControlPanel(
   target: HTMLElement,
   options: MountPanelOptions,
@@ -128,7 +165,34 @@ export function mountControlPanel(
       <option value="rgb">RGB</option><option value="elevation">Elevation</option>
       <option value="intensity">Intensity</option><option value="classification">Classification</option>
     </select></label>
-    <div class="copc-panel__status"><span>Point inspection</span><strong data-testid="point-inspection">Click a rendered point</strong></div>
+    <section class="copc-panel__point-inspection" aria-label="Point inspection" aria-live="polite">
+      <h2>Point inspection</h2>
+      <p class="copc-panel__point-empty" data-testid="point-inspection-empty">Click a rendered point</p>
+      <div class="copc-panel__point-card" data-testid="point-inspection" hidden>
+        <dl class="copc-panel__point-coordinates">
+          <div data-testid="point-latitude-row"><dt>Latitude (°)</dt><dd data-testid="point-latitude">—</dd></div>
+          <div data-testid="point-longitude-row"><dt>Longitude (°)</dt><dd data-testid="point-longitude">—</dd></div>
+          <div data-testid="point-height-row"><dt>Height (m)</dt><dd data-testid="point-height">—</dd></div>
+        </dl>
+        <dl class="copc-panel__point-attributes">
+          <div data-testid="point-intensity-row"><dt>Intensity</dt><dd data-testid="point-intensity">—</dd></div>
+          <div data-testid="point-classification-row"><dt>Classification</dt><dd><span data-testid="point-classification">—</span><span data-testid="point-classification-label"></span></dd></div>
+          <div data-testid="point-rgb-row"><dt>RGB</dt><dd data-testid="point-rgb">—</dd></div>
+          <div data-testid="point-level-row"><dt>LoD level</dt><dd data-testid="point-level">—</dd></div>
+          <div data-testid="point-index-row"><dt>Point index</dt><dd data-testid="point-index">—</dd></div>
+          <div data-testid="point-node-row"><dt>Node</dt><dd data-testid="point-node">—</dd></div>
+          <div data-testid="point-backend-row"><dt>Backend</dt><dd data-testid="point-backend">—</dd></div>
+        </dl>
+        <details class="copc-panel__point-extra" data-testid="point-extra-details">
+          <summary>Source coordinates and extra dimensions</summary>
+          <dl>
+            <div data-testid="point-source-row"><dt>Source XYZ</dt><dd data-testid="point-source">—</dd></div>
+            <div data-testid="point-world-row"><dt>World ECEF (m)</dt><dd data-testid="point-world">—</dd></div>
+          </dl>
+          <dl data-testid="point-dimensions"></dl>
+        </details>
+      </div>
+    </section>
     <div class="copc-panel__button-row">
       <button class="copc-panel__primary" data-testid="apply-settings" type="button">Apply / reload</button>
       <button data-testid="reload-renderer" type="button">Reload renderer</button>
@@ -408,12 +472,73 @@ export function mountControlPanel(
         ? `${Math.min(...lod)}–${Math.max(...lod)}`
         : '—';
       const picked = state.pickedPoint;
-      byTestId('point-inspection').textContent =
-        picked && typeof picked === 'object'
-          ? JSON.stringify(picked, (_key, value: unknown) =>
-              typeof value === 'bigint' ? value.toString() : value,
-            )
-          : 'Click a rendered point';
+      const point = asRecord(picked);
+      const pointInspection = byTestId('point-inspection');
+      const pointEmpty = byTestId('point-inspection-empty');
+      pointInspection.hidden = !point;
+      pointEmpty.hidden = Boolean(point);
+      const setPointValue = (
+        name: string,
+        value: unknown,
+        maximumFractionDigits = 3,
+      ): void => {
+        const formatted = formatPointValue(value, maximumFractionDigits);
+        byTestId(`point-${name}`).textContent = formatted ?? '—';
+        byTestId(`point-${name}-row`).hidden = formatted === undefined;
+      };
+      setPointValue('latitude', point?.latitude, 7);
+      setPointValue('longitude', point?.longitude, 7);
+      setPointValue('height', point?.height, 3);
+      setPointValue('intensity', point?.intensity, 0);
+      setPointValue('classification', point?.classification, 0);
+      setPointValue('level', point?.level, 0);
+      setPointValue('index', point?.pointIndex, 0);
+      setPointValue('node', point?.nodeKey);
+      setPointValue('backend', point?.backend);
+
+      const classificationLabel =
+        typeof point?.classificationLabel === 'string'
+          ? point.classificationLabel
+          : undefined;
+      byTestId('point-classification-label').textContent =
+        classificationLabel ? ` · ${classificationLabel}` : '';
+
+      const rgb = asRecord(point?.rgb);
+      const rgbValues = rgb
+        ? ['red', 'green', 'blue'].map((channel) =>
+            formatPointValue(rgb[channel], 0),
+          )
+        : [];
+      const hasRgb = rgbValues.length === 3 && rgbValues.every(Boolean);
+      byTestId('point-rgb').textContent = hasRgb
+        ? rgbValues.join(', ')
+        : '—';
+      byTestId('point-rgb-row').hidden = !hasRgb;
+
+      const sourceText = formatPointVector(point?.source, 3);
+      byTestId('point-source').textContent = sourceText ?? '—';
+      byTestId('point-source-row').hidden = sourceText === undefined;
+      const worldText = formatPointVector(point?.world, 2);
+      byTestId('point-world').textContent = worldText ?? '—';
+      byTestId('point-world-row').hidden = worldText === undefined;
+      const dimensions = byTestId('point-dimensions');
+      dimensions.replaceChildren();
+      const extraDimensions = asRecord(point?.dimensions);
+      for (const [name, value] of Object.entries(extraDimensions ?? {})) {
+        const formatted = formatPointValue(value);
+        if (formatted === undefined) continue;
+        const row = document.createElement('div');
+        const label = document.createElement('dt');
+        const detail = document.createElement('dd');
+        label.textContent = name;
+        detail.textContent = formatted;
+        row.append(label, detail);
+        dimensions.append(row);
+      }
+      byTestId<HTMLDetailsElement>('point-extra-details').hidden =
+        sourceText === undefined &&
+        worldText === undefined &&
+        dimensions.childElementCount === 0;
       byTestId<HTMLButtonElement>('apply-settings').disabled =
         state.status === 'loading';
       styleSelect.disabled =

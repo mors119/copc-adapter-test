@@ -181,11 +181,79 @@ body {
   overflow-wrap: anywhere;
   font-size: 10px;
 }
-.copc-panel [data-testid='point-inspection'] {
-  max-width: 65%;
-  max-height: 6em;
-  overflow: auto;
+.copc-panel__point-inspection {
+  margin-top: 12px;
+  padding: 0 10px 10px;
+  border: 1px solid rgb(114 241 184 / 26%);
+  border-radius: 8px;
+  background: rgb(114 241 184 / 5%);
+}
+.copc-panel__point-inspection h2 {
+  margin-top: 10px;
+}
+.copc-panel__point-empty {
+  margin: 8px 0 0;
+  color: rgb(255 255 255 / 58%);
+}
+.copc-panel__point-coordinates,
+.copc-panel__point-attributes,
+.copc-panel__point-extra dl {
+  margin: 8px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.copc-panel__point-coordinates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+}
+.copc-panel__point-coordinates > div {
+  display: grid;
+  gap: 4px;
+}
+.copc-panel__point-coordinates dt {
+  color: rgb(255 255 255 / 58%);
   font-size: 10px;
+}
+.copc-panel__point-coordinates dd {
+  margin: 0;
+  color: #a8f9d4;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.copc-panel__point-attributes > div,
+.copc-panel__point-extra dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+.copc-panel__point-attributes dt,
+.copc-panel__point-extra dt {
+  color: rgb(255 255 255 / 58%);
+}
+.copc-panel__point-attributes dd,
+.copc-panel__point-extra dd {
+  margin: 0;
+  color: #fff;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.copc-panel__point-extra {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+}
+.copc-panel__point-extra summary {
+  color: #add2f1;
+  cursor: pointer;
+  font-size: 10px;
+}
+.copc-panel__point-extra dl:empty {
+  display: none;
 }
 .copc-renderer-root,
 .copc-renderer-root canvas {

@@ -4,7 +4,12 @@ import { resolve } from 'node:path';
 import { readAdapterSourceMetadata } from '../../tools/adapter-source/index.mjs';
 
 const repositoryRoot = resolve(process.cwd(), '../..');
-loadEnvConfig(repositoryRoot);
+loadEnvConfig(
+  repositoryRoot,
+  process.env.NODE_ENV === 'development',
+  undefined,
+  true,
+);
 const sourceMetadata = readAdapterSourceMetadata();
 
 const nextConfig: NextConfig = {

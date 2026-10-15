@@ -568,7 +568,11 @@ function fitR3FCamera(
   camera.updateMatrixWorld(true);
   if (camera instanceof THREE.PerspectiveCamera) {
     camera.near = Math.max(radius / 10_000, 0.1);
-    camera.far = Math.max(radius * 12, (renderDistance ?? 0) * 2, 20_000);
+    camera.far = Math.max(
+      radius * 12,
+      (renderDistance ?? 0) * 2 + radius,
+      20_000,
+    );
     camera.updateProjectionMatrix();
   }
   return true;

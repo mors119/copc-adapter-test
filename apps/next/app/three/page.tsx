@@ -9,9 +9,6 @@ export default async function ThreePage({ searchParams }: PageProps) {
   return (
     <RendererClient
       renderer="three"
-      backend={params.backend}
-      fixtureId={params.fixtureId}
-      sourceId={params.sourceId}
       initialSearchParams={params}
     />
   );

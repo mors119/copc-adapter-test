@@ -36,6 +36,11 @@ type ColorMode = 'rgb' | 'elevation' | 'intensity' | 'classification';
 function validBackend(value: string | undefined): BackendName {
   return value === 'rust' ? 'rust' : 'copc-js';
 }
+function firstSearchValue(
+  value: string | string[] | undefined,
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 function validSourceSelection(
   sourceId: string | undefined,
   fixtureId: string | undefined,
@@ -71,18 +76,18 @@ if (typeof window !== 'undefined') window.__COPC_TEST__ = contract;
 
 export function RendererClient({
   renderer,
-  backend,
-  fixtureId,
-  sourceId,
   initialSearchParams,
 }: {
   renderer: RendererName;
-  backend?: string;
-  fixtureId?: string;
-  sourceId?: string;
   initialSearchParams: Record<string, string | string[] | undefined>;
 }): ReactNode {
-  const initialSourceId = validSourceSelection(sourceId, fixtureId);
+  const initialSourceId = validSourceSelection(
+    firstSearchValue(initialSearchParams.sourceId),
+    firstSearchValue(initialSearchParams.fixtureId),
+  );
+  const initialBackend = validBackend(
+    firstSearchValue(initialSearchParams.backend),
+  );
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(initialSearchParams)) {
     if (Array.isArray(value)) {
@@ -95,7 +100,7 @@ export function RendererClient({
   const initialRenderDistance = renderDistanceFromSearch(params);
   const [selection, setSelection] = useState<PanelSelection>({
     renderer,
-    backend: validBackend(backend),
+    backend: initialBackend,
     fixtureId: initialSourceId,
     streaming: initialStreaming,
     renderDistance: initialRenderDistance,

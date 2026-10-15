@@ -9,9 +9,6 @@ export default async function CesiumPage({ searchParams }: PageProps) {
   return (
     <RendererClient
       renderer="cesium"
-      backend={params.backend}
-      fixtureId={params.fixtureId}
-      sourceId={params.sourceId}
       initialSearchParams={params}
     />
   );

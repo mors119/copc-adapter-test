@@ -186,7 +186,11 @@ function fitCamera(
   camera.position.copy(center).add(offset);
   camera.lookAt(center);
   camera.near = Math.max(radius / 10_000, 0.1);
-  camera.far = Math.max(radius * 12, (renderDistance ?? 0) * 2, 20_000);
+  camera.far = Math.max(
+    radius * 12,
+    (renderDistance ?? 0) * 2 + radius,
+    20_000,
+  );
   camera.updateProjectionMatrix();
   target.copy(center);
   camera.updateMatrixWorld(true);

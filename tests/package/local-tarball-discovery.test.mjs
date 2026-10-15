@@ -33,7 +33,7 @@ test('fails clearly when no matching local adapter tarball exists', async () => 
 
 test('selects the one matching top-level adapter tarball', async () => {
   await withPackagesDirectory(async ({ projectRoot, directory }) => {
-    const expected = await addFile(directory, 'frillab-copc-adapter-0.4.0.tgz');
+    const expected = await addFile(directory, 'frillab-copc-adapter-0.5.0.tgz');
     assert.equal(
       await resolveLocalAdapterTarball({ tarball: '', directory, projectRoot }),
       expected,
@@ -43,13 +43,13 @@ test('selects the one matching top-level adapter tarball', async () => {
 
 test('fails deterministically when multiple matching tarballs exist', async () => {
   await withPackagesDirectory(async ({ projectRoot, directory }) => {
-    await addFile(directory, 'frillab-copc-adapter-0.4.0-1.tgz');
-    await addFile(directory, 'frillab-copc-adapter-0.4.0.tgz');
+    await addFile(directory, 'frillab-copc-adapter-0.5.0-1.tgz');
+    await addFile(directory, 'frillab-copc-adapter-0.5.0.tgz');
     await assert.rejects(
       resolveLocalAdapterTarball({ tarball: '', directory, projectRoot }),
       (error) => {
         assert.match(error.message, /Multiple local adapter tarballs found/);
-        assert.ok(error.message.indexOf('- frillab-copc-adapter-0.4.0-1.tgz') < error.message.indexOf('- frillab-copc-adapter-0.4.0.tgz'));
+        assert.ok(error.message.indexOf('- frillab-copc-adapter-0.5.0-1.tgz') < error.message.indexOf('- frillab-copc-adapter-0.5.0.tgz'));
         assert.match(error.message, /COPC_ADAPTER_TARBALL=\/path\/to\/artifact\.tgz npm run bootstrap:tarball/);
         return true;
       },
@@ -59,8 +59,8 @@ test('fails deterministically when multiple matching tarballs exist', async () =
 
 test('explicit COPC_ADAPTER_TARBALL takes precedence over discovered artifacts', async () => {
   await withPackagesDirectory(async ({ projectRoot, directory }) => {
-    await addFile(directory, 'frillab-copc-adapter-0.4.0.tgz');
-    await addFile(directory, 'frillab-copc-adapter-0.4.0-1.tgz');
+    await addFile(directory, 'frillab-copc-adapter-0.5.0.tgz');
+    await addFile(directory, 'frillab-copc-adapter-0.5.0-1.tgz');
     const explicit = await addFile(projectRoot, 'chosen.tgz');
     const previous = process.env.COPC_ADAPTER_TARBALL;
     process.env.COPC_ADAPTER_TARBALL = './chosen.tgz';
@@ -78,7 +78,7 @@ test('explicit COPC_ADAPTER_TARBALL takes precedence over discovered artifacts',
 
 test('ignores non-tgz files and unrelated tgz names', async () => {
   await withPackagesDirectory(async ({ projectRoot, directory }) => {
-    await addFile(directory, 'frillab-copc-adapter-0.4.0.tgz.sha256');
+    await addFile(directory, 'frillab-copc-adapter-0.5.0.tgz.sha256');
     await addFile(directory, 'other-package-1.0.0.tgz');
     await addFile(directory, 'notes.txt');
     await assert.rejects(
@@ -92,7 +92,7 @@ test('ignores matching artifacts in nested directories', async () => {
   await withPackagesDirectory(async ({ projectRoot, directory }) => {
     const nested = join(directory, 'nested');
     await mkdir(nested);
-    await addFile(nested, 'frillab-copc-adapter-0.4.0.tgz');
+    await addFile(nested, 'frillab-copc-adapter-0.5.0.tgz');
     await assert.rejects(
       resolveLocalAdapterTarball({ tarball: '', directory, projectRoot }),
       /No local @frillab\/copc-adapter tarball found/,

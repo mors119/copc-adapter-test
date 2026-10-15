@@ -19,9 +19,10 @@ export type {
 export { createTestContract, normalizeSnapshot, TEST_CONTRACT_GLOBAL, TEST_CONTRACT_VERSION } from './test-contract.ts';
 
 export * from './fixtures.ts';
+export * from './sources.ts';
 export * from './fixture-assertions.ts';
 
-export const DEFAULT_PACKAGE_VERSION = '0.4.0';
+export const DEFAULT_PACKAGE_VERSION = '0.5.0';
 
 export type HarnessDefaults = Omit<HarnessConfig, 'fixtureUrl' | 'backend' | 'scenario' | 'packageSource' | 'packageVersion'> & {
   fixtureUrl: string;

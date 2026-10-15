@@ -4,22 +4,27 @@ import { assertFixturesReady } from './tools/fixtures/assert-ready.mjs';
 
 // Fail before any browser application is started if the consumer package is wrong.
 await validateInstalledPackage();
-await assertFixturesReady(['small-valid-copc']);
 
-const full = process.env.COPC_E2E_MODE === 'full';
+const mode = process.env.COPC_E2E_MODE ?? 'all';
+const full = mode === 'full' || mode === 'all';
+const remote = mode === 'remote';
+const vanillaPort = remote
+  ? (process.env.COPC_REMOTE_PORT ?? process.env.COPC_VANILLA_PORT ?? '4173')
+  : (process.env.COPC_VANILLA_PORT ?? '4173');
+if (!remote) await assertFixturesReady(['small-valid-copc']);
 const webServer = [
   {
-    command: 'npm run dev:vanilla',
-    url: 'http://127.0.0.1:4173',
+    command: `npm run dev --workspace @copc-test/vanilla -- --port ${vanillaPort} --strictPort`,
+    url: `http://127.0.0.1:${vanillaPort}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
-  {
+  ...(!remote ? [{
     command: 'npm run dev:react',
     url: 'http://127.0.0.1:4174',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-  },
+  }] : []),
   ...(full ? [{
     command: 'npm run start:next',
     url: 'http://127.0.0.1:4175/cesium',
@@ -30,7 +35,7 @@ const webServer = [
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: full ? '**/*.spec.mjs' : '**/runtime.spec.mjs',
+  testMatch: remote ? '**/remote-streaming.spec.mjs' : full ? '**/*.spec.mjs' : '**/runtime.spec.mjs',
   fullyParallel: false,
   workers: 1,
   timeout: 120_000,
@@ -39,7 +44,7 @@ export default defineConfig({
     ? [['line'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
     : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: `http://127.0.0.1:${vanillaPort}`,
     browserName: 'chromium',
     viewport: { width: 1280, height: 800 },
     trace: 'retain-on-failure',

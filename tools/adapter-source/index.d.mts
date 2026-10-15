@@ -1,5 +1,5 @@
 export const ADAPTER_PACKAGE: '@frillab/copc-adapter';
-export const ADAPTER_VERSION: '0.4.0';
+export const ADAPTER_VERSION: '0.5.0';
 export const PUBLIC_EXPORTS: readonly ['.', './cesium', './three'];
 export function readAdapterSourceMetadata(): {
   packageName: string;

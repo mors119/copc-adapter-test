@@ -14,7 +14,7 @@ try {
     }
     const result = await bootstrapAdapterSource(bootstrapSource);
     await clearViteCaches();
-    console.log(`Validated installed package: ${result.metadata?.name ?? '@frillab/copc-adapter'}@${result.metadata?.version ?? '0.4.0'}`);
+    console.log(`Validated installed package: ${result.metadata?.name ?? '@frillab/copc-adapter'}@${result.metadata?.version ?? '0.5.0'}`);
   } else if (command === 'pack') {
     const result = await packAdapterCheckout();
     console.log(`Packed ${result.metadata.name}@${result.metadata.version}: ${result.tarball}`);

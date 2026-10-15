@@ -2,7 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_FIXTURE_ID, createHarnessConfig, createTestContract, fixtureUrlForId, loadFixtureCatalog, type FixtureCatalogEntry, type HarnessRenderer, type HarnessView } from '@copc-test/core';
+import { createHarnessConfig, createTestContract, loadFixtureCatalog, resolveCopcSourceSelection, sourceSelectionFromSearch, type FixtureCatalogEntry, type HarnessRenderer, type HarnessView } from '@copc-test/core';
 import { mountTestRenderer, type RendererStatus, type TestRenderer } from '@copc-test/renderers';
 import { ReactControlPanel, panelStateFromConfig, type PanelActions, type PanelSelection, type PanelState } from '@copc-test/ui/react';
 
@@ -12,27 +12,34 @@ const requestedRenderer = params.get('renderer');
 const initialRenderer = availableRenderers.includes(requestedRenderer as HarnessRenderer)
   ? requestedRenderer as HarnessRenderer
   : 'cesium';
-const initialFixtureId = params.get('fixtureId') ?? DEFAULT_FIXTURE_ID;
+const initialFixtureId = sourceSelectionFromSearch(params);
+const initialSource = resolveCopcSourceSelection(initialFixtureId);
 const initialConfig = createHarnessConfig({
   appId: 'react', host: 'react', renderer: initialRenderer,
-  fixtureUrl: fixtureUrlForId(initialFixtureId), backend: 'copc-js', scenario: 'load-and-stream',
+  fixtureUrl: initialSource.url, backend: 'copc-js', scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');
 const contract = createTestContract(initialConfig);
 window.__COPC_TEST__ = contract;
 
 type R3FHandle = TestRenderer;
+type ColorMode = 'rgb' | 'elevation' | 'intensity' | 'classification';
 
 export function App(): ReactNode {
   const [selection, setSelection] = useState<PanelSelection>({ renderer: initialRenderer, backend: initialConfig.backend, fixtureId: initialFixtureId });
   const [status, setStatus] = useState<PanelState['status']>('idle');
   const [snapshot, setSnapshot] = useState<unknown>();
   const [error, setError] = useState<string>();
+  const [sourceProbe, setSourceProbe] = useState<PanelState['sourceProbe']>();
+  const [colorMode, setColorMode] = useState<ColorMode>('elevation');
   const [reloadKey, setReloadKey] = useState(0);
   const [fixtures, setFixtures] = useState<FixtureCatalogEntry[]>([]);
   const demoTimerRef = useRef<number | undefined>(undefined);
   const rendererHostRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<R3FHandle | undefined>(undefined);
-  const fixtureUrl = fixtureUrlForId(selection.fixtureId);
+  const colorModeRef = useRef<ColorMode>(colorMode);
+  colorModeRef.current = colorMode;
+  const source = resolveCopcSourceSelection(selection.fixtureId);
+  const fixtureUrl = source.url;
   const config = useMemo(() => ({ ...initialConfig, renderer: selection.renderer, backend: selection.backend, fixtureUrl }), [selection, fixtureUrl]);
   const [panelState, setPanelState] = useState<PanelState>(() => panelStateFromConfig(initialConfig, 'react', initialFixtureId));
 
@@ -52,6 +59,7 @@ export function App(): ReactNode {
     contract.setSnapshot(value);
   }, []);
   const onAttached = useCallback((): void => contract.markAttached(), []);
+  const onSourceProbe = useCallback((probe: PanelState['sourceProbe']): void => setSourceProbe(probe), []);
   const onR3FHandle = useCallback((handle: R3FHandle | undefined): void => { rendererRef.current = handle; }, []);
 
   useEffect(() => {
@@ -60,8 +68,13 @@ export function App(): ReactNode {
       ...previous, ...selection, fixtureUrl, host: 'react', packageName: '@frillab/copc-adapter',
       packageVersion: initialConfig.packageVersion, packageSource: initialConfig.packageSource,
       status, snapshot, error,
+      sourceProbe,
+      activeDatasetUrl: (snapshot as { datasetUrl?: string } | undefined)?.datasetUrl,
+      activeSourceKind: (snapshot as { sourceKind?: PanelState['activeSourceKind'] } | undefined)?.sourceKind,
+      pickedPoint: (snapshot as { pickedPoint?: unknown } | undefined)?.pickedPoint,
+      colorMode,
     }));
-  }, [selection, fixtureUrl, status, snapshot, error]);
+  }, [selection, fixtureUrl, status, snapshot, error, sourceProbe, colorMode]);
 
   useEffect(() => {
     void loadFixtureCatalog().then((catalog) => setFixtures(catalog.fixtures)).catch((cause: unknown) => onStatus('error', cause instanceof Error ? cause.message : String(cause)));
@@ -74,7 +87,7 @@ export function App(): ReactNode {
     if (selection.renderer === 'r3f' || !container) return undefined;
     contract.recordMount();
     onStatus('loading');
-    void mountTestRenderer(selection.renderer, container, { fixtureUrl, backend: selection.backend, onStatus, onSnapshot, onAttached })
+    void mountTestRenderer(selection.renderer, container, { fixtureUrl, sourceKind: source.kind, colorMode: colorModeRef.current, backend: selection.backend, onStatus, onSnapshot, onAttached, onSourceProbe })
       .then((handle) => {
         if (disposed) { handle.destroy(); return; }
         mounted = handle;
@@ -89,7 +102,7 @@ export function App(): ReactNode {
       contract.recordUnmount();
       contract.markDestroyed();
     };
-  }, [selection.renderer, selection.backend, fixtureUrl, reloadKey, onStatus, onSnapshot, onAttached]);
+  }, [selection.renderer, selection.backend, fixtureUrl, source.kind, reloadKey, onStatus, onSnapshot, onAttached, onSourceProbe]);
 
   useEffect(() => {
     contract.registerCommand('reload', () => setReloadKey((value) => value + 1));
@@ -109,14 +122,22 @@ export function App(): ReactNode {
   const apply = useCallback((next: PanelSelection): void => {
     if (demoTimerRef.current !== undefined) window.clearInterval(demoTimerRef.current);
     demoTimerRef.current = undefined;
+    let nextSource: ReturnType<typeof resolveCopcSourceSelection>;
+    try { nextSource = resolveCopcSourceSelection(next.fixtureId); }
+    catch (cause) { setStatus('error'); setError(cause instanceof Error ? cause.message : String(cause)); return; }
+    if (colorMode !== 'elevation' && nextSource.remote?.expectedCapabilities[colorMode] === false) setColorMode('elevation');
     setSelection(next);
     setSnapshot(undefined);
     setError(undefined);
     if (next.renderer === selection.renderer && next.backend === selection.backend && next.fixtureId === selection.fixtureId) {
       setReloadKey((value) => value + 1);
     }
-  }, [selection]);
+  }, [selection, colorMode]);
   const setView = useCallback((view: Exclude<HarnessView, 'visual'>): void => { void rendererRef.current?.setView(view); }, []);
+  const setStyle = useCallback((mode: ColorMode): void => {
+    setColorMode(mode);
+    rendererRef.current?.setStyle?.(mode);
+  }, []);
   const actions: PanelActions = {
     apply,
     reload: () => setReloadKey((value) => value + 1),
@@ -129,8 +150,9 @@ export function App(): ReactNode {
     },
     stopDemo: () => { if (demoTimerRef.current !== undefined) window.clearInterval(demoTimerRef.current); demoTimerRef.current = undefined; },
     overview: () => setView('overview'), far: () => setView('far'), near: () => setView('near'),
+    setStyle,
   };
-  const displayedState: PanelState = { ...panelState, ...selection, fixtureUrl, status, snapshot, error };
+  const displayedState: PanelState = { ...panelState, ...selection, fixtureUrl, status, snapshot, error, sourceProbe, colorMode };
 
   return <main className="copc-renderer-root" data-host="react">
     {selection.renderer === 'r3f'

@@ -29,6 +29,7 @@ export function ReactControlPanel({ config, renderers, state, actions, fixtures 
         overview: () => propsRef.current.actions.overview(),
         far: () => propsRef.current.actions.far(),
         near: () => propsRef.current.actions.near(),
+        setStyle: (mode) => propsRef.current.actions.setStyle(mode),
       },
     });
     panelRef.current = panel;

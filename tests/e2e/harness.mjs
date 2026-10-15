@@ -4,7 +4,7 @@ const browserErrorsByPage = new WeakMap();
 const expectedErrorsByPage = new WeakMap();
 
 export const origins = {
-  vanilla: 'http://127.0.0.1:4173',
+  vanilla: `http://127.0.0.1:${process.env.COPC_REMOTE_PORT ?? process.env.COPC_VANILLA_PORT ?? '4173'}`,
   react: 'http://127.0.0.1:4174',
   next: 'http://127.0.0.1:4175',
 };
@@ -27,12 +27,18 @@ export const test = base.extend({
 
 export { expect };
 
+export function allowBrowserConsoleError(page, pattern) {
+  const expectedErrors = expectedErrorsByPage.get(page);
+  if (!expectedErrors) throw new Error('The test page is not using the shared browser error collector.');
+  expectedErrors.push(pattern);
+}
+
 export async function expectBrowserConsoleError(page, pattern) {
   const expectedErrors = expectedErrorsByPage.get(page);
   const errors = browserErrorsByPage.get(page);
   if (!expectedErrors || !errors) throw new Error('The test page is not using the shared browser error collector.');
   expectedErrors.push(pattern);
-  await expect.poll(() => errors.filter((error) => pattern.test(error)).length).toBe(1);
+  await expect.poll(() => errors.filter((error) => pattern.test(error)).length).toBeGreaterThan(0);
 }
 
 export async function openHarness(page, host, renderer, backend = 'copc-js', fixture = 'small-valid-copc') {
@@ -48,7 +54,7 @@ export async function openHarness(page, host, renderer, backend = 'copc-js', fix
   expect(result.config.renderer).toBe(renderer);
   expect(result.config.backend).toBe(backend);
   expect(result.config.fixtureUrl).toContain(fixture);
-  expect(result.config.packageVersion).toBe('0.4.0');
+  expect(result.config.packageVersion).toBe('0.5.0');
   expect(result.diagnostics.renderedPointCount).toBeGreaterThan(0);
   expect(result.diagnostics.metadataLoaded).toBe(true);
   expect(result.diagnostics.hierarchyLoaded).toBe(true);

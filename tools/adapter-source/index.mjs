@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import semver from 'semver';
 
 export const ADAPTER_PACKAGE = '@frillab/copc-adapter';
-export const ADAPTER_VERSION = '0.4.0';
+export const ADAPTER_VERSION = '0.5.0';
 export const PUBLIC_EXPORTS = ['.', './cesium', './three'];
 const root = resolve(import.meta.dirname, '../..');
 const localPackagesDirectory = resolve(root, 'local-packages');
@@ -168,7 +168,7 @@ export async function packAdapterCheckout(
   const { directory, metadata } = await locatePackage(resolvedCheckout);
   validateMetadata(metadata, join(directory, 'package.json'));
   await mkdir(destination, { recursive: true });
-  const expectedArtifact = join(resolve(destination), 'frillab-copc-adapter-0.4.0.tgz');
+  const expectedArtifact = join(resolve(destination), 'frillab-copc-adapter-0.5.0.tgz');
   await rm(expectedArtifact, { force: true });
   const before = new Set((await readdir(destination)).filter((file) => file.endsWith('.tgz')));
   const stagingRoot = await mkdtemp(join(root, '.cache/adapter-source-build-'));
@@ -283,7 +283,7 @@ async function installTarball(tarball) {
   return validateInstalledPackage();
 }
 
-export async function bootstrapAdapterSource(source = process.env.COPC_ADAPTER_SOURCE ?? 'checkout') {
+export async function bootstrapAdapterSource(source = process.env.COPC_ADAPTER_SOURCE ?? 'npm') {
   await ensureRootDependencies();
   if (source === 'checkout') {
     const packed = await packAdapterCheckout();

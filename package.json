@@ -20,8 +20,10 @@
     "test": "npm run test:package && npm run test:shared",
     "test:fast": "npm run test && npm run fixtures:fetch -- small-valid-copc && npm run build && npm run e2e:fast",
     "test:full": "npm run test && npm run fixtures:fetch -- small-valid-copc && npm run build && npm run e2e:full",
+    "test:remote": "npm run validate:package && npm run build --workspace @copc-test/vanilla && COPC_E2E_MODE=remote playwright test",
+    "test:npm": "node tools/npm-consumer/validate.mjs",
     "test:local": "npm run bootstrap:local && npm run test:fast",
-    "test:tarball": "npm run bootstrap:tarball && npm run test:fast",
+    "test:tarball": "npm run bootstrap:tarball && npm run test:fast && npm run test:remote",
     "test:release": "node tools/adapter-source/release-gate.mjs",
     "e2e": "playwright test",
     "e2e:fast": "COPC_E2E_MODE=fast playwright test",
@@ -33,5 +35,10 @@
     "fixtures:serve": "npm run fixtures -- serve"
   },
   "workspaces": ["packages/*", "apps/vanilla", "apps/react", "apps/next"],
-  "devDependencies": { "@playwright/test": "^1.63.0", "semver": "^7.8.5" }
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "copc": "^0.0.9",
+    "proj4": "^2.20.9",
+    "semver": "^7.8.5"
+  }
 }

@@ -1,7 +1,7 @@
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import '@copc-test/ui/panel.css';
 
-import { DEFAULT_FIXTURE_ID, createHarnessConfig, createTestContract, fixtureUrlForId, loadFixtureCatalog, type FixtureCatalogEntry, type HarnessRenderer } from '@copc-test/core';
+import { createHarnessConfig, createTestContract, loadFixtureCatalog, resolveCopcSourceSelection, sourceSelectionFromSearch, type FixtureCatalogEntry, type HarnessRenderer } from '@copc-test/core';
 import { mountControlPanel, panelStateFromConfig, type MountedPanel, type PanelSelection, type PanelState } from '@copc-test/ui';
 import { mountTestRenderer, type TestRenderer } from '@copc-test/renderers';
 
@@ -9,15 +9,17 @@ const rendererElement = document.querySelector<HTMLElement>('#renderer')!;
 const panelTarget = document.querySelector<HTMLElement>('#panel')!;
 const params = new URLSearchParams(location.search);
 const initialRenderer: HarnessRenderer = params.get('renderer') === 'three' ? 'three' : 'cesium';
-let fixtureId = params.get('fixtureId') ?? DEFAULT_FIXTURE_ID;
+let fixtureId = sourceSelectionFromSearch(params);
+let resolvedSource = resolveCopcSourceSelection(fixtureId);
 const harnessConfig = createHarnessConfig({
   appId: 'vanilla', host: 'vanilla', renderer: initialRenderer,
-  fixtureUrl: fixtureUrlForId(fixtureId), backend: 'copc-js', scenario: 'load-and-stream',
+  fixtureUrl: resolvedSource.url, backend: 'copc-js', scenario: 'load-and-stream',
 }, import.meta.env, 'VITE_');
 const contract = createTestContract(harnessConfig);
 const allowedRenderers: HarnessRenderer[] = ['cesium', 'three'];
 let selected: PanelSelection = { renderer: initialRenderer, backend: harnessConfig.backend, fixtureId };
-let panelState: PanelState = panelStateFromConfig(harnessConfig, 'vanilla', fixtureId);
+let colorMode: 'rgb' | 'elevation' | 'intensity' | 'classification' = 'elevation';
+let panelState: PanelState = { ...panelStateFromConfig(harnessConfig, 'vanilla', fixtureId), colorMode };
 let panel: MountedPanel;
 let renderer: TestRenderer | undefined;
 let demoTimer: number | undefined;
@@ -36,10 +38,51 @@ function stopDemo(): void {
 
 function reportSnapshot(snapshot: unknown): void {
   contract.setSnapshot(snapshot);
-  update({ snapshot });
+  const record = snapshot && typeof snapshot === 'object' ? snapshot as Record<string, unknown> : undefined;
+  update({
+    snapshot,
+    activeDatasetUrl: typeof record?.datasetUrl === 'string' ? record.datasetUrl : panelState.activeDatasetUrl,
+    activeSourceKind: record?.sourceKind === 'remote' || record?.sourceKind === 'custom-remote' || record?.sourceKind === 'local-fixture'
+      ? record.sourceKind
+      : panelState.activeSourceKind,
+    pickedPoint: record?.pickedPoint,
+  });
 }
 
 async function apply(selection: PanelSelection): Promise<void> {
+  let nextSource: ReturnType<typeof resolveCopcSourceSelection>;
+  try { nextSource = resolveCopcSourceSelection(selection.fixtureId); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    contract.markError(error);
+    update({ status: 'error', error: message });
+    return;
+  }
+  if (colorMode !== 'elevation' && nextSource.remote?.expectedCapabilities[colorMode] === false) colorMode = 'elevation';
+  const canSwitchSourceInPlace = renderer !== undefined
+    && selection.renderer === selected.renderer
+    && selection.backend === selected.backend
+    && selection.fixtureId !== selected.fixtureId
+    && selection.renderer === 'cesium'
+    && typeof renderer.setSource === 'function';
+  if (canSwitchSourceInPlace && renderer) {
+    selected = selection;
+    fixtureId = selection.fixtureId;
+    resolvedSource = nextSource;
+    const fixtureUrl = nextSource.url;
+    contract.setConfig({ renderer: selection.renderer, backend: selection.backend, fixtureUrl });
+    update({ ...selection, fixtureUrl, status: 'loading', error: undefined, sourceProbe: undefined, colorMode });
+    contract.markLoading();
+    try {
+      await renderer.setSource?.(fixtureUrl, nextSource.kind);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      contract.markError(error);
+      update({ status: 'error', error: message });
+    }
+    return;
+  }
+
   const currentGeneration = ++generation;
   stopDemo();
   if (renderer) {
@@ -49,17 +92,22 @@ async function apply(selection: PanelSelection): Promise<void> {
   renderer = undefined;
   selected = selection;
   fixtureId = selection.fixtureId;
-  const fixtureUrl = fixtureUrlForId(fixtureId);
+  resolvedSource = nextSource;
+  const fixtureUrl = nextSource.url;
   contract.setConfig({ renderer: selection.renderer, backend: selection.backend, fixtureUrl });
-  update({ ...selection, fixtureUrl, status: 'loading', error: undefined, snapshot: undefined });
+  update({ ...selection, fixtureUrl, status: 'loading', error: undefined, snapshot: undefined, sourceProbe: undefined, activeDatasetUrl: undefined, activeSourceKind: undefined, colorMode });
   contract.markLoading();
   try {
     if (selection.renderer !== 'cesium' && selection.renderer !== 'three') throw new Error(`Unsupported Vanilla renderer: ${selection.renderer}`);
     const mounted = await mountTestRenderer(selection.renderer, rendererElement, {
       fixtureUrl,
       backend: selection.backend,
+      sourceKind: nextSource.kind,
+      colorMode,
       onAttached: () => contract.markAttached(),
       onSnapshot: reportSnapshot,
+      onSourceProbe: (sourceProbe) => update({ sourceProbe }),
+      onPointPicked: (pickedPoint) => update({ pickedPoint }),
       onStatus: (status, error) => {
         if (currentGeneration !== generation) return;
         if (status === 'ready') contract.markReady();
@@ -89,6 +137,16 @@ async function apply(selection: PanelSelection): Promise<void> {
 async function setView(view: 'overview' | 'near' | 'far'): Promise<void> {
   try { await renderer?.setView(view); }
   catch (error) { contract.markError(error); update({ status: 'error', error: error instanceof Error ? error.message : String(error) }); }
+}
+
+function setStyle(mode: 'rgb' | 'elevation' | 'intensity' | 'classification'): void {
+  colorMode = mode;
+  try {
+    renderer?.setStyle?.(mode);
+    update({ colorMode: mode });
+  } catch (error) {
+    update({ status: 'error', error: error instanceof Error ? error.message : String(error) });
+  }
 }
 
 function destroy(): void {
@@ -121,6 +179,7 @@ panel = mountControlPanel(panelTarget, {
     overview: () => void setView('overview'),
     far: () => void setView('far'),
     near: () => void setView('near'),
+    setStyle,
   },
 });
 contract.registerCommand('reload', () => void apply(selected));

@@ -17,10 +17,10 @@ on:
       adapter-ref:
         description: Branch, tag, or commit to pack when source is checkout
         required: true
-        default: v0.4.0
+        default: v0.5.0
         type: string
       adapter-tarball-url:
-        description: HTTPS URL of a packed 0.4.0 artifact when source is tarball
+        description: HTTPS URL of a packed 0.5.0 artifact when source is tarball
         required: false
         type: string
 
@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 60
     env:
       COPC_ADAPTER_SOURCE: ${{ inputs.source }}
-      COPC_ADAPTER_VERSION: 0.4.0
+      COPC_ADAPTER_VERSION: 0.5.0
       COPC_ADAPTER_CHECKOUT: ${{ github.workspace }}/.release-adapter
     steps:
       - uses: actions/checkout@v4
@@ -61,10 +61,10 @@ jobs:
             process.exit(1);
           }
           NODE
-          curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/copc-adapter-0.4.0.tgz" "$TARBALL_URL"
+          curl --fail --location --retry 3 --retry-all-errors --output "$RUNNER_TEMP/copc-adapter-0.5.0.tgz" "$TARBALL_URL"
       - name: Set tarball source
         if: inputs.source == 'tarball'
-        run: echo "COPC_ADAPTER_TARBALL=$RUNNER_TEMP/copc-adapter-0.4.0.tgz" >> "$GITHUB_ENV"
+        run: echo "COPC_ADAPTER_TARBALL=$RUNNER_TEMP/copc-adapter-0.5.0.tgz" >> "$GITHUB_ENV"
       - if: inputs.source == 'checkout'
         run: rustup target add wasm32-unknown-unknown
       - uses: actions/cache@v4

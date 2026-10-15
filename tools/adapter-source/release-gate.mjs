@@ -20,6 +20,7 @@ try {
   await clearViteCaches();
   if (process.env.CI) await run('npx', ['playwright', 'install', '--with-deps', 'chromium']);
   await run('npm', ['run', 'test:full']);
+  await run('npm', ['run', 'test:npm']);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;

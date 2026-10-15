@@ -86,6 +86,7 @@ export function mountCesiumRenderer(
       sourceProbe: activeProbe,
       sourceKind: activeSourceKind,
       pickedPoint,
+      pickedPointScreenPosition: screenPositionForPoint(pickedPoint),
       ...(cartographic && cesiumModule
         ? {
             camera: {
@@ -96,6 +97,73 @@ export function mountCesiumRenderer(
           }
         : {}),
     };
+  }
+
+  function screenPositionForPoint(
+    point: unknown,
+  ): { x: number; y: number } | undefined {
+    if (!point || typeof point !== 'object' || !viewer || !cesiumModule)
+      return undefined;
+    const picked = point as {
+      world?: unknown;
+      latitude?: unknown;
+      longitude?: unknown;
+      height?: unknown;
+    };
+    const world = picked.world;
+    let cartesian: CesiumTypes.Cartesian3 | undefined;
+    if (world && typeof world === 'object') {
+      const coordinates = world as { x?: unknown; y?: unknown; z?: unknown };
+      if (
+        typeof coordinates.x === 'number' &&
+        typeof coordinates.y === 'number' &&
+        typeof coordinates.z === 'number' &&
+        Number.isFinite(coordinates.x) &&
+        Number.isFinite(coordinates.y) &&
+        Number.isFinite(coordinates.z)
+      ) {
+        cartesian = new cesiumModule.Cartesian3(
+          coordinates.x,
+          coordinates.y,
+          coordinates.z,
+        );
+      }
+    }
+    if (
+      !cartesian &&
+      typeof picked.latitude === 'number' &&
+      typeof picked.longitude === 'number' &&
+      Number.isFinite(picked.latitude) &&
+      Number.isFinite(picked.longitude)
+    ) {
+      cartesian = cesiumModule.Cartesian3.fromDegrees(
+        picked.longitude,
+        picked.latitude,
+        typeof picked.height === 'number' && Number.isFinite(picked.height)
+          ? picked.height
+          : 0,
+      );
+    }
+    if (!cartesian) return undefined;
+    const position = cesiumModule.SceneTransforms.worldToWindowCoordinates(
+      viewer.scene,
+      cartesian,
+    );
+    if (
+      !position ||
+      !Number.isFinite(position.x) ||
+      !Number.isFinite(position.y)
+    )
+      return undefined;
+    const bounds = viewer.scene.canvas.getBoundingClientRect();
+    if (
+      position.x < bounds.left ||
+      position.x > bounds.right ||
+      position.y < bounds.top ||
+      position.y > bounds.bottom
+    )
+      return undefined;
+    return { x: position.x, y: position.y };
   }
 
   async function changeSource(
@@ -166,7 +234,7 @@ export function mountCesiumRenderer(
         debug: true,
         onPointPicked: (point) => {
           pickedPoint = point;
-          options.onPointPicked?.(point);
+          options.onPointPicked?.(point, screenPositionForPoint(point));
           if (layer) options.onSnapshot(snapshotOf(layer));
         },
       });

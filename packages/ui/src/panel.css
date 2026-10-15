@@ -38,7 +38,9 @@ body {
   left: 16px;
   width: min(350px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 16px;
   border: 1px solid rgb(255 255 255 / 16%);
   border-radius: 12px;
@@ -47,6 +49,100 @@ body {
   backdrop-filter: blur(14px);
   font-size: 12px;
   pointer-events: auto;
+}
+.copc-panel__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+}
+.copc-panel__heading {
+  padding-right: 38px;
+}
+.copc-panel .copc-panel__toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+  place-items: center;
+  border-radius: 7px;
+  color: #d9e8f7;
+  font-size: 22px;
+  line-height: 1;
+}
+.copc-panel--collapsed {
+  width: 44px;
+  max-height: none;
+  overflow: visible;
+  padding: 4px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.copc-panel--collapsed .copc-panel__body {
+  display: none;
+}
+.copc-panel--collapsed .copc-panel__toggle {
+  position: static;
+  width: 34px;
+  min-height: 34px;
+  background: rgb(5 12 24 / 92%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+.copc-streaming-hud {
+  position: fixed;
+  z-index: 11;
+  top: 16px;
+  right: 16px;
+  width: min(250px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 10px;
+  color: #eff7ff;
+  background: rgb(5 12 24 / 90%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 32%);
+  backdrop-filter: blur(14px);
+  font-size: 11px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.copc-streaming-hud__heading {
+  color: #72f1b8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.copc-streaming-hud__context {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 7px;
+  color: #a8f9d4;
+  font-size: 10px;
+  font-weight: 700;
+}
+.copc-streaming-hud__metrics {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0 0;
+}
+.copc-streaming-hud__metrics > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.copc-streaming-hud__metrics dt {
+  color: rgb(255 255 255 / 62%);
+}
+.copc-streaming-hud__metrics dd {
+  margin: 0;
+  color: #fff;
+  font-weight: 700;
 }
 .copc-panel__eyebrow {
   color: #72f1b8;
@@ -181,78 +277,117 @@ body {
   overflow-wrap: anywhere;
   font-size: 10px;
 }
-.copc-panel__point-inspection {
-  margin-top: 12px;
-  padding: 0 10px 10px;
-  border: 1px solid rgb(114 241 184 / 26%);
-  border-radius: 8px;
-  background: rgb(114 241 184 / 5%);
+.copc-point-popover {
+  position: fixed;
+  z-index: 12;
+  width: min(300px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid rgb(114 241 184 / 44%);
+  border-radius: 10px;
+  color: #eff7ff;
+  background: rgb(5 12 24 / 96%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 42%);
+  backdrop-filter: blur(14px);
+  font-size: 11px;
+  pointer-events: auto;
 }
-.copc-panel__point-inspection h2 {
-  margin-top: 10px;
+.copc-point-popover[hidden],
+.copc-point-popover [hidden] {
+  display: none !important;
 }
-.copc-panel__point-empty {
-  margin: 8px 0 0;
-  color: rgb(255 255 255 / 58%);
+.copc-point-popover[data-placement='above'] {
+  transform: translate(-50%, -100%);
 }
-.copc-panel__point-coordinates,
-.copc-panel__point-attributes,
-.copc-panel__point-extra dl {
+.copc-point-popover[data-placement='below'] {
+  transform: translate(-50%, 0);
+}
+.copc-point-popover::after {
+  position: absolute;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgb(114 241 184 / 44%);
+  background: #081522;
+  content: '';
+  transform: translateX(-50%) rotate(45deg);
+}
+.copc-point-popover[data-placement='above']::after {
+  bottom: -5px;
+  border-top: 0;
+  border-left: 0;
+}
+.copc-point-popover[data-placement='below']::after {
+  top: -5px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.copc-point-popover__heading {
+  color: #a8f9d4;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.copc-point-popover__coordinates,
+.copc-point-popover__attributes,
+.copc-point-popover__extra dl {
   margin: 8px 0 0;
   font-variant-numeric: tabular-nums;
 }
-.copc-panel__point-coordinates {
+.copc-point-popover__coordinates {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
   padding-bottom: 9px;
   border-bottom: 1px solid rgb(255 255 255 / 10%);
 }
-.copc-panel__point-coordinates > div {
+.copc-point-popover__coordinates > div {
   display: grid;
   gap: 4px;
 }
-.copc-panel__point-coordinates dt {
+.copc-point-popover__coordinates dt {
   color: rgb(255 255 255 / 58%);
   font-size: 10px;
 }
-.copc-panel__point-coordinates dd {
+.copc-point-popover__coordinates dd {
   margin: 0;
   color: #a8f9d4;
   font-size: 12px;
   font-weight: 800;
   overflow-wrap: anywhere;
 }
-.copc-panel__point-attributes > div,
-.copc-panel__point-extra dl > div {
+.copc-point-popover__attributes > div,
+.copc-point-popover__extra dl > div {
   display: flex;
   justify-content: space-between;
   gap: 10px;
   margin-top: 6px;
 }
-.copc-panel__point-attributes dt,
-.copc-panel__point-extra dt {
+.copc-point-popover__attributes dt,
+.copc-point-popover__extra dt {
   color: rgb(255 255 255 / 58%);
 }
-.copc-panel__point-attributes dd,
-.copc-panel__point-extra dd {
+.copc-point-popover__attributes dd,
+.copc-point-popover__extra dd {
   margin: 0;
   color: #fff;
   font-weight: 700;
   text-align: right;
   overflow-wrap: anywhere;
 }
-.copc-panel__point-extra {
+.copc-point-popover__extra {
   margin-top: 9px;
   padding-top: 8px;
   border-top: 1px solid rgb(255 255 255 / 10%);
 }
-.copc-panel__point-extra summary {
+.copc-point-popover__extra summary {
   color: #add2f1;
   cursor: pointer;
   font-size: 10px;
 }
-.copc-panel__point-extra dl:empty {
+.copc-point-popover__extra dl:empty {
   display: none;
 }
 .copc-renderer-root,

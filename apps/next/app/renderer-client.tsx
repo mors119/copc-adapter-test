@@ -89,6 +89,9 @@ export function RendererClient({
   const [error, setError] = useState<string>();
   const [sourceProbe, setSourceProbe] = useState<PanelState['sourceProbe']>();
   const [colorMode, setColorMode] = useState<ColorMode>('elevation');
+  const [activeView, setActiveView] = useState<PanelState['activeView']>(
+    'overview',
+  );
   const [reloadKey, setReloadKey] = useState(0);
   const [fixtures, setFixtures] = useState<FixtureCatalogEntry[]>([]);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -147,6 +150,7 @@ export function RendererClient({
       snapshot,
       error,
       sourceProbe,
+      activeView,
       activeDatasetUrl: (snapshot as { datasetUrl?: string } | undefined)
         ?.datasetUrl,
       activeSourceKind: (
@@ -154,6 +158,11 @@ export function RendererClient({
       )?.sourceKind,
       pickedPoint: (snapshot as { pickedPoint?: unknown } | undefined)
         ?.pickedPoint,
+      pickedPointScreenPosition: (
+        snapshot as
+          | { pickedPointScreenPosition?: PanelState['pickedPointScreenPosition'] }
+          | undefined
+      )?.pickedPointScreenPosition,
       colorMode,
     }));
   }, [
@@ -164,6 +173,7 @@ export function RendererClient({
     snapshot,
     error,
     sourceProbe,
+    activeView,
     colorMode,
   ]);
   useEffect(() => {
@@ -247,9 +257,11 @@ export function RendererClient({
     contract.registerCommand('reload', () =>
       setReloadKey((value) => value + 1),
     );
-    contract.registerCommand('setView', (view) =>
-      rendererRef.current?.setView(view === 'visual' ? 'overview' : view),
-    );
+    contract.registerCommand('setView', (view) => {
+      const nextView = view === 'visual' ? 'overview' : view;
+      setActiveView(nextView);
+      return rendererRef.current?.setView(nextView);
+    });
     contract.registerCommand('unload', () => rendererRef.current?.unload());
     contract.registerCommand('destroy', () => {
       rendererRef.current?.destroy();
@@ -294,6 +306,7 @@ export function RendererClient({
       )
         setColorMode('elevation');
       setSelection(next);
+      setActiveView('overview');
       setSnapshot(undefined);
       setError(undefined);
       setSourceProbe(undefined);
@@ -306,6 +319,7 @@ export function RendererClient({
     [renderer, selection, colorMode],
   );
   const setView = (view: Exclude<HarnessView, 'visual'>): void => {
+    setActiveView(view);
     void rendererRef.current?.setView(view);
   };
   const setStyle = (mode: ColorMode): void => {
@@ -345,6 +359,7 @@ export function RendererClient({
     error,
     sourceProbe,
     colorMode,
+    activeView,
   };
 
   return (

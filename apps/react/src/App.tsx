@@ -71,6 +71,9 @@ export function App(): ReactNode {
   const [error, setError] = useState<string>();
   const [sourceProbe, setSourceProbe] = useState<PanelState['sourceProbe']>();
   const [colorMode, setColorMode] = useState<ColorMode>('elevation');
+  const [activeView, setActiveView] = useState<PanelState['activeView']>(
+    'overview',
+  );
   const [reloadKey, setReloadKey] = useState(0);
   const [fixtures, setFixtures] = useState<FixtureCatalogEntry[]>([]);
   const demoTimerRef = useRef<number | undefined>(undefined);
@@ -143,6 +146,7 @@ export function App(): ReactNode {
       snapshot,
       error,
       sourceProbe,
+      activeView,
       activeDatasetUrl: (snapshot as { datasetUrl?: string } | undefined)
         ?.datasetUrl,
       activeSourceKind: (
@@ -150,9 +154,23 @@ export function App(): ReactNode {
       )?.sourceKind,
       pickedPoint: (snapshot as { pickedPoint?: unknown } | undefined)
         ?.pickedPoint,
+      pickedPointScreenPosition: (
+        snapshot as
+          | { pickedPointScreenPosition?: PanelState['pickedPointScreenPosition'] }
+          | undefined
+      )?.pickedPointScreenPosition,
       colorMode,
     }));
-  }, [selection, fixtureUrl, status, snapshot, error, sourceProbe, colorMode]);
+  }, [
+    selection,
+    fixtureUrl,
+    status,
+    snapshot,
+    error,
+    sourceProbe,
+    colorMode,
+    activeView,
+  ]);
 
   useEffect(() => {
     void loadFixtureCatalog()
@@ -231,9 +249,11 @@ export function App(): ReactNode {
     contract.registerCommand('reload', () =>
       setReloadKey((value) => value + 1),
     );
-    contract.registerCommand('setView', (view) =>
-      rendererRef.current?.setView(view === 'visual' ? 'overview' : view),
-    );
+    contract.registerCommand('setView', (view) => {
+      const nextView = view === 'visual' ? 'overview' : view;
+      setActiveView(nextView);
+      return rendererRef.current?.setView(nextView);
+    });
     contract.registerCommand('unload', () => rendererRef.current?.unload());
     contract.registerCommand('destroy', () => {
       rendererRef.current?.destroy();
@@ -267,6 +287,7 @@ export function App(): ReactNode {
       )
         setColorMode('elevation');
       setSelection(next);
+      setActiveView('overview');
       setSnapshot(undefined);
       setError(undefined);
       if (
@@ -280,6 +301,7 @@ export function App(): ReactNode {
     [selection, colorMode],
   );
   const setView = useCallback((view: Exclude<HarnessView, 'visual'>): void => {
+    setActiveView(view);
     void rendererRef.current?.setView(view);
   }, []);
   const setStyle = useCallback((mode: ColorMode): void => {
@@ -318,6 +340,7 @@ export function App(): ReactNode {
     error,
     sourceProbe,
     colorMode,
+    activeView,
   };
 
   return (

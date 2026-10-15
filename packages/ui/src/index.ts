@@ -31,6 +31,8 @@ export type PanelState = PanelSelection & {
   packageVersion: string;
   packageSource: 'checkout' | 'tarball' | 'npm';
   status: 'idle' | 'loading' | 'ready' | 'error';
+  activeView?: 'overview' | 'near' | 'far';
+  streamingLimits?: { maxNodes: number; maxRenderedPoints: number };
   selectedNodes?: number;
   renderedNodes?: number;
   renderedPoints?: number;
@@ -42,6 +44,7 @@ export type PanelState = PanelSelection & {
   activeDatasetUrl?: string;
   activeSourceKind?: CopcSourceKind;
   pickedPoint?: unknown;
+  pickedPointScreenPosition?: { x: number; y: number };
   colorMode?: 'rgb' | 'elevation' | 'intensity' | 'classification';
 };
 
@@ -117,13 +120,17 @@ export function mountControlPanel(
   root.dataset.testid = 'control-panel';
   root.dataset.appId = config.appId;
   root.innerHTML = `
-    <div class="copc-panel__eyebrow">COPC ADAPTER TESTBED</div>
-    <h1>Consumer harness</h1>
-    <p class="copc-panel__help">Remote COPC streaming is the functional spec. Local fixtures are deterministic regressions.</p>
-    <div class="copc-panel__tags">
-      <span data-field="host"></span><span data-field="renderer-label"></span>
-      <span data-testid="adapter-source"></span>
-    </div>
+    <button class="copc-panel__toggle" data-testid="panel-toggle" type="button" aria-label="Collapse control panel" aria-expanded="true" aria-controls="control-panel-content" title="Collapse panel"><span aria-hidden="true">‹</span></button>
+    <div class="copc-panel__body" id="control-panel-content" data-testid="control-panel-body">
+      <div class="copc-panel__heading">
+        <div class="copc-panel__eyebrow">COPC ADAPTER TESTBED</div>
+        <h1>Consumer harness</h1>
+        <p class="copc-panel__help">Remote COPC streaming is the functional spec. Local fixtures are deterministic regressions.</p>
+        <div class="copc-panel__tags">
+          <span data-field="host"></span><span data-field="renderer-label"></span>
+          <span data-testid="adapter-source"></span>
+        </div>
+      </div>
     <label>Renderer<select data-testid="renderer-select"></select></label>
     <label>Backend<select data-testid="backend-select">
       <option value="copc-js">copc-js</option><option value="rust">rust / WASM</option>
@@ -165,34 +172,6 @@ export function mountControlPanel(
       <option value="rgb">RGB</option><option value="elevation">Elevation</option>
       <option value="intensity">Intensity</option><option value="classification">Classification</option>
     </select></label>
-    <section class="copc-panel__point-inspection" aria-label="Point inspection" aria-live="polite">
-      <h2>Point inspection</h2>
-      <p class="copc-panel__point-empty" data-testid="point-inspection-empty">Click a rendered point</p>
-      <div class="copc-panel__point-card" data-testid="point-inspection" hidden>
-        <dl class="copc-panel__point-coordinates">
-          <div data-testid="point-latitude-row"><dt>Latitude (°)</dt><dd data-testid="point-latitude">—</dd></div>
-          <div data-testid="point-longitude-row"><dt>Longitude (°)</dt><dd data-testid="point-longitude">—</dd></div>
-          <div data-testid="point-height-row"><dt>Height (m)</dt><dd data-testid="point-height">—</dd></div>
-        </dl>
-        <dl class="copc-panel__point-attributes">
-          <div data-testid="point-intensity-row"><dt>Intensity</dt><dd data-testid="point-intensity">—</dd></div>
-          <div data-testid="point-classification-row"><dt>Classification</dt><dd><span data-testid="point-classification">—</span><span data-testid="point-classification-label"></span></dd></div>
-          <div data-testid="point-rgb-row"><dt>RGB</dt><dd data-testid="point-rgb">—</dd></div>
-          <div data-testid="point-level-row"><dt>LoD level</dt><dd data-testid="point-level">—</dd></div>
-          <div data-testid="point-index-row"><dt>Point index</dt><dd data-testid="point-index">—</dd></div>
-          <div data-testid="point-node-row"><dt>Node</dt><dd data-testid="point-node">—</dd></div>
-          <div data-testid="point-backend-row"><dt>Backend</dt><dd data-testid="point-backend">—</dd></div>
-        </dl>
-        <details class="copc-panel__point-extra" data-testid="point-extra-details">
-          <summary>Source coordinates and extra dimensions</summary>
-          <dl>
-            <div data-testid="point-source-row"><dt>Source XYZ</dt><dd data-testid="point-source">—</dd></div>
-            <div data-testid="point-world-row"><dt>World ECEF (m)</dt><dd data-testid="point-world">—</dd></div>
-          </dl>
-          <dl data-testid="point-dimensions"></dl>
-        </details>
-      </div>
-    </section>
     <div class="copc-panel__button-row">
       <button class="copc-panel__primary" data-testid="apply-settings" type="button">Apply / reload</button>
       <button data-testid="reload-renderer" type="button">Reload renderer</button>
@@ -206,13 +185,76 @@ export function mountControlPanel(
       <button data-testid="demo-start" type="button">Start demo</button>
       <button data-testid="demo-stop" type="button">Stop demo</button>
     </div>
+    </div>
   `;
-  target.append(root);
+  const streamingHud = document.createElement('section');
+  streamingHud.className = 'copc-streaming-hud';
+  streamingHud.dataset.testid = 'streaming-hud';
+  streamingHud.setAttribute('aria-label', 'COPC streaming status');
+  streamingHud.setAttribute('aria-live', 'polite');
+  streamingHud.innerHTML = `
+    <div class="copc-streaming-hud__heading">COPC Streaming</div>
+    <div class="copc-streaming-hud__context">
+      <span data-testid="hud-backend">copc-js</span>
+      <span data-testid="hud-view">Overview</span>
+    </div>
+    <dl class="copc-streaming-hud__metrics">
+      <div><dt>Selected nodes</dt><dd data-testid="hud-selected-nodes">0 / 8</dd></div>
+      <div><dt>Rendered nodes</dt><dd data-testid="hud-rendered-nodes">0</dd></div>
+      <div><dt>Rendered points</dt><dd data-testid="hud-rendered-points">0 / 1,000,000</dd></div>
+      <div><dt>LoD</dt><dd data-testid="hud-lod">—</dd></div>
+    </dl>
+  `;
+  const pointPopover = document.createElement('section');
+  pointPopover.className = 'copc-point-popover';
+  pointPopover.dataset.testid = 'point-inspection';
+  pointPopover.setAttribute('role', 'region');
+  pointPopover.setAttribute('aria-label', 'Selected point details');
+  pointPopover.setAttribute('aria-live', 'polite');
+  pointPopover.hidden = true;
+  pointPopover.innerHTML = `
+    <div class="copc-point-popover__heading">Selected point</div>
+    <dl class="copc-point-popover__coordinates">
+      <div data-testid="point-latitude-row"><dt>Latitude (°)</dt><dd data-testid="point-latitude">—</dd></div>
+      <div data-testid="point-longitude-row"><dt>Longitude (°)</dt><dd data-testid="point-longitude">—</dd></div>
+      <div data-testid="point-height-row"><dt>Height (m)</dt><dd data-testid="point-height">—</dd></div>
+    </dl>
+    <dl class="copc-point-popover__attributes">
+      <div data-testid="point-intensity-row"><dt>Intensity</dt><dd data-testid="point-intensity">—</dd></div>
+      <div data-testid="point-classification-row"><dt>Classification</dt><dd><span data-testid="point-classification">—</span><span data-testid="point-classification-label"></span></dd></div>
+      <div data-testid="point-rgb-row"><dt>RGB</dt><dd data-testid="point-rgb">—</dd></div>
+    </dl>
+    <details class="copc-point-popover__extra" data-testid="point-extra-details">
+      <summary>More point details</summary>
+      <dl>
+        <div data-testid="point-level-row"><dt>LoD level</dt><dd data-testid="point-level">—</dd></div>
+        <div data-testid="point-index-row"><dt>Point index</dt><dd data-testid="point-index">—</dd></div>
+        <div data-testid="point-node-row"><dt>Node</dt><dd data-testid="point-node">—</dd></div>
+        <div data-testid="point-backend-row"><dt>Backend</dt><dd data-testid="point-backend">—</dd></div>
+        <div data-testid="point-source-row"><dt>Source XYZ</dt><dd data-testid="point-source">—</dd></div>
+        <div data-testid="point-world-row"><dt>World ECEF (m)</dt><dd data-testid="point-world">—</dd></div>
+      </dl>
+      <dl data-testid="point-dimensions"></dl>
+    </details>
+  `;
+  target.append(root, streamingHud, pointPopover);
 
   const byTestId = <T extends HTMLElement>(id: string): T => {
     const node = root.querySelector<T>(`[data-testid="${id}"]`);
     if (!node)
       throw new Error(`Shared control panel is missing data-testid="${id}".`);
+    return node;
+  };
+  const byPointTestId = <T extends HTMLElement>(id: string): T => {
+    const node = pointPopover.querySelector<T>(`[data-testid="${id}"]`);
+    if (!node)
+      throw new Error(`Point popover is missing data-testid="${id}".`);
+    return node;
+  };
+  const byHudTestId = <T extends HTMLElement>(id: string): T => {
+    const node = streamingHud.querySelector<T>(`[data-testid="${id}"]`);
+    if (!node)
+      throw new Error(`Streaming HUD is missing data-testid="${id}".`);
     return node;
   };
   const field = <T extends HTMLElement>(name: string): T => {
@@ -240,6 +282,19 @@ export function mountControlPanel(
   const customSourceInput = byTestId<HTMLInputElement>('custom-source-url');
   const sourceUrl = byTestId<HTMLElement>('source-url');
   const styleSelect = byTestId<HTMLSelectElement>('style-select');
+  const panelBody = byTestId<HTMLElement>('control-panel-body');
+  const panelToggle = byTestId<HTMLButtonElement>('panel-toggle');
+  panelToggle.addEventListener('click', () => {
+    const collapsed = root.classList.toggle('copc-panel--collapsed');
+    panelBody.hidden = collapsed;
+    panelToggle.setAttribute('aria-expanded', String(!collapsed));
+    panelToggle.setAttribute(
+      'aria-label',
+      collapsed ? 'Expand control panel' : 'Collapse control panel',
+    );
+    panelToggle.title = collapsed ? 'Expand panel' : 'Collapse panel';
+    panelToggle.querySelector('span')!.textContent = collapsed ? '›' : '‹';
+  });
   rendererSelect.value = state.renderer;
   backendSelect.value = state.backend;
   fixtureSelect.value = state.fixtureId;
@@ -304,6 +359,8 @@ export function mountControlPanel(
   const panel: MountedPanel = {
     element: root,
     update(next) {
+      if (state.pickedPoint !== next.pickedPoint)
+        byPointTestId<HTMLDetailsElement>('point-extra-details').open = false;
       const selectionChanged = {
         renderer: state.renderer !== next.renderer,
         backend: state.backend !== next.backend,
@@ -471,20 +528,62 @@ export function mountControlPanel(
       byTestId('visible-lod-levels').textContent = lod.length
         ? `${Math.min(...lod)}–${Math.max(...lod)}`
         : '—';
+      const setHudValue = (id: string, value: string): void => {
+        const element = byHudTestId(id);
+        if (element.textContent !== value) element.textContent = value;
+      };
+      const selectedNodeCount = number(
+        state.selectedNodes ?? snapshot?.selectedNodeKeys.length,
+      );
+      const renderedPointCount = number(
+        state.renderedPoints ?? snapshot?.renderedPointCount,
+      );
+      setHudValue('hud-backend', state.backend === 'rust' ? 'Rust / WASM' : 'copc-js');
+      setHudValue(
+        'hud-view',
+        state.activeView === 'near'
+          ? 'Near'
+          : state.activeView === 'far'
+            ? 'Far'
+            : 'Overview',
+      );
+      setHudValue(
+        'hud-selected-nodes',
+        `${selectedNodeCount} / ${number(state.streamingLimits?.maxNodes ?? 8)}`,
+      );
+      setHudValue(
+        'hud-rendered-nodes',
+        number(state.renderedNodes ?? snapshot?.renderedNodeKeys.length),
+      );
+      setHudValue(
+        'hud-rendered-points',
+        `${renderedPointCount} / ${number(state.streamingLimits?.maxRenderedPoints ?? 1_000_000)}`,
+      );
+      setHudValue(
+        'hud-lod',
+        lod.length ? `${Math.min(...lod)}–${Math.max(...lod)}` : '—',
+      );
       const picked = state.pickedPoint;
       const point = asRecord(picked);
-      const pointInspection = byTestId('point-inspection');
-      const pointEmpty = byTestId('point-inspection-empty');
-      pointInspection.hidden = !point;
-      pointEmpty.hidden = Boolean(point);
+      const screenPosition = state.pickedPointScreenPosition;
+      pointPopover.hidden =
+        !point ||
+        !screenPosition ||
+        !Number.isFinite(screenPosition.x) ||
+        !Number.isFinite(screenPosition.y);
       const setPointValue = (
         name: string,
         value: unknown,
         maximumFractionDigits = 3,
       ): void => {
         const formatted = formatPointValue(value, maximumFractionDigits);
-        byTestId(`point-${name}`).textContent = formatted ?? '—';
-        byTestId(`point-${name}-row`).hidden = formatted === undefined;
+        const valueElement = byPointTestId(`point-${name}`);
+        const nextText = formatted ?? '—';
+        if (valueElement.textContent !== nextText)
+          valueElement.textContent = nextText;
+        const row = byPointTestId<HTMLElement>(`point-${name}-row`);
+        const hidden = formatted === undefined;
+        if (row.hidden !== hidden) row.hidden = hidden;
       };
       setPointValue('latitude', point?.latitude, 7);
       setPointValue('longitude', point?.longitude, 7);
@@ -500,8 +599,14 @@ export function mountControlPanel(
         typeof point?.classificationLabel === 'string'
           ? point.classificationLabel
           : undefined;
-      byTestId('point-classification-label').textContent =
-        classificationLabel ? ` · ${classificationLabel}` : '';
+      const classificationLabelElement = byPointTestId(
+        'point-classification-label',
+      );
+      const classificationLabelText = classificationLabel
+        ? ` · ${classificationLabel}`
+        : '';
+      if (classificationLabelElement.textContent !== classificationLabelText)
+        classificationLabelElement.textContent = classificationLabelText;
 
       const rgb = asRecord(point?.rgb);
       const rgbValues = rgb
@@ -510,35 +615,97 @@ export function mountControlPanel(
           )
         : [];
       const hasRgb = rgbValues.length === 3 && rgbValues.every(Boolean);
-      byTestId('point-rgb').textContent = hasRgb
+      const rgbText = hasRgb
         ? rgbValues.join(', ')
         : '—';
-      byTestId('point-rgb-row').hidden = !hasRgb;
+      const rgbElement = byPointTestId('point-rgb');
+      if (rgbElement.textContent !== rgbText) rgbElement.textContent = rgbText;
+      const rgbRow = byPointTestId<HTMLElement>('point-rgb-row');
+      const rgbRowHidden = !hasRgb;
+      if (rgbRow.hidden !== rgbRowHidden) rgbRow.hidden = rgbRowHidden;
 
       const sourceText = formatPointVector(point?.source, 3);
-      byTestId('point-source').textContent = sourceText ?? '—';
-      byTestId('point-source-row').hidden = sourceText === undefined;
+      const sourceElement = byPointTestId('point-source');
+      const sourceValue = sourceText ?? '—';
+      if (sourceElement.textContent !== sourceValue)
+        sourceElement.textContent = sourceValue;
+      const sourceRow = byPointTestId<HTMLElement>('point-source-row');
+      if (sourceRow.hidden !== (sourceText === undefined))
+        sourceRow.hidden = sourceText === undefined;
       const worldText = formatPointVector(point?.world, 2);
-      byTestId('point-world').textContent = worldText ?? '—';
-      byTestId('point-world-row').hidden = worldText === undefined;
-      const dimensions = byTestId('point-dimensions');
-      dimensions.replaceChildren();
+      const worldElement = byPointTestId('point-world');
+      const worldValue = worldText ?? '—';
+      if (worldElement.textContent !== worldValue)
+        worldElement.textContent = worldValue;
+      const worldRow = byPointTestId<HTMLElement>('point-world-row');
+      if (worldRow.hidden !== (worldText === undefined))
+        worldRow.hidden = worldText === undefined;
+      const dimensions = byPointTestId('point-dimensions');
       const extraDimensions = asRecord(point?.dimensions);
-      for (const [name, value] of Object.entries(extraDimensions ?? {})) {
-        const formatted = formatPointValue(value);
-        if (formatted === undefined) continue;
-        const row = document.createElement('div');
-        const label = document.createElement('dt');
-        const detail = document.createElement('dd');
-        label.textContent = name;
-        detail.textContent = formatted;
-        row.append(label, detail);
-        dimensions.append(row);
+      const nextDimensions = Object.entries(extraDimensions ?? {})
+        .map(([name, value]) => ({ name, value: formatPointValue(value) }))
+        .filter(
+          (dimension): dimension is { name: string; value: string } =>
+            dimension.value !== undefined,
+        );
+      const currentDimensions = Array.from(dimensions.children).map((row) => ({
+        name: row.querySelector('dt')?.textContent ?? '',
+        value: row.querySelector('dd')?.textContent ?? '',
+      }));
+      const dimensionsChanged =
+        currentDimensions.length !== nextDimensions.length ||
+        nextDimensions.some(
+          (dimension, index) =>
+            currentDimensions[index]?.name !== dimension.name ||
+            currentDimensions[index]?.value !== dimension.value,
+        );
+      if (dimensionsChanged) {
+        dimensions.replaceChildren();
+        for (const { name, value } of nextDimensions) {
+          const row = document.createElement('div');
+          const label = document.createElement('dt');
+          const detail = document.createElement('dd');
+          label.textContent = name;
+          detail.textContent = value;
+          row.append(label, detail);
+          dimensions.append(row);
+        }
       }
-      byTestId<HTMLDetailsElement>('point-extra-details').hidden =
+      const hasAdditionalAttributes = [
+        'level',
+        'index',
+        'node',
+        'backend',
+      ].some(
+        (name) =>
+          !byPointTestId<HTMLElement>(`point-${name}-row`).hidden,
+      );
+      byPointTestId<HTMLDetailsElement>('point-extra-details').hidden =
+        !hasAdditionalAttributes &&
         sourceText === undefined &&
         worldText === undefined &&
         dimensions.childElementCount === 0;
+      if (!pointPopover.hidden && screenPosition) {
+        const margin = 12;
+        const bounds = pointPopover.getBoundingClientRect();
+        const halfWidth = bounds.width / 2;
+        const left = Math.max(
+          margin + halfWidth,
+          Math.min(window.innerWidth - margin - halfWidth, screenPosition.x),
+        );
+        let placement: 'above' | 'below' = 'above';
+        let top = screenPosition.y - 12;
+        if (top - bounds.height < margin) {
+          placement = 'below';
+          top = Math.min(
+            screenPosition.y + 12,
+            window.innerHeight - bounds.height - margin,
+          );
+        }
+        pointPopover.dataset.placement = placement;
+        pointPopover.style.left = `${left}px`;
+        pointPopover.style.top = `${Math.max(margin, top)}px`;
+      }
       byTestId<HTMLButtonElement>('apply-settings').disabled =
         state.status === 'loading';
       styleSelect.disabled =
@@ -594,6 +761,8 @@ export function mountControlPanel(
     },
     destroy() {
       root.remove();
+      streamingHud.remove();
+      pointPopover.remove();
     },
   };
   panel.setFixtures([]);
@@ -616,6 +785,8 @@ export function panelStateFromConfig(
     packageVersion: config.packageVersion,
     packageSource: config.packageSource,
     status: 'idle',
+    activeView: 'overview',
+    streamingLimits: { maxNodes: 8, maxRenderedPoints: 1_000_000 },
     renderDistance: 20_000,
   };
 }

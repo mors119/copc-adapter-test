@@ -4,6 +4,7 @@ import type {
   HarnessPackageSource,
   HarnessRenderer,
   HarnessScenario,
+  HarnessView as HarnessViewType,
 } from './test-contract.ts';
 export type { CopcTestContract } from './test-contract.ts';
 
@@ -67,6 +68,38 @@ export const HARNESS_POINT_SIZE_LIMITS = {
   max: 10,
   step: 1,
 } as const;
+
+const CAMERA_DEMO_VIEWS = ['near', 'far', 'overview'] as const;
+
+export function startCameraDemo(
+  setView: (view: Exclude<HarnessViewType, 'visual'>) => Promise<void>,
+  pauseMs = 350,
+): () => void {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let viewIndex = 0;
+
+  const stop = (): void => {
+    stopped = true;
+    if (timer !== undefined) clearTimeout(timer);
+  };
+
+  const advance = async (): Promise<void> => {
+    if (stopped) return;
+    const view = CAMERA_DEMO_VIEWS[viewIndex]!;
+    viewIndex = (viewIndex + 1) % CAMERA_DEMO_VIEWS.length;
+    try {
+      await setView(view);
+    } catch {
+      stop();
+      return;
+    }
+    if (!stopped) timer = setTimeout(() => void advance(), pauseMs);
+  };
+
+  void advance();
+  return stop;
+}
 
 export function defaultStreamingSettings(
   renderer: HarnessRenderer,

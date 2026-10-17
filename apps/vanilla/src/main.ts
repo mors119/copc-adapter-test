@@ -4,6 +4,7 @@ import '@copc-test/ui/panel.css';
 import {
   createHarnessConfig,
   createTestContract,
+  startCameraDemo,
   renderDistanceFromSearch,
   streamingSettingsFromSearch,
   loadFixtureCatalog,
@@ -62,8 +63,7 @@ let panelState: PanelState = {
 };
 let panel: MountedPanel;
 let renderer: TestRenderer | undefined;
-let demoTimer: number | undefined;
-let demoIndex = 0;
+let stopDemoLoop: (() => void) | undefined;
 let generation = 0;
 let styleRevision = 0;
 
@@ -73,8 +73,8 @@ function update(patch: Partial<PanelState>): void {
 }
 
 function stopDemo(): void {
-  if (demoTimer !== undefined) window.clearInterval(demoTimer);
-  demoTimer = undefined;
+  stopDemoLoop?.();
+  stopDemoLoop = undefined;
 }
 
 function reportSnapshot(snapshot: unknown): void {
@@ -326,12 +326,7 @@ panel = mountControlPanel(panelTarget, {
     reload: () => void apply(selected),
     startDemo: () => {
       stopDemo();
-      demoIndex = 0;
-      const steps = ['near', 'far', 'overview'] as const;
-      demoTimer = window.setInterval(() => {
-        void setView(steps[demoIndex++ % steps.length]!);
-      }, 1200);
-      void setView('near');
+      stopDemoLoop = startCameraDemo(setView);
     },
     stopDemo,
     overview: () => void setView('overview'),

@@ -17,6 +17,7 @@ import {
   renderDistanceFromSearch,
   resolveCopcSourceSelection,
   sourceSelectionFromSearch,
+  startCameraDemo,
   streamingSettingsFromSearch,
   type FixtureCatalogEntry,
   type HarnessRenderer,
@@ -122,7 +123,7 @@ export function RendererClient({
   const rendererRef = useRef<TestRenderer | undefined>(undefined);
   const colorModeRef = useRef<ColorMode>(colorMode);
   colorModeRef.current = colorMode;
-  const demoTimerRef = useRef<number | undefined>(undefined);
+  const stopDemoRef = useRef<(() => void) | undefined>(undefined);
   const source = resolveCopcSourceSelection(selection.fixtureId);
   const fixtureUrl = source.url;
   const config = useMemo(
@@ -145,8 +146,8 @@ export function RendererClient({
 
   useEffect(
     () => () => {
-      if (demoTimerRef.current !== undefined)
-        window.clearInterval(demoTimerRef.current);
+      stopDemoRef.current?.();
+      stopDemoRef.current = undefined;
     },
     [],
   );
@@ -335,9 +336,8 @@ export function RendererClient({
 
   const apply = useCallback(
     (next: PanelSelection): void => {
-      if (demoTimerRef.current !== undefined)
-        window.clearInterval(demoTimerRef.current);
-      demoTimerRef.current = undefined;
+      stopDemoRef.current?.();
+      stopDemoRef.current = undefined;
       if (next.renderer !== renderer) {
         const params = new URLSearchParams({
           backend: next.backend,
@@ -426,19 +426,12 @@ export function RendererClient({
     apply,
     reload: () => setReloadKey((value) => value + 1),
     startDemo: () => {
-      if (demoTimerRef.current !== undefined)
-        window.clearInterval(demoTimerRef.current);
-      const views = ['near', 'far', 'overview'] as const;
-      let index = 0;
-      void setView(views[index++]!);
-      demoTimerRef.current = window.setInterval(() => {
-        void setView(views[index++ % views.length]!);
-      }, 1200);
+      stopDemoRef.current?.();
+      stopDemoRef.current = startCameraDemo(setView);
     },
     stopDemo: () => {
-      if (demoTimerRef.current !== undefined)
-        window.clearInterval(demoTimerRef.current);
-      demoTimerRef.current = undefined;
+      stopDemoRef.current?.();
+      stopDemoRef.current = undefined;
     },
     overview: () => setView('overview'),
     far: () => setView('far'),

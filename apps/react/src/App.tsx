@@ -16,12 +16,16 @@ import {
   renderDistanceFromSearch,
   resolveCopcSourceSelection,
   sourceSelectionFromSearch,
+  startCameraDemo,
   streamingSettingsFromSearch,
   type FixtureCatalogEntry,
   type HarnessRenderer,
   type HarnessView,
 } from '@copc-test/core';
 import {
+  animateThreeCameraToPose,
+  applyThreeCameraPose,
+  getThreeCameraPose,
   mountTestRenderer,
   type RendererStatus,
   type TestRenderer,
@@ -83,7 +87,7 @@ export function App(): ReactNode {
   );
   const [reloadKey, setReloadKey] = useState(0);
   const [fixtures, setFixtures] = useState<FixtureCatalogEntry[]>([]);
-  const demoTimerRef = useRef<number | undefined>(undefined);
+  const stopDemoRef = useRef<(() => void) | undefined>(undefined);
   const rendererHostRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<R3FHandle | undefined>(undefined);
   const colorModeRef = useRef<ColorMode>(colorMode);
@@ -110,8 +114,8 @@ export function App(): ReactNode {
 
   useEffect(
     () => () => {
-      if (demoTimerRef.current !== undefined)
-        window.clearInterval(demoTimerRef.current);
+      stopDemoRef.current?.();
+      stopDemoRef.current = undefined;
     },
     [],
   );
@@ -302,9 +306,8 @@ export function App(): ReactNode {
 
   const apply = useCallback(
     (next: PanelSelection): void => {
-      if (demoTimerRef.current !== undefined)
-        window.clearInterval(demoTimerRef.current);
-      demoTimerRef.current = undefined;
+      stopDemoRef.current?.();
+      stopDemoRef.current = undefined;
       let nextSource: ReturnType<typeof resolveCopcSourceSelection>;
       try {
         nextSource = resolveCopcSourceSelection(next.fixtureId);
@@ -373,19 +376,12 @@ export function App(): ReactNode {
     apply,
     reload: () => setReloadKey((value) => value + 1),
     startDemo: () => {
-      if (demoTimerRef.current !== undefined)
-        window.clearInterval(demoTimerRef.current);
-      const views = ['near', 'far', 'overview'] as const;
-      let index = 0;
-      void setView(views[index++]!);
-      demoTimerRef.current = window.setInterval(() => {
-        void setView(views[index++ % views.length]!);
-      }, 1200);
+      stopDemoRef.current?.();
+      stopDemoRef.current = startCameraDemo(setView);
     },
     stopDemo: () => {
-      if (demoTimerRef.current !== undefined)
-        window.clearInterval(demoTimerRef.current);
-      demoTimerRef.current = undefined;
+      stopDemoRef.current?.();
+      stopDemoRef.current = undefined;
     },
     overview: () => setView('overview'),
     far: () => setView('far'),
@@ -482,6 +478,9 @@ function R3FPointCloud({
       | undefined;
     let activePointSize = pointSize;
     let pointSizeGeneration = 0;
+    let viewTransitionGeneration = 0;
+    let cancelViewTransition: (() => void) | undefined;
+    let cameraAnimating = false;
     let timer = 0;
     const snapshotWithPointSize = (
       current: import('@frillab/copc-adapter/three').CopcThreeLayer,
@@ -517,7 +516,7 @@ function R3FPointCloud({
       current.attachTo({ scene, camera, renderer: gl });
       onAttached();
       controls.addEventListener('change', () => {
-        if (layer) void layer.update();
+        if (!cameraAnimating && layer) void layer.update();
       });
       timer = window.setInterval(() => {
         if (!disposed && layer) onSnapshot(snapshotWithPointSize(layer));
@@ -539,23 +538,49 @@ function R3FPointCloud({
       setView: async (view) => {
         await ready;
         if (!layer || !controls || disposed) return;
-        if (!fitR3FCamera(layer, camera, controls.target, renderDistance))
+        const activeLayer = layer;
+        const pose = getThreeCameraPose(
+          THREE,
+          activeLayer.getRoot(),
+          view,
+          renderDistance,
+        );
+        if (!pose) return;
+        const currentGeneration = ++viewTransitionGeneration;
+        cancelViewTransition?.();
+        cameraAnimating = true;
+        const transition = animateThreeCameraToPose(
+          THREE,
+          camera,
+          controls,
+          pose,
+        );
+        cancelViewTransition = transition.cancel;
+        await transition.finished;
+        if (
+          disposed ||
+          currentGeneration !== viewTransitionGeneration ||
+          layer !== activeLayer
+        )
           return;
-        if (view !== 'overview')
-          camera.position.copy(controls.target).add(
-            camera.position
-              .clone()
-              .sub(controls.target)
-              .multiplyScalar(view === 'near' ? 0.5 : 2),
-          );
-        controls.update();
-        await layer.update();
-        onSnapshot(snapshotWithPointSize(layer));
+        cancelViewTransition = undefined;
+        try {
+          await activeLayer.update();
+        } finally {
+          if (currentGeneration === viewTransitionGeneration)
+            cameraAnimating = false;
+        }
+        if (disposed || currentGeneration !== viewTransitionGeneration) return;
+        onSnapshot(snapshotWithPointSize(activeLayer));
       },
       setPointSize: async (nextPointSize): Promise<void> => {
         await ready;
         if (disposed || !layer || !adapterModule) return;
         if (nextPointSize === activePointSize) return;
+        viewTransitionGeneration += 1;
+        cancelViewTransition?.();
+        cancelViewTransition = undefined;
+        cameraAnimating = false;
         const currentGeneration = ++pointSizeGeneration;
         const previousLayer = layer;
         onStatus('loading');
@@ -624,6 +649,10 @@ function R3FPointCloud({
         }
       },
       unload: () => {
+        viewTransitionGeneration += 1;
+        cancelViewTransition?.();
+        cancelViewTransition = undefined;
+        cameraAnimating = false;
         layer?.unload();
         onSnapshot(undefined);
       },
@@ -631,6 +660,10 @@ function R3FPointCloud({
         if (disposed) return;
         disposed = true;
         pointSizeGeneration += 1;
+        viewTransitionGeneration += 1;
+        cancelViewTransition?.();
+        cancelViewTransition = undefined;
+        cameraAnimating = false;
         destroyPendingPointSizeLayer?.();
         pendingPointSizeLayer = undefined;
         destroyPendingPointSizeLayer = undefined;
@@ -679,29 +712,13 @@ function fitR3FCamera(
   target: THREE.Vector3,
   renderDistance?: number,
 ): boolean {
-  const bounds = new THREE.Box3().setFromObject(layer.getRoot());
-  if (bounds.isEmpty()) return false;
-  const center = bounds.getCenter(new THREE.Vector3());
-  const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, 10);
-  const offset = new THREE.Vector3(
-    radius * 1.55,
-    -radius * 1.55,
-    radius * 0.95,
+  const pose = getThreeCameraPose(
+    THREE,
+    layer.getRoot(),
+    'overview',
+    renderDistance,
   );
-  if (renderDistance !== undefined)
-    offset.setLength(renderDistance);
-  camera.position.copy(center).add(offset);
-  camera.lookAt(center);
-  target.copy(center);
-  camera.updateMatrixWorld(true);
-  if (camera instanceof THREE.PerspectiveCamera) {
-    camera.near = Math.max(radius / 10_000, 0.1);
-    camera.far = Math.max(
-      radius * 12,
-      (renderDistance ?? 0) * 2 + radius,
-      20_000,
-    );
-    camera.updateProjectionMatrix();
-  }
+  if (!pose) return false;
+  applyThreeCameraPose(THREE, camera, target, pose);
   return true;
 }

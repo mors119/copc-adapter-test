@@ -3,6 +3,11 @@ import type { OrbitControls as OrbitControlsType } from 'three/addons/controls/O
 import type { CopcThreeLayer } from '@frillab/copc-adapter/three';
 import type { HarnessView } from '@copc-test/core';
 import type { RendererOptions, TestRenderer } from './types';
+import {
+  animateThreeCameraToPose,
+  applyThreeCameraPose,
+  getThreeCameraPose,
+} from './camera-transition';
 
 export function mountThreeRenderer(
   container: HTMLElement,
@@ -17,11 +22,15 @@ export function mountThreeRenderer(
   let renderer: THREE_TYPES.WebGLRenderer | undefined;
   let controls: OrbitControlsType | undefined;
   let layer: CopcThreeLayer | undefined;
+  let threeModule: typeof import('three') | undefined;
   let pendingPointSizeLayer: CopcThreeLayer | undefined;
   let destroyPendingPointSizeLayer: (() => void) | undefined;
   let adapterModule: typeof import('@frillab/copc-adapter/three') | undefined;
   let pointSize = options.pointSize;
   let pointSizeGeneration = 0;
+  let viewTransitionGeneration = 0;
+  let cancelViewTransition: (() => void) | undefined;
+  let cameraAnimating = false;
   options.onStatus('loading');
 
   const snapshotWithPointSize = (current: CopcThreeLayer): unknown => ({
@@ -37,6 +46,7 @@ export function mountThreeRenderer(
         import('three/addons/controls/OrbitControls.js'),
       ]);
       if (disposed) return;
+      threeModule = THREE;
       adapterModule = adapter;
 
       scene = new THREE.Scene();
@@ -83,7 +93,7 @@ export function mountThreeRenderer(
       };
       render();
       controls.addEventListener('change', () => {
-        if (layer) void layer.update();
+        if (!cameraAnimating && layer) void layer.update();
       });
       timer = window.setInterval(() => {
         if (!disposed && layer) options.onSnapshot(snapshotWithPointSize(layer));
@@ -123,29 +133,47 @@ export function mountThreeRenderer(
   ): Promise<void> => {
     await ready;
     if (!layer || !camera || !controls || disposed) return;
-    const THREE = await import('three');
+    const activeLayer = layer;
+    const THREE = threeModule;
+    if (!THREE) return;
+    const pose = getThreeCameraPose(
+      THREE,
+      activeLayer.getRoot(),
+      view,
+      options.renderDistance,
+    );
+    if (!pose) return;
+    const currentGeneration = ++viewTransitionGeneration;
+    cancelViewTransition?.();
+    cameraAnimating = true;
+    const transition = animateThreeCameraToPose(
+      THREE,
+      camera,
+      controls,
+      pose,
+    );
+    cancelViewTransition = transition.cancel;
+    await transition.finished;
     if (
-      !fitCamera(
-        THREE,
-        layer,
-        camera,
-        controls.target,
-        options.renderDistance,
-      )
+      disposed ||
+      currentGeneration !== viewTransitionGeneration ||
+      layer !== activeLayer
     )
       return;
-    if (view !== 'overview') {
-      const scale = view === 'near' ? 0.5 : 2;
-      const offset = camera.position
-        .clone()
-        .sub(controls.target)
-        .multiplyScalar(scale);
-      camera.position.copy(controls.target).add(offset);
-      camera.updateMatrixWorld(true);
+    cancelViewTransition = undefined;
+    try {
+      await activeLayer.update();
+    } finally {
+      if (currentGeneration === viewTransitionGeneration)
+        cameraAnimating = false;
     }
-    controls.update();
-    await layer.update();
-    options.onSnapshot(snapshotWithPointSize(layer));
+    if (
+      disposed ||
+      currentGeneration !== viewTransitionGeneration ||
+      layer !== activeLayer
+    )
+      return;
+    options.onSnapshot(snapshotWithPointSize(activeLayer));
   };
 
   return {
@@ -157,6 +185,10 @@ export function mountThreeRenderer(
       if (disposed || !layer || !scene || !camera || !renderer || !adapterModule)
         return;
       if (nextPointSize === pointSize) return;
+      viewTransitionGeneration += 1;
+      cancelViewTransition?.();
+      cancelViewTransition = undefined;
+      cameraAnimating = false;
       const currentGeneration = ++pointSizeGeneration;
       const previousLayer = layer;
       options.onStatus('loading');
@@ -222,6 +254,10 @@ export function mountThreeRenderer(
       }
     },
     unload: () => {
+      viewTransitionGeneration += 1;
+      cancelViewTransition?.();
+      cancelViewTransition = undefined;
+      cameraAnimating = false;
       layer?.unload();
       options.onSnapshot(undefined);
     },
@@ -229,6 +265,10 @@ export function mountThreeRenderer(
       if (disposed) return;
       disposed = true;
       pointSizeGeneration += 1;
+      viewTransitionGeneration += 1;
+      cancelViewTransition?.();
+      cancelViewTransition = undefined;
+      cameraAnimating = false;
       destroyPendingPointSizeLayer?.();
       pendingPointSizeLayer = undefined;
       destroyPendingPointSizeLayer = undefined;
@@ -251,27 +291,13 @@ function fitCamera(
   target: THREE_TYPES.Vector3,
   renderDistance?: number,
 ): boolean {
-  const bounds = new THREE.Box3().setFromObject(layer.getRoot());
-  if (bounds.isEmpty()) return false;
-  const center = bounds.getCenter(new THREE.Vector3());
-  const size = bounds.getSize(new THREE.Vector3());
-  const radius = Math.max(size.length() / 2, 10);
-  const offset = new THREE.Vector3(
-    radius * 1.55,
-    -radius * 1.55,
-    radius * 0.95,
+  const pose = getThreeCameraPose(
+    THREE,
+    layer.getRoot(),
+    'overview',
+    renderDistance,
   );
-  if (renderDistance !== undefined) offset.setLength(renderDistance);
-  camera.position.copy(center).add(offset);
-  camera.lookAt(center);
-  camera.near = Math.max(radius / 10_000, 0.1);
-  camera.far = Math.max(
-    radius * 12,
-    (renderDistance ?? 0) * 2 + radius,
-    20_000,
-  );
-  camera.updateProjectionMatrix();
-  target.copy(center);
-  camera.updateMatrixWorld(true);
+  if (!pose) return false;
+  applyThreeCameraPose(THREE, camera, target, pose);
   return true;
 }

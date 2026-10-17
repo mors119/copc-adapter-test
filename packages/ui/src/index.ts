@@ -1267,7 +1267,11 @@ export function mountControlPanel(
         fixtureSelect.value = selected;
       else if (selected.startsWith('custom:')) {
         fixtureSelect.value = 'custom:';
-        customSourceInput.value = selected.slice('custom:'.length);
+        customSourceInput.value =
+          selected.slice('custom:'.length) ||
+          customSourceInput.value ||
+          state.fixtureUrl ||
+          '';
       }
       updateSelectedDataset();
     },

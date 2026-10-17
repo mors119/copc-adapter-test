@@ -6,5 +6,8 @@ export default defineConfig({
   envDir: '../../',
   plugins: [viteFixtureServer()],
   define: vitePackageDefines(),
-  optimizeDeps: { exclude: ['@frillab/copc-adapter'] },
+  optimizeDeps: {
+    exclude: ['@frillab/copc-adapter'],
+    include: ['three', 'three/addons/controls/OrbitControls.js'],
+  },
 });

@@ -280,18 +280,31 @@ export function mountControlPanel(
   streamingHud.setAttribute('aria-label', 'COPC streaming status');
   streamingHud.setAttribute('aria-live', 'polite');
   streamingHud.innerHTML = `
-    <div class="copc-streaming-hud__heading">COPC Streaming</div>
-    <div class="copc-streaming-hud__context">
-      <span data-testid="hud-backend">copc-js</span>
-      <span data-testid="hud-view">Overview</span>
+    <div class="copc-streaming-hud__heading-row">
+      <div class="copc-streaming-hud__heading">COPC Streaming</div>
+      <button
+        class="copc-streaming-hud__toggle"
+        data-testid="streaming-hud-toggle"
+        type="button"
+        aria-label="Collapse streaming status"
+        aria-expanded="true"
+        aria-controls="streaming-hud-body"
+        title="Collapse streaming status"
+      ><span aria-hidden="true">−</span></button>
     </div>
-    <dl class="copc-streaming-hud__metrics">
-      <div><dt>Selected nodes</dt><dd data-testid="hud-selected-nodes">0 / 8</dd></div>
-      <div><dt>Rendered nodes</dt><dd data-testid="hud-rendered-nodes">0</dd></div>
-      <div><dt>Rendered points</dt><dd data-testid="hud-rendered-points">0 / 1,000,000</dd></div>
-      <div><dt>Range requests</dt><dd data-testid="hud-range-requests">0</dd></div>
-      <div><dt>LoD</dt><dd data-testid="hud-lod">—</dd></div>
-    </dl>
+    <div class="copc-streaming-hud__body" id="streaming-hud-body">
+      <div class="copc-streaming-hud__context">
+        <span data-testid="hud-backend">copc-js</span>
+        <span data-testid="hud-view">Overview</span>
+      </div>
+      <dl class="copc-streaming-hud__metrics">
+        <div><dt>Selected nodes</dt><dd data-testid="hud-selected-nodes">0 / 8</dd></div>
+        <div><dt>Rendered nodes</dt><dd data-testid="hud-rendered-nodes">0</dd></div>
+        <div><dt>Rendered points</dt><dd data-testid="hud-rendered-points">0 / 1,000,000</dd></div>
+        <div><dt>Range requests</dt><dd data-testid="hud-range-requests">0</dd></div>
+        <div><dt>LoD</dt><dd data-testid="hud-lod">—</dd></div>
+      </dl>
+    </div>
   `;
   const pointPopover = document.createElement('section');
   pointPopover.className = 'copc-point-popover';
@@ -668,6 +681,23 @@ export function mountControlPanel(
     );
     panelToggle.title = collapsed ? 'Expand panel' : 'Collapse panel';
     panelToggle.querySelector('span')!.textContent = collapsed ? '›' : '‹';
+  });
+  const hudBody = byHudTestId<HTMLElement>('streaming-hud-body');
+  const hudToggle = byHudTestId<HTMLButtonElement>('streaming-hud-toggle');
+  hudToggle.addEventListener('click', () => {
+    const collapsed = streamingHud.classList.toggle(
+      'copc-streaming-hud--collapsed',
+    );
+    hudBody.hidden = collapsed;
+    hudToggle.setAttribute('aria-expanded', String(!collapsed));
+    hudToggle.setAttribute(
+      'aria-label',
+      collapsed ? 'Expand streaming status' : 'Collapse streaming status',
+    );
+    hudToggle.title = collapsed
+      ? 'Expand streaming status'
+      : 'Collapse streaming status';
+    hudToggle.querySelector('span')!.textContent = collapsed ? '+' : '−';
   });
   fixtureSelect.value = state.fixtureId.startsWith('custom:')
     ? 'custom:'

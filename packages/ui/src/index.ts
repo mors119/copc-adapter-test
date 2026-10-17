@@ -292,7 +292,7 @@ export function mountControlPanel(
         title="Collapse streaming status"
       ><span aria-hidden="true">−</span></button>
     </div>
-    <div class="copc-streaming-hud__body" id="streaming-hud-body">
+    <div class="copc-streaming-hud__body" data-testid="streaming-hud-body" id="streaming-hud-body">
       <div class="copc-streaming-hud__context">
         <span data-testid="hud-backend">copc-js</span>
         <span data-testid="hud-view">Overview</span>

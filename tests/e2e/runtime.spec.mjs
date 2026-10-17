@@ -9,7 +9,7 @@ test('Vanilla mounts a real Cesium globe and streams a COPC fixture', async ({
   await expect(page.locator('.cesium-widget canvas')).toBeVisible();
 });
 
-test('shared panel applies point size in Cesium and Three and keeps it across remounts', async ({
+test('shared panel applies point size in Cesium and preserves it when switching to Three', async ({
   page,
 }) => {
   await openHarness(page, 'vanilla', 'cesium');
@@ -68,33 +68,63 @@ test('shared panel applies point size in Cesium and Three and keeps it across re
     cesiumViewer,
   );
 
-  await slider.focus();
-  await slider.press('ArrowRight');
-  await expect(slider).toHaveValue('7');
-  await page.getByTestId('apply-settings').click();
-  await expect.poll(activePointSize).toMatchObject({
-    status: 'ready',
-    renderer: 7,
-    rendererPointSize: 7,
-  });
   await expect
-    .poll(() => page.evaluate(() => window.__COPC_TEST__.getResult().diagnostics.renderedPointCount))
+    .poll(() =>
+      page.evaluate(
+        () => window.__COPC_TEST__.getResult().diagnostics.renderedPointCount,
+      ),
+    )
     .toBeGreaterThan(0);
+});
 
-  await page.getByTestId('reload-renderer').click();
+test('Three point size update survives a renderer reload', async ({ page }) => {
+  await openHarness(page, 'vanilla', 'three');
+  await page.getByTestId('advanced-settings').locator('summary').click();
+  const preciseInput = page.getByTestId('point-size-input');
+  await preciseInput.fill('7');
+  await expect(page.getByTestId('point-size-slider')).toHaveValue('7');
+  await page.getByTestId('apply-settings').click();
+
+  const activePointSize = () =>
+    page.evaluate(() => {
+      const result = window.__COPC_TEST__?.getResult();
+      return {
+        status: result?.status,
+        renderer: result?.config.pointSize,
+        rendererPointSize: result?.diagnostics.rendererPointSize,
+        renderedPoints: result?.diagnostics.renderedPointCount ?? 0,
+      };
+    });
   await expect.poll(activePointSize).toMatchObject({
     status: 'ready',
     renderer: 7,
     rendererPointSize: 7,
   });
+  await expect.poll(async () => (await activePointSize()).renderedPoints).toBeGreaterThan(0);
+
+  const mountsBeforeReload = await page.evaluate(
+    () => window.__COPC_TEST__.getResult().lifecycleCounts.mounts,
+  );
+  await page.getByTestId('reload-renderer').click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__COPC_TEST__.getResult().lifecycleCounts.mounts),
+    )
+    .toBeGreaterThan(mountsBeforeReload);
+  await expect.poll(activePointSize).toMatchObject({
+    status: 'ready',
+    renderer: 7,
+    rendererPointSize: 7,
+  });
+  await expect.poll(async () => (await activePointSize()).renderedPoints).toBeGreaterThan(0);
 });
 
 test('control panel fits desktop and mobile viewports while the streaming HUD stays visible', async ({
   page,
-}) => {
+}, testInfo) => {
   await openHarness(page, 'vanilla', 'cesium');
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.screenshot({ path: '/private/tmp/copc-control-panel-desktop.png' });
+  await page.screenshot({ path: testInfo.outputPath('copc-control-panel-desktop.png') });
   await expect(page.getByTestId('control-panel')).toBeVisible();
   await expect(page.getByTestId('streaming-hud')).toBeVisible();
   const desktopLayout = await page.evaluate(() => ({
@@ -107,7 +137,7 @@ test('control panel fits desktop and mobile viewports while the streaming HUD st
   expect(desktopLayout.panel.bottom).toBeLessThanOrEqual(720);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: '/private/tmp/copc-control-panel-mobile.png' });
+  await page.screenshot({ path: testInfo.outputPath('copc-control-panel-mobile.png') });
   await expect(page.getByTestId('streaming-hud')).toBeVisible();
   const mobileLayout = await page.evaluate(() => ({
     width: document.documentElement.scrollWidth,

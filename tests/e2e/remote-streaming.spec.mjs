@@ -95,6 +95,8 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await expect(page.getByTestId('harness-status')).toHaveText('ready', {
     timeout: 90_000,
   });
+  await page.getByTestId('source-diagnostics').locator('summary').click();
+  await page.getByTestId('diagnostics-details').locator('summary').click();
   await expect(page.getByTestId('rendered-points')).not.toHaveText('0');
   await expect(page.getByTestId('streaming-hud')).toBeVisible();
   await expect(page.getByTestId('hud-selected-nodes')).toHaveText(/\d+ \/ 8/u);
@@ -186,10 +188,10 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
     .locator('#renderer')
     .getAttribute('data-cesium-viewer-instance');
   expect(await page.locator('.cesium-viewer').count()).toBe(1);
-  await page.getByRole('button', { name: 'Overview' }).click();
+  await page.getByRole('radio', { name: 'Overview' }).click();
   await page.waitForTimeout(800);
   const overview = await streamingState(page);
-  await page.getByRole('button', { name: 'Near' }).click();
+  await page.getByRole('radio', { name: 'Near' }).click();
   await expect(page.getByTestId('hud-view')).toHaveText('Near');
   await expect
     .poll(
@@ -208,10 +210,10 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
     )
     .toBe(true);
   const near = await streamingState(page);
-  await page.getByRole('button', { name: 'Far' }).click();
+  await page.getByRole('radio', { name: 'Far' }).click();
   await page.waitForTimeout(800);
   const far = await streamingState(page);
-  await page.getByRole('button', { name: 'Near' }).click();
+  await page.getByRole('radio', { name: 'Near' }).click();
   await page.waitForTimeout(1200);
   const returned = await streamingState(page);
   expect(returned.streamUpdates).toBeGreaterThanOrEqual(far.streamUpdates);
@@ -231,7 +233,7 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
 
   await page.getByTestId('style-select').selectOption('rgb');
   await expect(page.getByTestId('style-select')).toHaveValue('rgb');
-  await page.getByRole('button', { name: 'Overview' }).click();
+  await page.getByRole('radio', { name: 'Overview' }).click();
   await page.waitForTimeout(700);
   const canvas = page.locator('.cesium-widget canvas').first();
   const canvasBox = await canvas.boundingBox();
@@ -253,11 +255,12 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await expect(page.getByTestId('point-classification-row')).toBeVisible();
   await expect(page.getByTestId('point-rgb-row')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Far' }).click();
+  await page.getByRole('radio', { name: 'Far' }).click();
   await expect(page.getByTestId('hud-view')).toHaveText('Far');
   await page
     .getByTestId('fixture-select')
     .selectOption('remote:chicago-downtown');
+  await page.getByTestId('load-source').click();
   await waitForActiveUrl(page, '/chicago-downtown/chicago-downtown.copc.laz');
   await expect(page.getByTestId('hud-view')).toHaveText('Overview');
   await expect(page.getByTestId('style-select')).toHaveValue('elevation');
@@ -308,7 +311,7 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
     /status of 404|status code 404|status: 404|status 404/u,
   );
   await page.getByTestId('custom-source-url').fill(invalidUrl);
-  await page.getByTestId('load-custom-source').click();
+  await page.getByTestId('load-source').click();
   await expect(page.getByTestId('harness-status')).toHaveText('error', {
     timeout: 30_000,
   });
@@ -331,6 +334,7 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
       /^bytes=\d+-\d+$/u.test(request.headers().range ?? ''),
   );
   await page.getByTestId('fixture-select').selectOption('remote:autzen');
+  await page.getByTestId('load-source').click();
   await autzenRequestStarted;
   await expect(page.getByTestId('harness-status')).toHaveText('loading');
   await page.getByTestId('style-select').selectOption('intensity');

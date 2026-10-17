@@ -178,6 +178,7 @@ export type HarnessConfig = {
   renderer: HarnessRenderer;
   fixtureUrl: string;
   backend: HarnessBackend;
+  pointSize: number;
   scenario: HarnessScenario;
   packageSource: HarnessPackageSource;
   packageVersion: string;
@@ -191,6 +192,7 @@ export type HarnessDiagnostics = {
   selectedNodeKeys: string[];
   renderedNodeKeys: string[];
   renderedPointCount?: number;
+  rendererPointSize?: number;
   streamingUpdateCount?: number;
   metadataLoaded?: boolean;
   hierarchyLoaded?: boolean;
@@ -705,6 +707,9 @@ export function normalizeSnapshot(snapshot: unknown): HarnessDiagnostics {
     selectedNodeKeys: stringArray(source.selectedNodeKeys),
     renderedNodeKeys: stringArray(source.renderedNodeKeys),
     renderedPointCount: finiteNumber(source.renderedPointCount),
+    ...(finiteNumber(source.rendererPointSize) !== undefined
+      ? { rendererPointSize: finiteNumber(source.rendererPointSize) }
+      : {}),
     streamingUpdateCount: finiteNumber(source.streamingUpdateCount),
     metadataLoaded:
       typeof source.metadataLoaded === 'boolean'

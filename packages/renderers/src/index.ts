@@ -2,6 +2,15 @@ import type { HarnessRenderer } from '@copc-test/core';
 import type { RendererOptions, TestRenderer } from './types';
 
 export type { RendererOptions, RendererStatus, TestRenderer } from './types';
+export {
+  animateThreeCameraToPose,
+  applyThreeCameraPose,
+  getThreeCameraPose,
+} from './camera-transition';
+export type {
+  ThreeCameraPose,
+  ThreeCameraTransition,
+} from './camera-transition';
 
 /** Keep renderer libraries out of server evaluation and load each only when selected. */
 export async function mountTestRenderer(

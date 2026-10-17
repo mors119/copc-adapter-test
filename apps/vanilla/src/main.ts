@@ -47,6 +47,7 @@ const allowedRenderers: HarnessRenderer[] = ['cesium', 'three'];
 let selected: PanelSelection = {
   renderer: initialRenderer,
   backend: harnessConfig.backend,
+  pointSize: harnessConfig.pointSize,
   fixtureId,
   streaming: initialStreaming,
   renderDistance: initialRenderDistance,
@@ -116,6 +117,32 @@ async function apply(selection: PanelSelection): Promise<void> {
     nextSource.remote?.expectedCapabilities[colorMode] === false
       ? 'elevation'
       : colorMode;
+  const pointSizeOnly =
+    selection.pointSize !== selected.pointSize &&
+    selection.renderer === selected.renderer &&
+    selection.backend === selected.backend &&
+    selection.fixtureId === selected.fixtureId &&
+    JSON.stringify(selection.streaming) ===
+      JSON.stringify(selected.streaming) &&
+    selection.renderDistance === selected.renderDistance;
+  if (pointSizeOnly && renderer?.setPointSize) {
+    const currentRenderer = renderer;
+    update({ status: 'loading', error: undefined });
+    contract.markLoading();
+    try {
+      await currentRenderer.setPointSize!(selection.pointSize);
+      if (renderer !== currentRenderer) return;
+      selected = selection;
+      contract.setConfig({ pointSize: selection.pointSize });
+      update({ ...selection, status: 'ready', error: undefined });
+      contract.markReady();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      contract.markError(error);
+      update({ status: 'error', error: message });
+    }
+    return;
+  }
   const canSwitchSourceInPlace =
     renderer !== undefined &&
     selection.renderer === selected.renderer &&
@@ -135,6 +162,7 @@ async function apply(selection: PanelSelection): Promise<void> {
     contract.setConfig({
       renderer: selection.renderer,
       backend: selection.backend,
+      pointSize: selection.pointSize,
       fixtureUrl,
     });
     update({
@@ -146,7 +174,12 @@ async function apply(selection: PanelSelection): Promise<void> {
     });
     contract.markLoading();
     try {
-      await renderer.setSource?.(fixtureUrl, nextSource.kind, nextColorMode);
+      await renderer.setSource?.(
+        fixtureUrl,
+        nextSource.kind,
+        nextColorMode,
+        selection.pointSize,
+      );
       if (styleRevision === styleRevisionAtStart) colorMode = nextColorMode;
       update({ colorMode, activeView: 'overview' });
     } catch (error) {
@@ -172,6 +205,7 @@ async function apply(selection: PanelSelection): Promise<void> {
   contract.setConfig({
     renderer: selection.renderer,
     backend: selection.backend,
+    pointSize: selection.pointSize,
     fixtureUrl,
   });
   update({
@@ -198,6 +232,7 @@ async function apply(selection: PanelSelection): Promise<void> {
         backend: selection.backend,
         streaming: selection.streaming,
         renderDistance: selection.renderDistance,
+        pointSize: selection.pointSize,
         sourceKind: nextSource.kind,
         colorMode,
         cesiumIonToken:

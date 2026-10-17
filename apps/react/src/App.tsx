@@ -68,6 +68,7 @@ export function App(): ReactNode {
   const [selection, setSelection] = useState<PanelSelection>({
     renderer: initialRenderer,
     backend: initialConfig.backend,
+    pointSize: initialConfig.pointSize,
     fixtureId: initialFixtureId,
     streaming: initialStreaming,
     renderDistance: initialRenderDistance,
@@ -94,6 +95,7 @@ export function App(): ReactNode {
       ...initialConfig,
       renderer: selection.renderer,
       backend: selection.backend,
+      pointSize: selection.pointSize,
       fixtureUrl,
     }),
     [selection, fixtureUrl],
@@ -158,6 +160,7 @@ export function App(): ReactNode {
     contract.setConfig({
       renderer: selection.renderer,
       backend: selection.backend,
+      pointSize: selection.pointSize,
       fixtureUrl,
     });
     setPanelState((previous) => ({
@@ -223,6 +226,7 @@ export function App(): ReactNode {
       backend: selection.backend,
       streaming: selection.streaming,
       renderDistance: selection.renderDistance,
+      pointSize: selection.pointSize,
       cesiumIonToken:
         selection.renderer === 'cesium'
           ? import.meta.env.VITE_CESIUM_ION_TOKEN
@@ -314,6 +318,36 @@ export function App(): ReactNode {
         nextSource.remote?.expectedCapabilities[colorMode] === false
       )
         setColorMode('elevation');
+      const pointSizeOnly =
+        next.pointSize !== selection.pointSize &&
+        next.renderer === selection.renderer &&
+        next.backend === selection.backend &&
+        next.fixtureId === selection.fixtureId &&
+        JSON.stringify(next.streaming) === JSON.stringify(selection.streaming) &&
+        next.renderDistance === selection.renderDistance;
+      const activeRenderer = rendererRef.current;
+      if (pointSizeOnly && activeRenderer?.setPointSize) {
+        setStatus('loading');
+        setError(undefined);
+        contract.markLoading();
+        void activeRenderer
+          .setPointSize(next.pointSize)
+          .then(() => {
+            if (rendererRef.current !== activeRenderer) return;
+            setSelection(next);
+            contract.setConfig({ pointSize: next.pointSize });
+            setStatus('ready');
+            setError(undefined);
+            contract.markReady();
+          })
+          .catch((cause: unknown) => {
+            onStatus(
+              'error',
+              cause instanceof Error ? cause.message : String(cause),
+            );
+          });
+        return;
+      }
       setSelection(next);
       setActiveView('overview');
       setSnapshot(undefined);
@@ -329,7 +363,7 @@ export function App(): ReactNode {
         setReloadKey((value) => value + 1);
       }
     },
-    [selection, colorMode],
+    [selection, colorMode, onStatus],
   );
   const setStyle = useCallback((mode: ColorMode): void => {
     setColorMode(mode);
@@ -382,6 +416,7 @@ export function App(): ReactNode {
             backend={selection.backend}
             streaming={selection.streaming}
             renderDistance={selection.renderDistance}
+            pointSize={selection.pointSize}
             onStatus={onStatus}
             onSnapshot={onSnapshot}
             onAttached={onAttached}
@@ -411,6 +446,7 @@ type R3FPointCloudProps = {
   backend: PanelSelection['backend'];
   streaming: PanelSelection['streaming'];
   renderDistance?: number;
+  pointSize: number;
   onStatus: (status: RendererStatus, error?: string) => void;
   onSnapshot: (snapshot: unknown) => void;
   onAttached: () => void;
@@ -422,6 +458,7 @@ function R3FPointCloud({
   backend,
   streaming,
   renderDistance,
+  pointSize,
   onStatus,
   onSnapshot,
   onAttached,
@@ -436,12 +473,28 @@ function R3FPointCloud({
     let disposed = false;
     let controls: OrbitControls | undefined;
     let layer: import('@frillab/copc-adapter/three').CopcThreeLayer | undefined;
+    let pendingPointSizeLayer:
+      | import('@frillab/copc-adapter/three').CopcThreeLayer
+      | undefined;
+    let destroyPendingPointSizeLayer: (() => void) | undefined;
+    let adapterModule:
+      | typeof import('@frillab/copc-adapter/three')
+      | undefined;
+    let activePointSize = pointSize;
+    let pointSizeGeneration = 0;
     let timer = 0;
+    const snapshotWithPointSize = (
+      current: import('@frillab/copc-adapter/three').CopcThreeLayer,
+    ): unknown => ({
+      ...current.getSnapshot(),
+      rendererPointSize: activePointSize,
+    });
     contract.recordMount();
     onStatus('loading');
     const ready = (async (): Promise<void> => {
       const adapter = await import('@frillab/copc-adapter/three');
       if (disposed) return;
+      adapterModule = adapter;
       controls = new OrbitControls(camera, gl.domElement);
       controls.enableDamping = true;
       controlsRef.current = controls;
@@ -449,7 +502,7 @@ function R3FPointCloud({
         url: fixtureUrl,
         backend,
         colorMode: 'elevation',
-        pointSize: 3,
+        pointSize,
         maxRenderedPoints: streaming.maxRenderedPoints,
         streaming: {
           maxNodes: streaming.maxNodes,
@@ -464,10 +517,10 @@ function R3FPointCloud({
       current.attachTo({ scene, camera, renderer: gl });
       onAttached();
       controls.addEventListener('change', () => {
-        void current.update();
+        if (layer) void layer.update();
       });
       timer = window.setInterval(() => {
-        if (!disposed) onSnapshot(current.getSnapshot());
+        if (!disposed && layer) onSnapshot(snapshotWithPointSize(layer));
       }, 250);
       await current.load();
       if (disposed) return;
@@ -477,12 +530,12 @@ function R3FPointCloud({
         throw new Error('COPC loaded, but R3F rendered no points.');
       controls.update();
       await current.update();
-      onSnapshot(current.getSnapshot());
+      onSnapshot(snapshotWithPointSize(current));
       onStatus('ready');
     })();
     const handle: R3FHandle = {
       ready,
-      snapshot: () => layer?.getSnapshot(),
+      snapshot: () => (layer ? snapshotWithPointSize(layer) : undefined),
       setView: async (view) => {
         await ready;
         if (!layer || !controls || disposed) return;
@@ -497,7 +550,78 @@ function R3FPointCloud({
           );
         controls.update();
         await layer.update();
-        onSnapshot(layer.getSnapshot());
+        onSnapshot(snapshotWithPointSize(layer));
+      },
+      setPointSize: async (nextPointSize): Promise<void> => {
+        await ready;
+        if (disposed || !layer || !adapterModule) return;
+        if (nextPointSize === activePointSize) return;
+        const currentGeneration = ++pointSizeGeneration;
+        const previousLayer = layer;
+        onStatus('loading');
+        const candidate = new adapterModule.CopcThreeLayer({
+          url: fixtureUrl,
+          backend,
+          colorMode: 'elevation',
+          pointSize: nextPointSize,
+          maxRenderedPoints: streaming.maxRenderedPoints,
+          streaming: {
+            maxNodes: streaming.maxNodes,
+            maxDepth: streaming.maxDepth,
+            maxScreenSpaceError: streaming.maxScreenSpaceError,
+            maxRenderDistanceMeters: streaming.maxRenderDistanceMeters,
+          },
+          debug: true,
+        });
+        let candidateDestroyed = false;
+        const destroyCandidate = (): void => {
+          if (candidateDestroyed) return;
+          candidateDestroyed = true;
+          candidate.destroy();
+          if (pendingPointSizeLayer === candidate)
+            pendingPointSizeLayer = undefined;
+          if (destroyPendingPointSizeLayer === destroyCandidate)
+            destroyPendingPointSizeLayer = undefined;
+        };
+        pendingPointSizeLayer = candidate;
+        destroyPendingPointSizeLayer = destroyCandidate;
+        try {
+          candidate.attachTo({ scene, camera, renderer: gl });
+          await candidate.load();
+          if (
+            disposed ||
+            currentGeneration !== pointSizeGeneration ||
+            layer !== previousLayer
+          ) {
+            destroyCandidate();
+            return;
+          }
+          await candidate.update();
+          if (candidate.getRenderedPointCount() <= 0)
+            throw new Error(
+              'React Three Fiber point-size update rendered no points.',
+            );
+          await candidate.update();
+          previousLayer.detachFrom();
+          layer = candidate;
+          layerRef.current = candidate;
+          pendingPointSizeLayer = undefined;
+          destroyPendingPointSizeLayer = undefined;
+          activePointSize = nextPointSize;
+          previousLayer.destroy();
+          onSnapshot(snapshotWithPointSize(candidate));
+          onStatus('ready');
+        } catch (cause) {
+          destroyCandidate();
+          if (!disposed && currentGeneration === pointSizeGeneration) {
+            onSnapshot(snapshotWithPointSize(previousLayer));
+            onStatus(
+              'error',
+              cause instanceof Error ? cause.message : String(cause),
+            );
+          }
+          throw cause;
+        }
       },
       unload: () => {
         layer?.unload();
@@ -506,6 +630,10 @@ function R3FPointCloud({
       destroy: () => {
         if (disposed) return;
         disposed = true;
+        pointSizeGeneration += 1;
+        destroyPendingPointSizeLayer?.();
+        pendingPointSizeLayer = undefined;
+        destroyPendingPointSizeLayer = undefined;
         window.clearInterval(timer);
         controls?.dispose();
         layer?.destroy();

@@ -1,9 +1,6 @@
 import type * as THREE_TYPES from 'three';
 import type { OrbitControls as OrbitControlsType } from 'three/addons/controls/OrbitControls.js';
-import type {
-  CopcThreeLayer,
-  CopcThreeLayerSnapshot,
-} from '@frillab/copc-adapter/three';
+import type { CopcThreeLayer } from '@frillab/copc-adapter/three';
 import type { HarnessView } from '@copc-test/core';
 import type { RendererOptions, TestRenderer } from './types';
 
@@ -20,7 +17,17 @@ export function mountThreeRenderer(
   let renderer: THREE_TYPES.WebGLRenderer | undefined;
   let controls: OrbitControlsType | undefined;
   let layer: CopcThreeLayer | undefined;
+  let pendingPointSizeLayer: CopcThreeLayer | undefined;
+  let destroyPendingPointSizeLayer: (() => void) | undefined;
+  let adapterModule: typeof import('@frillab/copc-adapter/three') | undefined;
+  let pointSize = options.pointSize;
+  let pointSizeGeneration = 0;
   options.onStatus('loading');
+
+  const snapshotWithPointSize = (current: CopcThreeLayer): unknown => ({
+    ...current.getSnapshot(),
+    rendererPointSize: pointSize,
+  });
 
   const ready = (async (): Promise<void> => {
     try {
@@ -30,6 +37,7 @@ export function mountThreeRenderer(
         import('three/addons/controls/OrbitControls.js'),
       ]);
       if (disposed) return;
+      adapterModule = adapter;
 
       scene = new THREE.Scene();
       scene.background = new THREE.Color('#06101d');
@@ -44,7 +52,7 @@ export function mountThreeRenderer(
         url: options.fixtureUrl,
         backend: options.backend,
         colorMode: 'elevation',
-        pointSize: 3,
+        pointSize,
         maxRenderedPoints: options.streaming.maxRenderedPoints,
         streaming: {
           maxNodes: options.streaming.maxNodes,
@@ -75,10 +83,10 @@ export function mountThreeRenderer(
       };
       render();
       controls.addEventListener('change', () => {
-        void currentLayer.update();
+        if (layer) void layer.update();
       });
       timer = window.setInterval(() => {
-        if (!disposed) options.onSnapshot(currentLayer.getSnapshot());
+        if (!disposed && layer) options.onSnapshot(snapshotWithPointSize(layer));
       }, 250);
       currentLayer.attachTo({ scene, camera, renderer });
       options.onAttached();
@@ -101,9 +109,7 @@ export function mountThreeRenderer(
       }
       controls.update();
       await currentLayer.update();
-      options.onSnapshot(
-        currentLayer.getSnapshot() satisfies CopcThreeLayerSnapshot,
-      );
+      options.onSnapshot(snapshotWithPointSize(currentLayer));
       options.onStatus('ready');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -139,13 +145,82 @@ export function mountThreeRenderer(
     }
     controls.update();
     await layer.update();
-    options.onSnapshot(layer.getSnapshot());
+    options.onSnapshot(snapshotWithPointSize(layer));
   };
 
   return {
     ready,
     setView,
-    snapshot: () => layer?.getSnapshot(),
+    snapshot: () => (layer ? snapshotWithPointSize(layer) : undefined),
+    async setPointSize(nextPointSize): Promise<void> {
+      await ready;
+      if (disposed || !layer || !scene || !camera || !renderer || !adapterModule)
+        return;
+      if (nextPointSize === pointSize) return;
+      const currentGeneration = ++pointSizeGeneration;
+      const previousLayer = layer;
+      options.onStatus('loading');
+      const candidate = new adapterModule.CopcThreeLayer({
+        url: options.fixtureUrl,
+        backend: options.backend,
+        colorMode: 'elevation',
+        pointSize: nextPointSize,
+        maxRenderedPoints: options.streaming.maxRenderedPoints,
+        streaming: {
+          maxNodes: options.streaming.maxNodes,
+          maxDepth: options.streaming.maxDepth,
+          maxScreenSpaceError: options.streaming.maxScreenSpaceError,
+          maxRenderDistanceMeters: options.streaming.maxRenderDistanceMeters,
+        },
+        debug: true,
+      });
+      let candidateDestroyed = false;
+      const destroyCandidate = (): void => {
+        if (candidateDestroyed) return;
+        candidateDestroyed = true;
+        candidate.destroy();
+        if (pendingPointSizeLayer === candidate)
+          pendingPointSizeLayer = undefined;
+        if (destroyPendingPointSizeLayer === destroyCandidate)
+          destroyPendingPointSizeLayer = undefined;
+      };
+      pendingPointSizeLayer = candidate;
+      destroyPendingPointSizeLayer = destroyCandidate;
+      try {
+        candidate.attachTo({ scene, camera, renderer });
+        await candidate.load();
+        if (
+          disposed ||
+          currentGeneration !== pointSizeGeneration ||
+          layer !== previousLayer
+        ) {
+          destroyCandidate();
+          return;
+        }
+        await candidate.update();
+        if (candidate.getRenderedPointCount() <= 0)
+          throw new Error('Three.js point-size update rendered no points.');
+        await candidate.update();
+        previousLayer.detachFrom();
+        layer = candidate;
+        pendingPointSizeLayer = undefined;
+        destroyPendingPointSizeLayer = undefined;
+        pointSize = nextPointSize;
+        previousLayer.destroy();
+        options.onSnapshot(snapshotWithPointSize(candidate));
+        options.onStatus('ready');
+      } catch (error) {
+        destroyCandidate();
+        if (!disposed && currentGeneration === pointSizeGeneration) {
+          options.onSnapshot(snapshotWithPointSize(previousLayer));
+          options.onStatus(
+            'error',
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+        throw error;
+      }
+    },
     unload: () => {
       layer?.unload();
       options.onSnapshot(undefined);
@@ -153,6 +228,10 @@ export function mountThreeRenderer(
     destroy: () => {
       if (disposed) return;
       disposed = true;
+      pointSizeGeneration += 1;
+      destroyPendingPointSizeLayer?.();
+      pendingPointSizeLayer = undefined;
+      destroyPendingPointSizeLayer = undefined;
       if (timer !== undefined) window.clearInterval(timer);
       window.cancelAnimationFrame(frame);
       resizeObserver?.disconnect();

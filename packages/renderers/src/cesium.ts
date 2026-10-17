@@ -25,8 +25,10 @@ export function mountCesiumRenderer(
   let layer: CopcCesiumLayer | undefined;
   let pendingLayer: CopcCesiumLayer | undefined;
   let activeSourceKind = options.sourceKind;
+  let activeSourceUrl = options.fixtureUrl;
   let activeProbe: CopcSourceProbeResult | undefined;
   let pickedPoint: unknown;
+  let pointSize = options.pointSize;
   let colorMode: ColorMode = options.colorMode ?? 'elevation';
   let timer: number | undefined;
   let sourceGeneration = 0;
@@ -86,6 +88,7 @@ export function mountCesiumRenderer(
       ...currentLayer.getSnapshot(),
       hierarchy: currentLayer.getHierarchyDiagnostics(),
       pointCache: currentLayer.getPointCacheDiagnostics(),
+      rendererPointSize: pointSize,
       sourceProbe: activeProbe,
       sourceKind: activeSourceKind,
       pickedPoint,
@@ -173,6 +176,7 @@ export function mountCesiumRenderer(
     sourceUrl: string,
     sourceKind: RendererOptions['sourceKind'],
     candidateColorMode: ColorMode = colorMode,
+    candidatePointSize: number = pointSize,
   ): Promise<void> {
     const styleRevisionAtStart = styleRevision;
     await viewerReady;
@@ -226,7 +230,7 @@ export function mountCesiumRenderer(
         renderer: new currentAdapter.PointPrimitiveRenderer(),
         backend: options.backend,
         colorMode: candidateColorMode,
-        pointSize: 3,
+        pointSize: candidatePointSize,
         maxRenderedPoints: options.streaming.maxRenderedPoints,
         streaming: {
           maxNodes: options.streaming.maxNodes,
@@ -268,6 +272,7 @@ export function mountCesiumRenderer(
               : colorMode;
           candidate.setStyle({ colorMode: attachColorMode });
           candidate.attachTo(currentViewer);
+
           await waitForRenderedPoints(
             candidate,
             () => disposed || currentGeneration !== sourceGeneration,
@@ -286,6 +291,8 @@ export function mountCesiumRenderer(
           layer = candidate;
           activeProbe = candidateProbe;
           activeSourceKind = sourceKind;
+          activeSourceUrl = sourceUrl;
+          pointSize = candidatePointSize;
           colorMode = committedColorMode;
           if (pendingLayer === candidate) pendingLayer = undefined;
           pickedPoint = undefined;
@@ -352,8 +359,22 @@ export function mountCesiumRenderer(
       );
       options.onSnapshot(snapshotOf(layer));
     },
-    async setSource(sourceUrl, sourceKind, candidateColorMode): Promise<void> {
-      await changeSource(sourceUrl, sourceKind, candidateColorMode);
+    async setSource(
+      sourceUrl,
+      sourceKind,
+      candidateColorMode,
+      candidatePointSize,
+    ): Promise<void> {
+      await changeSource(
+        sourceUrl,
+        sourceKind,
+        candidateColorMode,
+        candidatePointSize,
+      );
+    },
+    async setPointSize(nextPointSize): Promise<void> {
+      if (nextPointSize === pointSize) return;
+      await changeSource(activeSourceUrl, activeSourceKind, colorMode, nextPointSize);
     },
     setStyle(mode): void {
       styleRevision += 1;

@@ -61,6 +61,13 @@ export const HARNESS_RENDER_DISTANCE_LIMITS = {
   step: 50,
 } as const;
 
+export const DEFAULT_HARNESS_POINT_SIZE = 3;
+export const HARNESS_POINT_SIZE_LIMITS = {
+  min: 1,
+  max: 10,
+  step: 1,
+} as const;
+
 export function defaultStreamingSettings(
   renderer: HarnessRenderer,
 ): HarnessStreamingSettings {
@@ -132,14 +139,43 @@ export function renderDistanceFromSearch(
   );
 }
 
+export function pointSizeFromSearch(
+  params: URLSearchParams,
+  fallback = DEFAULT_HARNESS_POINT_SIZE,
+): number {
+  const raw = params.get('pointSize');
+  const parsed = raw === null || raw.trim() === '' ? fallback : Number(raw);
+  const constrained = Math.min(
+    HARNESS_POINT_SIZE_LIMITS.max,
+    Math.max(
+      HARNESS_POINT_SIZE_LIMITS.min,
+      Number.isFinite(parsed) ? parsed : fallback,
+    ),
+  );
+  return (
+    HARNESS_POINT_SIZE_LIMITS.min +
+    Math.round(
+      (constrained - HARNESS_POINT_SIZE_LIMITS.min) /
+        HARNESS_POINT_SIZE_LIMITS.step,
+    ) *
+      HARNESS_POINT_SIZE_LIMITS.step
+  );
+}
+
 export const DEFAULT_PACKAGE_VERSION = '0.5.0';
 
 export type HarnessDefaults = Omit<
   HarnessConfig,
-  'fixtureUrl' | 'backend' | 'scenario' | 'packageSource' | 'packageVersion'
+  | 'fixtureUrl'
+  | 'backend'
+  | 'pointSize'
+  | 'scenario'
+  | 'packageSource'
+  | 'packageVersion'
 > & {
   fixtureUrl: string;
   backend?: HarnessBackend;
+  pointSize?: number;
   scenario?: HarnessScenario;
   packageSource?: HarnessPackageSource;
   packageVersion?: string;
@@ -187,6 +223,17 @@ function environmentConfig(
       'copc-js',
       'rust',
     ]),
+    pointSize: (() => {
+      const raw = environmentValue(environment, prefix, 'COPC_POINT_SIZE');
+      if (raw === undefined) return undefined;
+      const value = Number(raw);
+      if (!Number.isFinite(value)) return undefined;
+      const bounded = Math.min(
+        HARNESS_POINT_SIZE_LIMITS.max,
+        Math.max(HARNESS_POINT_SIZE_LIMITS.min, value),
+      );
+      return Math.round(bounded);
+    })(),
     scenario: enumValue(
       environmentValue(environment, prefix, 'COPC_SCENARIO'),
       ['load-and-stream', 'camera-stream', 'static'],
@@ -210,6 +257,8 @@ function queryConfig(): Partial<HarnessConfig> {
   return definedConfig({
     fixtureUrl: params.get('fixture') ?? undefined,
     backend: enumValue(params.get('backend'), ['copc-js', 'rust']),
+    pointSize:
+      params.has('pointSize') ? pointSizeFromSearch(params) : undefined,
     scenario: enumValue(params.get('scenario'), [
       'load-and-stream',
       'camera-stream',
@@ -247,6 +296,8 @@ export function createHarnessConfig(
     renderer: defaults.renderer,
     fixtureUrl: values.fixtureUrl ?? defaults.fixtureUrl,
     backend: values.backend ?? defaults.backend ?? 'copc-js',
+    pointSize:
+      values.pointSize ?? defaults.pointSize ?? DEFAULT_HARNESS_POINT_SIZE,
     scenario: values.scenario ?? defaults.scenario ?? 'load-and-stream',
     packageSource: values.packageSource ?? defaults.packageSource ?? 'npm',
     packageVersion:

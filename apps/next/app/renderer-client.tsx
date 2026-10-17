@@ -13,6 +13,7 @@ import {
   createHarnessConfig,
   createTestContract,
   loadFixtureCatalog,
+  pointSizeFromSearch,
   renderDistanceFromSearch,
   resolveCopcSourceSelection,
   sourceSelectionFromSearch,
@@ -98,9 +99,11 @@ export function RendererClient({
   }
   const initialStreaming = streamingSettingsFromSearch(params, renderer);
   const initialRenderDistance = renderDistanceFromSearch(params);
+  const initialPointSize = pointSizeFromSearch(params, nextConfig.pointSize);
   const [selection, setSelection] = useState<PanelSelection>({
     renderer,
     backend: initialBackend,
+    pointSize: initialPointSize,
     fixtureId: initialSourceId,
     streaming: initialStreaming,
     renderDistance: initialRenderDistance,
@@ -123,8 +126,14 @@ export function RendererClient({
   const source = resolveCopcSourceSelection(selection.fixtureId);
   const fixtureUrl = source.url;
   const config = useMemo(
-    () => ({ ...nextConfig, renderer, backend: selection.backend, fixtureUrl }),
-    [renderer, selection.backend, fixtureUrl],
+    () => ({
+      ...nextConfig,
+      renderer,
+      backend: selection.backend,
+      pointSize: selection.pointSize,
+      fixtureUrl,
+    }),
+    [renderer, selection.backend, selection.pointSize, fixtureUrl],
   );
   const [panelState, setPanelState] = useState<PanelState>(() =>
     ({
@@ -180,7 +189,12 @@ export function RendererClient({
   );
 
   useEffect(() => {
-    contract.setConfig({ renderer, backend: selection.backend, fixtureUrl });
+    contract.setConfig({
+      renderer,
+      backend: selection.backend,
+      pointSize: selection.pointSize,
+      fixtureUrl,
+    });
     setPanelState((previous) => ({
       ...previous,
       ...selection,
@@ -245,6 +259,7 @@ export function RendererClient({
           backend: selection.backend,
           streaming: selection.streaming,
           renderDistance: selection.renderDistance,
+          pointSize: selection.pointSize,
           cesiumIonToken:
             renderer === 'cesium'
               ? process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN
@@ -326,6 +341,7 @@ export function RendererClient({
       if (next.renderer !== renderer) {
         const params = new URLSearchParams({
           backend: next.backend,
+          pointSize: String(next.pointSize),
           ...(next.fixtureId.startsWith('remote:')
             ? { sourceId: next.fixtureId }
             : { fixtureId: next.fixtureId }),
@@ -357,6 +373,35 @@ export function RendererClient({
         nextSource.remote?.expectedCapabilities[colorMode] === false
       )
         setColorMode('elevation');
+      const pointSizeOnly =
+        next.pointSize !== selection.pointSize &&
+        next.backend === selection.backend &&
+        next.fixtureId === selection.fixtureId &&
+        JSON.stringify(next.streaming) === JSON.stringify(selection.streaming) &&
+        next.renderDistance === selection.renderDistance;
+      const activeRenderer = rendererRef.current;
+      if (pointSizeOnly && activeRenderer?.setPointSize) {
+        setStatus('loading');
+        setError(undefined);
+        contract.markLoading();
+        void activeRenderer
+          .setPointSize(next.pointSize)
+          .then(() => {
+            if (rendererRef.current !== activeRenderer) return;
+            setSelection(next);
+            contract.setConfig({ pointSize: next.pointSize });
+            setStatus('ready');
+            setError(undefined);
+            contract.markReady();
+          })
+          .catch((cause: unknown) => {
+            onStatus(
+              'error',
+              cause instanceof Error ? cause.message : String(cause),
+            );
+          });
+        return;
+      }
       setSelection(next);
       setActiveView('overview');
       setSnapshot(undefined);
@@ -371,7 +416,7 @@ export function RendererClient({
       )
         setReloadKey((value) => value + 1);
     },
-    [renderer, selection, colorMode],
+    [renderer, selection, colorMode, onStatus],
   );
   const setStyle = (mode: ColorMode): void => {
     setColorMode(mode);

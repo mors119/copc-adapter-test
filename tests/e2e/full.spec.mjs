@@ -21,8 +21,13 @@ test('React switches renderer and backend through lifecycle cleanup and remount'
   const before = await page.evaluate(
     () => window.__COPC_TEST__.getResult().lifecycleCounts,
   );
-  await page.getByTestId('renderer-select').selectOption('three');
-  await page.getByTestId('backend-select').selectOption('rust');
+  await page.getByTestId('renderer-option-three').click();
+  await expect(page.getByTestId('renderer-option-three')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByTestId('backend-select').getByRole('radio', { name: 'Rust / WASM' }).click();
+  await expect(page.getByTestId('backend-select').getByRole('radio', { name: 'Rust / WASM' })).toHaveAttribute('aria-checked', 'true');
   await page.getByTestId('apply-settings').click();
   await expect
     .poll(
@@ -74,6 +79,7 @@ test('React shared source selector loads and switches a remote Cesium dataset wi
   await page
     .getByTestId('fixture-select')
     .selectOption('remote:chicago-downtown');
+  await page.getByTestId('load-source').click();
   await expect
     .poll(() =>
       page.evaluate(() => window.__COPC_TEST__?.getResult().config.fixtureUrl),
@@ -131,7 +137,7 @@ test('React fixture selection synchronizes panel state and remounts the consumer
   await expect(page.getByTestId('fixture-select')).toHaveValue(
     'invalid-truncated',
   );
-  await expect(page.locator('[data-field="fixture"]')).toHaveText(
+  await expect(page.getByTestId('selected-dataset')).toHaveText(
     'Truncated COPC response (derived negative case)',
   );
   await expect
@@ -243,7 +249,7 @@ test('Next preserves shared source IDs and custom URLs across renderer navigatio
   const customUrl =
     'https://data.pointcloud.org/autzen/autzen-classified.copc.laz';
   await page.getByTestId('custom-source-url').fill(customUrl);
-  await page.getByTestId('load-custom-source').click();
+  await page.getByTestId('load-source').click();
   await expect
     .poll(
       () =>
@@ -258,7 +264,7 @@ test('Next preserves shared source IDs and custom URLs across renderer navigatio
       { timeout: 90_000 },
     )
     .toBe(true);
-  await page.getByTestId('renderer-select').selectOption('three');
+  await page.getByTestId('renderer-option-three').click();
   await page.getByTestId('apply-settings').click();
   await expect(page.getByTestId('harness-status')).toHaveText('ready', {
     timeout: 90_000,

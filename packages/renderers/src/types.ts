@@ -1,6 +1,5 @@
 import type {
   CopcSourceKind,
-  HarnessRangeValidation,
   HarnessStreamingSettings,
   HarnessView,
 } from '@copc-test/core';
@@ -16,7 +15,6 @@ export type PointScreenPosition = { x: number; y: number };
 export type RendererOptions = {
   fixtureUrl: string;
   backend: 'copc-js' | 'rust';
-  rangeValidation: HarnessRangeValidation;
   sourceKind: CopcSourceKind;
   streaming: HarnessStreamingSettings;
   renderDistance?: number;

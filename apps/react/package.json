@@ -21,7 +21,7 @@
     "three": "^0.186.0"
   },
   "peerDependencies": {
-    "@frillab/copc-adapter": "0.5.0"
+    "@frillab/copc-adapter": "0.5.3"
   },
   "peerDependenciesMeta": {
     "@frillab/copc-adapter": {

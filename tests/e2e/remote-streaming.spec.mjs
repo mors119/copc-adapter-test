@@ -124,7 +124,7 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   expect(initial.config.fixtureUrl).toBe(
     'https://data.pointcloud.org/autzen/autzen-classified.copc.laz',
   );
-  expect(initial.config.packageVersion).toBe('0.5.0');
+  expect(initial.config.packageVersion).toBe('0.5.3');
   expect(initial.diagnostics.metadataLoaded).toBe(true);
   expect(initial.diagnostics.hierarchyLoaded).toBe(true);
   expect(initial.diagnostics.renderedPointCount).toBeGreaterThan(0);
@@ -225,14 +225,20 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   expect(near.renderedNodes + returned.renderedNodes).toBeGreaterThan(0);
 
   for (const mode of ['rgb', 'elevation', 'intensity', 'classification']) {
-    await page.getByTestId('style-select').selectOption(mode);
-    await expect(page.getByTestId('style-select')).toHaveValue(mode);
+    await page.getByTestId(`style-option-${mode}`).click();
+    await expect(page.getByTestId(`style-option-${mode}`)).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     await expect(page.getByTestId('harness-status')).toHaveText('ready');
     await expect(page.getByTestId('rendered-points')).not.toHaveText('0');
   }
 
-  await page.getByTestId('style-select').selectOption('rgb');
-  await expect(page.getByTestId('style-select')).toHaveValue('rgb');
+  await page.getByTestId('style-option-rgb').click();
+  await expect(page.getByTestId('style-option-rgb')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   await page.getByRole('radio', { name: 'Overview' }).click();
   await page.waitForTimeout(700);
   const canvas = page.locator('.cesium-widget canvas').first();
@@ -263,7 +269,10 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await page.getByTestId('load-source').click();
   await waitForActiveUrl(page, '/chicago-downtown/chicago-downtown.copc.laz');
   await expect(page.getByTestId('hud-view')).toHaveText('Overview');
-  await expect(page.getByTestId('style-select')).toHaveValue('elevation');
+  await expect(page.getByTestId('style-option-elevation')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   const chicago = ranges.filter(({ url }) =>
     url.includes('/chicago-downtown/chicago-downtown.copc.laz'),
   );
@@ -283,11 +292,7 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
     'RGB unavailable',
   );
   expect(
-    await page
-      .getByTestId('style-select')
-      .evaluate(
-        (select) => select.querySelector('option[value="rgb"]').disabled,
-      ),
+    await page.getByTestId('style-option-rgb').isDisabled(),
   ).toBe(true);
   expect(
     await page.locator('#renderer').getAttribute('data-cesium-viewer-instance'),
@@ -337,9 +342,12 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   await page.getByTestId('load-source').click();
   await autzenRequestStarted;
   await expect(page.getByTestId('harness-status')).toHaveText('loading');
-  await page.getByTestId('style-select').selectOption('intensity');
+  await page.getByTestId('style-option-intensity').click();
   await waitForActiveUrl(page, '/autzen/autzen-classified.copc.laz');
-  await expect(page.getByTestId('style-select')).toHaveValue('intensity');
+  await expect(page.getByTestId('style-option-intensity')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   expect(
     await page.locator('#renderer').getAttribute('data-cesium-viewer-instance'),
   ).toBe(viewerInstance);

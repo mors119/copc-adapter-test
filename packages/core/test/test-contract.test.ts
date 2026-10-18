@@ -15,7 +15,7 @@ const config: HarnessConfig = {
   pointSize: 3,
   scenario: 'load-and-stream',
   packageSource: 'npm',
-  packageVersion: '0.5.0',
+  packageVersion: '0.5.3',
 };
 
 test('normalizes adapter snapshots into the renderer-neutral diagnostics shape', () => {

@@ -479,15 +479,21 @@ function getRenderedSphere(
   viewer: CesiumTypes.Viewer,
 ): CesiumTypes.BoundingSphere | undefined {
   const positions: CesiumTypes.Cartesian3[] = [];
-  for (let i = 0; i < viewer.scene.primitives.length; i += 1) {
-    const primitive = viewer.scene.primitives.get(i);
-    if (!(primitive instanceof Cesium.PointPrimitiveCollection)) continue;
-    const stride = Math.max(1, Math.floor(primitive.length / 2000));
-    for (let j = 0; j < primitive.length; j += stride) {
-      const position = primitive.get(j).position;
-      if (position) positions.push(Cesium.Cartesian3.clone(position));
+  const collect = (collection: CesiumTypes.PrimitiveCollection): void => {
+    for (let i = 0; i < collection.length; i += 1) {
+      const primitive = collection.get(i);
+      if (primitive instanceof Cesium.PointPrimitiveCollection) {
+        const stride = Math.max(1, Math.floor(primitive.length / 2000));
+        for (let j = 0; j < primitive.length; j += stride) {
+          const position = primitive.get(j).position;
+          if (position) positions.push(Cesium.Cartesian3.clone(position));
+        }
+      } else if (primitive instanceof Cesium.PrimitiveCollection) {
+        collect(primitive);
+      }
     }
-  }
+  };
+  collect(viewer.scene.primitives);
   return positions.length
     ? Cesium.BoundingSphere.fromPoints(positions)
     : undefined;

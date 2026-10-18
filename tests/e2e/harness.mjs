@@ -60,10 +60,18 @@ export async function openHarness(
   renderer,
   backend = 'copc-js',
   fixture = 'small-valid-copc',
+  settings = {},
 ) {
   const path =
     host === 'next' ? `/${renderer === 'three' ? 'three' : 'cesium'}` : '/';
-  const query = new URLSearchParams({ renderer, backend, fixtureId: fixture });
+  const query = new URLSearchParams({
+    renderer,
+    backend,
+    fixtureId: fixture,
+    ...Object.fromEntries(
+      Object.entries(settings).map(([key, value]) => [key, String(value)]),
+    ),
+  });
   await page.goto(`${origins[host]}${path}?${query}`);
   await expect
     .poll(() => page.evaluate(() => window.__COPC_TEST__?.result.status), {
@@ -75,7 +83,7 @@ export async function openHarness(
   expect(result.config.renderer).toBe(renderer);
   expect(result.config.backend).toBe(backend);
   expect(result.config.fixtureUrl).toContain(fixture);
-  expect(result.config.packageVersion).toBe('0.5.0');
+  expect(result.config.packageVersion).toBe('0.5.3');
   expect(result.diagnostics.renderedPointCount).toBeGreaterThan(0);
   expect(result.diagnostics.metadataLoaded).toBe(true);
   expect(result.diagnostics.hierarchyLoaded).toBe(true);

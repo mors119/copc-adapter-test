@@ -12,7 +12,9 @@ test('Vanilla mounts a real Cesium globe and streams a COPC fixture', async ({
 test('shared panel applies point size in Cesium and preserves it when switching to Three', async ({
   page,
 }) => {
-  await openHarness(page, 'vanilla', 'cesium');
+  await openHarness(page, 'vanilla', 'cesium', 'copc-js', 'small-valid-copc', {
+    maxRenderedPoints: 100_000,
+  });
   const activePointSize = () =>
     page.evaluate(() => {
       const result = window.__COPC_TEST__?.getResult();

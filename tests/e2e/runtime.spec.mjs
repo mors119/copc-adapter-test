@@ -57,7 +57,10 @@ test('shared panel applies point size in Cesium and preserves it when switching 
     'aria-checked',
     'false',
   );
-  await page.getByTestId('apply-settings').click();
+  // Renderer replacement can keep Chromium's click navigation watcher open
+  // while Cesium tears down its WebGL scene. Dispatch the real button click
+  // in-page and wait for the harness state below to confirm the transition.
+  await page.getByTestId('apply-settings').evaluate((button) => button.click());
   await expect.poll(activePointSize).toMatchObject({
     status: 'ready',
     renderer: 6,

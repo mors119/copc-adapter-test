@@ -23,7 +23,7 @@ try {
     const result = await bootstrapAdapterSource(bootstrapSource);
     await clearViteCaches();
     console.log(
-      `Validated installed package: ${result.metadata?.name ?? '@frillab/copc-adapter'}@${result.metadata?.version ?? '0.5.0'}`,
+      `Validated installed package: ${result.metadata?.name ?? '@frillab/copc-adapter'}@${result.metadata?.version ?? '0.5.3'}`,
     );
   } else if (command === 'pack') {
     const result = await packAdapterCheckout();

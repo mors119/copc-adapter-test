@@ -195,7 +195,7 @@ export function pointSizeFromSearch(
   );
 }
 
-export const DEFAULT_PACKAGE_VERSION = '0.5.0';
+export const DEFAULT_PACKAGE_VERSION = '0.5.3';
 
 export type HarnessDefaults = Omit<
   HarnessConfig,

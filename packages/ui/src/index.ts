@@ -175,10 +175,15 @@ export function mountControlPanel(
       </section>
       <section class="copc-panel__section">
         <h2>Appearance</h2>
-        <label>Color mode<select data-testid="style-select">
-          <option value="rgb">RGB</option><option value="elevation">Elevation</option>
-          <option value="intensity">Intensity</option><option value="classification">Classification</option>
-        </select></label>
+        <fieldset class="copc-panel__field copc-panel__style-field">
+          <legend>Color mode</legend>
+          <div class="copc-segmented copc-segmented--styles" role="radiogroup" aria-label="Color mode" data-testid="style-select">
+            <button type="button" role="radio" data-value="rgb" data-testid="style-option-rgb" aria-checked="false" tabindex="-1">RGB</button>
+            <button type="button" role="radio" data-value="elevation" data-testid="style-option-elevation" aria-checked="true" tabindex="0">Elevation</button>
+            <button type="button" role="radio" data-value="intensity" data-testid="style-option-intensity" aria-checked="false" tabindex="-1">Intensity</button>
+            <button type="button" role="radio" data-value="classification" data-testid="style-option-classification" aria-checked="false" tabindex="-1">Classification</button>
+          </div>
+        </fieldset>
         <p class="copc-panel__hint" data-testid="style-support-note" hidden>Live color-mode changes are supported by Cesium in this testbed.</p>
         <div class="copc-slider" data-control="pointSize">
           <div class="copc-slider__heading"><label for="point-size-slider">Point size</label><output data-value-for="pointSize">3 px</output></div>
@@ -422,7 +427,7 @@ export function mountControlPanel(
   const fixtureSelect = byTestId<HTMLSelectElement>('fixture-select');
   const customSourceInput = byTestId<HTMLInputElement>('custom-source-url');
   const sourceUrl = byTestId<HTMLElement>('source-url');
-  const styleSelect = byTestId<HTMLSelectElement>('style-select');
+  const styleSelect = byTestId<HTMLElement>('style-select');
   const renderDistanceInput = byTestId<HTMLInputElement>(
     'render-distance-input',
   );
@@ -651,6 +656,11 @@ export function mountControlPanel(
     else if (value === 'near') actions.near();
     else if (value === 'far') actions.far();
   });
+  bindSegment(styleSelect, (value) =>
+    actions.setStyle(
+      value as 'rgb' | 'elevation' | 'intensity' | 'classification',
+    ),
+  );
   bindSegment(renderDistanceMode, (value) => {
     if (value === 'auto') {
       renderDistanceInput.value = '';
@@ -755,11 +765,6 @@ export function mountControlPanel(
     onApply,
   );
   loadSourceButton.addEventListener('click', onApply);
-  styleSelect.addEventListener('change', () =>
-    actions.setStyle(
-      styleSelect.value as 'rgb' | 'elevation' | 'intensity' | 'classification',
-    ),
-  );
   byTestId<HTMLButtonElement>('reload-renderer').addEventListener(
     'click',
     actions.reload,
@@ -878,27 +883,27 @@ export function mountControlPanel(
       byTestId('source-capabilities').textContent = capabilityText;
       const styles = ['rgb', 'intensity', 'classification'] as const;
       for (const style of styles) {
-        const option = styleSelect.querySelector<HTMLOptionElement>(
-          `option[value="${style}"]`,
+        const button = styleSelect.querySelector<HTMLButtonElement>(
+          `[data-value="${style}"]`,
         );
-        if (option) {
+        if (button) {
           const capability =
             selectedRemote?.expectedCapabilities[style] ??
             selectedFixture?.capabilities.some((value) =>
               value.toLowerCase().includes(style),
             );
-          option.disabled = capability === false;
-          option.title =
+          button.dataset.capabilityUnavailable = String(capability === false);
+          button.title =
             capability === false
               ? `${style.toUpperCase()} attributes are not available in this dataset.`
               : '';
-          option.textContent =
+          button.textContent =
             capability === false
               ? `${style.toUpperCase()} (unavailable)`
               : style.toUpperCase();
         }
       }
-      if (state.colorMode) styleSelect.value = state.colorMode;
+      if (state.colorMode) setSegmentValue(styleSelect, state.colorMode);
       const status = byTestId<HTMLElement>('harness-status');
       status.dataset.status = state.status;
       status.textContent = state.status;
@@ -1213,9 +1218,14 @@ export function mountControlPanel(
       }
       byTestId<HTMLButtonElement>('apply-settings').disabled =
         state.status === 'loading';
-      styleSelect.disabled =
-        state.renderer !== 'cesium' ||
-        (state.status !== 'ready' && !state.activeDatasetUrl);
+      for (const button of styleSelect.querySelectorAll<HTMLButtonElement>(
+        '[role="radio"]',
+      )) {
+        button.disabled =
+          button.dataset.capabilityUnavailable === 'true' ||
+          state.renderer !== 'cesium' ||
+          (state.status !== 'ready' && !state.activeDatasetUrl);
+      }
       byTestId<HTMLElement>('style-support-note').hidden =
         state.renderer === 'cesium';
       markDirty();

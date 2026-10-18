@@ -1,6 +1,6 @@
 # COPC adapter consumer validation
 
-This repository validates **`@frillab/copc-adapter@0.5.0` as an external consumer**. It installs the packed public npm package, checks its public exports and bundled Worker, WASM, and declaration files, then builds and runs consumer applications against that artifact.
+This repository validates **`@frillab/copc-adapter@0.5.3` as an external consumer**. It installs the packed public npm package, checks its public exports and bundled Worker, WASM, and declaration files, then builds and runs consumer applications against that artifact.
 
 This is not the adapter implementation repository or a framework showcase. It proves that the published package boundary works in the supported browser, React, and SSR host environments.
 
@@ -50,7 +50,7 @@ Every mode installs and validates the same public package identity and exports:
 | --- | --- |
 | `checkout` | Stages the selected checkout in an isolated temporary directory, runs its real `prepack` through `npm pack`, validates the tarball and dependencies, then installs that tarball into this consumer workspace. |
 | `tarball` | Validates and installs an existing local packed artifact. `npm run bootstrap:tarball` discovers one under `local-packages/`; `COPC_ADAPTER_TARBALL` can select an explicit artifact. |
-| `npm` | Runs `npm pack` for the explicitly requested published `@frillab/copc-adapter@0.5.0`, validates that registry tarball, then installs the same artifact into this consumer workspace. |
+| `npm` | Runs `npm pack` for the explicitly requested published `@frillab/copc-adapter@0.5.3`, validates that registry tarball, then installs the same artifact into this consumer workspace. |
 
 For checkout mode, the usual local path is:
 
@@ -62,7 +62,7 @@ For checkout mode, the usual local path is:
   → external consumer tests
 ```
 
-The adapter source is never imported directly, and checkout packaging does not modify the sibling checkout. All modes reject a package other than version `0.5.0`; there is no older-version fallback.
+The adapter source is never imported directly, and checkout packaging does not modify the sibling checkout. All modes reject a package other than version `0.5.3`; there is no older-version fallback.
 
 These environment variables are supported by `tools/adapter-source/`:
 
@@ -71,13 +71,13 @@ These environment variables are supported by `tools/adapter-source/`:
 | `COPC_ADAPTER_CHECKOUT` | Checkout path for `checkout` mode; defaults to `../copc-adapter`. |
 | `COPC_ADAPTER_SOURCE` | `checkout`, `tarball`, or `npm`; defaults to `npm` for a registry-package consumer setup. |
 | `COPC_ADAPTER_TARBALL` | Local `.tgz` path required for `tarball` mode. |
-| `COPC_ADAPTER_VERSION` | npm mode version; must be exactly `0.5.0`. |
+| `COPC_ADAPTER_VERSION` | npm mode version; must be exactly `0.5.3`. |
 
 For example, to install a local artifact or the published package:
 
 ```sh
 COPC_ADAPTER_SOURCE=tarball \
-COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter-0.5.0.tgz \
+COPC_ADAPTER_TARBALL=/path/to/frillab-copc-adapter-0.5.3.tgz \
 npm run bootstrap
 
 COPC_ADAPTER_SOURCE=npm npm run bootstrap
@@ -162,7 +162,7 @@ Fixtures stay in `.cache/copc-fixtures`, outside app bundles. The fast PR tier u
 
 ## Validation tiers
 
-The compatibility workflow checks out the stable `v0.5.0` adapter tag, sets up Node 22 and the Rust WASM target needed by `npm pack`, restores the fixture cache, runs `npm ci`, installs Chromium, and calls the same `bootstrap:local` and repository test scripts used locally. The fixture cache key includes the runner OS and `fixtures/catalog.json` content; a restored file is still checked against catalog size and checksum. Fast runs on pull requests and pushes to `main`. Full uses the same preparation on the weekly schedule or a manual request.
+The compatibility workflow checks out the stable `v0.5.3` adapter tag, sets up Node 22 and the Rust WASM target needed by `npm pack`, restores the fixture cache, runs `npm ci`, installs Chromium, and calls the same `bootstrap:local` and repository test scripts used locally. The fixture cache key includes the runner OS and `fixtures/catalog.json` content; a restored file is still checked against catalog size and checksum. Fast runs on pull requests and pushes to `main`. Full uses the same preparation on the weekly schedule or a manual request.
 
 ### Fast
 
@@ -196,7 +196,7 @@ npm run test:remote
 
 ### Registry-installed npm consumer
 
-`test:npm` creates a temporary project outside the repository and runs `npm install cesium vite` followed by `npm install @frillab/copc-adapter@0.5.0`. It builds a minimal Cesium Vite consumer using only public package exports, then checks remote Range traffic and rendered points in Chromium. This is separate from checkout packaging and `.tgz` validation.
+`test:npm` creates a temporary project outside the repository and runs `npm install cesium vite` followed by `npm install @frillab/copc-adapter@0.5.3`. It builds a minimal Cesium Vite consumer using only public package exports, then checks remote Range traffic and rendered points in Chromium. This is separate from checkout packaging and `.tgz` validation.
 
 ```sh
 npm run test:npm
@@ -204,9 +204,9 @@ npm run test:npm
 
 ### Release
 
-The `release-gate.yml` workflow is manual only. It accepts `checkout`, `tarball`, or `npm`, always requires the exact `0.5.0` package, validates and installs the exact packed artifact, runs builds and critical Chromium scenarios (including remote streaming and the Rust path), then runs the isolated registry-installed npm consumer. Tarball input must be a non-empty HTTPS URL. Checkout repository and ref are explicit workflow inputs.
+The `release-gate.yml` workflow is manual only. It accepts `checkout`, `tarball`, or `npm`, always requires the exact `0.5.3` package, validates and installs the exact packed artifact, runs builds and critical Chromium scenarios (including remote streaming and the Rust path), then runs the isolated registry-installed npm consumer. Tarball input must be a non-empty HTTPS URL. Checkout repository and ref are explicit workflow inputs.
 
-The compatibility workflow intentionally checks out the stable adapter tag `v0.5.0`. The release gate is where a maintainer selects another repository/ref or artifact for release validation; it still fails if the package metadata is not `0.5.0`.
+The compatibility workflow intentionally checks out the stable adapter tag `v0.5.3`. The release gate is where a maintainer selects another repository/ref or artifact for release validation; it still fails if the package metadata is not `0.5.3`.
 
 Run the equivalent release validation locally with:
 

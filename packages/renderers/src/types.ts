@@ -18,6 +18,7 @@ export type RendererOptions = {
   sourceKind: CopcSourceKind;
   streaming: HarnessStreamingSettings;
   renderDistance?: number;
+  pointSize: number;
   colorMode?: RendererColorMode;
   cesiumIonToken?: string;
   onStatus(status: RendererStatus, error?: string): void;
@@ -34,8 +35,10 @@ export type TestRenderer = {
     sourceUrl: string,
     sourceKind: CopcSourceKind,
     colorMode?: RendererColorMode,
+    pointSize?: number,
   ): Promise<void>;
   setStyle?(mode: RendererColorMode): void;
+  setPointSize?(pointSize: number): Promise<void>;
   snapshot(): unknown;
   unload(): void;
   destroy(): void;

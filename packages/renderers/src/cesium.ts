@@ -25,12 +25,15 @@ export function mountCesiumRenderer(
   let layer: CopcCesiumLayer | undefined;
   let pendingLayer: CopcCesiumLayer | undefined;
   let activeSourceKind = options.sourceKind;
+  let activeSourceUrl = options.fixtureUrl;
   let activeProbe: CopcSourceProbeResult | undefined;
   let pickedPoint: unknown;
+  let pointSize = options.pointSize;
   let colorMode: ColorMode = options.colorMode ?? 'elevation';
   let timer: number | undefined;
   let sourceGeneration = 0;
   let styleRevision = 0;
+  let viewFlightGeneration = 0;
   let commitQueue: Promise<void> = Promise.resolve();
   options.onStatus('loading');
 
@@ -86,6 +89,7 @@ export function mountCesiumRenderer(
       ...currentLayer.getSnapshot(),
       hierarchy: currentLayer.getHierarchyDiagnostics(),
       pointCache: currentLayer.getPointCacheDiagnostics(),
+      rendererPointSize: pointSize,
       sourceProbe: activeProbe,
       sourceKind: activeSourceKind,
       pickedPoint,
@@ -173,6 +177,7 @@ export function mountCesiumRenderer(
     sourceUrl: string,
     sourceKind: RendererOptions['sourceKind'],
     candidateColorMode: ColorMode = colorMode,
+    candidatePointSize: number = pointSize,
   ): Promise<void> {
     const styleRevisionAtStart = styleRevision;
     await viewerReady;
@@ -181,6 +186,8 @@ export function mountCesiumRenderer(
     const currentAdapter = adapter;
     if (!currentViewer || !currentAdapter)
       throw new Error('Cesium Viewer is not available.');
+    viewFlightGeneration += 1;
+    currentViewer.camera.cancelFlight();
     const currentGeneration = ++sourceGeneration;
     options.onStatus('loading');
     options.onSourceProbe?.(undefined);
@@ -226,7 +233,7 @@ export function mountCesiumRenderer(
         renderer: new currentAdapter.PointPrimitiveRenderer(),
         backend: options.backend,
         colorMode: candidateColorMode,
-        pointSize: 3,
+        pointSize: candidatePointSize,
         maxRenderedPoints: options.streaming.maxRenderedPoints,
         streaming: {
           maxNodes: options.streaming.maxNodes,
@@ -268,6 +275,7 @@ export function mountCesiumRenderer(
               : colorMode;
           candidate.setStyle({ colorMode: attachColorMode });
           candidate.attachTo(currentViewer);
+
           await waitForRenderedPoints(
             candidate,
             () => disposed || currentGeneration !== sourceGeneration,
@@ -286,6 +294,8 @@ export function mountCesiumRenderer(
           layer = candidate;
           activeProbe = candidateProbe;
           activeSourceKind = sourceKind;
+          activeSourceUrl = sourceUrl;
+          pointSize = candidatePointSize;
           colorMode = committedColorMode;
           if (pendingLayer === candidate) pendingLayer = undefined;
           pickedPoint = undefined;
@@ -343,17 +353,50 @@ export function mountCesiumRenderer(
       if (!viewer || !layer || disposed) return;
       if (!cesiumModule)
         throw new Error('Cesium module is not available for camera framing.');
-      frameViewerToLayer(
+      const viewTarget = getViewerViewTarget(
         cesiumModule,
         viewer,
-        layer,
         view,
         options.renderDistance,
       );
+      if (!viewTarget)
+        throw new Error('Cesium has no rendered COPC points to frame.');
+      const currentFlight = ++viewFlightGeneration;
+      await new Promise<void>((resolve) => {
+        viewer!.camera.flyToBoundingSphere(viewTarget.sphere, {
+          offset: viewTarget.offset,
+          duration: 0.85,
+          easingFunction: cesiumModule!.EasingFunction.CUBIC_IN_OUT,
+          complete: resolve,
+          cancel: resolve,
+        });
+      });
+      if (
+        disposed ||
+        currentFlight !== viewFlightGeneration ||
+        !viewer ||
+        !layer
+      )
+        return;
+      viewer.scene.requestRender();
       options.onSnapshot(snapshotOf(layer));
     },
-    async setSource(sourceUrl, sourceKind, candidateColorMode): Promise<void> {
-      await changeSource(sourceUrl, sourceKind, candidateColorMode);
+    async setSource(
+      sourceUrl,
+      sourceKind,
+      candidateColorMode,
+      candidatePointSize,
+    ): Promise<void> {
+      await changeSource(
+        sourceUrl,
+        sourceKind,
+        candidateColorMode,
+        candidatePointSize,
+      );
+    },
+    async setPointSize(nextPointSize): Promise<void> {
+      if (nextPointSize === pointSize) return;
+      await changeSource(activeSourceUrl, activeSourceKind, colorMode, nextPointSize);
     },
     setStyle(mode): void {
       styleRevision += 1;
@@ -372,10 +415,14 @@ export function mountCesiumRenderer(
       if (disposed) return;
       disposed = true;
       sourceGeneration += 1;
+      viewFlightGeneration += 1;
       if (timer !== undefined) window.clearInterval(timer);
       layer?.destroy();
       layer = undefined;
-      if (viewer && !viewer.isDestroyed()) viewer.destroy();
+      if (viewer && !viewer.isDestroyed()) {
+        viewer.camera.cancelFlight();
+        viewer.destroy();
+      }
       delete container.dataset.cesiumViewerInstance;
       options.onSnapshot(undefined);
     },
@@ -391,8 +438,28 @@ function frameViewerToLayer(
   view: Exclude<HarnessView, 'visual'> = 'overview',
   renderDistance?: number,
 ): void {
+  const viewTarget = getViewerViewTarget(Cesium, viewer, view, renderDistance);
+  if (!viewTarget)
+    throw new Error('Cesium has no rendered COPC points to frame.');
+  viewer.camera.viewBoundingSphere(viewTarget.sphere, viewTarget.offset);
+  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  viewer.scene.requestRender();
+  void layer.getSnapshot();
+}
+
+function getViewerViewTarget(
+  Cesium: typeof import('cesium'),
+  viewer: CesiumTypes.Viewer,
+  view: Exclude<HarnessView, 'visual'>,
+  renderDistance?: number,
+):
+  | {
+      sphere: CesiumTypes.BoundingSphere;
+      offset: CesiumTypes.HeadingPitchRange;
+    }
+  | undefined {
   const sphere = getRenderedSphere(Cesium, viewer);
-  if (!sphere) throw new Error('Cesium has no rendered COPC points to frame.');
+  if (!sphere) return undefined;
   const viewScale = view === 'near' ? 0.5 : view === 'far' ? 2 : 1;
   const fittedRange =
     sphere.radius * (view === 'near' ? 2 : view === 'far' ? 8 : 4);
@@ -401,13 +468,10 @@ function frameViewerToLayer(
     HARNESS_RENDER_DISTANCE_LIMITS.min,
   );
   const pitch = view === 'overview' ? -Math.PI / 2 : -Math.PI / 4;
-  viewer.camera.viewBoundingSphere(
+  return {
     sphere,
-    new Cesium.HeadingPitchRange(0, pitch, range),
-  );
-  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
-  viewer.scene.requestRender();
-  void layer.getSnapshot();
+    offset: new Cesium.HeadingPitchRange(0, pitch, range),
+  };
 }
 
 function getRenderedSphere(

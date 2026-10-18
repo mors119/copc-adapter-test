@@ -4,6 +4,8 @@ import {
   REMOTE_COPC_SOURCES,
   defaultStreamingSettings,
   DEFAULT_HARNESS_STREAMING_SETTINGS,
+  DEFAULT_HARNESS_POINT_SIZE,
+  HARNESS_POINT_SIZE_LIMITS,
   HARNESS_RENDER_DISTANCE_LIMITS,
   HARNESS_STREAMING_SETTING_LIMITS,
   type CopcSourceKind,
@@ -19,6 +21,7 @@ export type PanelSelection = {
   fixtureId: string;
   streaming: HarnessStreamingSettings;
   renderDistance?: number;
+  pointSize: number;
 };
 
 export type PanelSourceProbe = {
@@ -128,80 +131,147 @@ export function mountControlPanel(
     <button class="copc-panel__toggle" data-testid="panel-toggle" type="button" aria-label="Collapse control panel" aria-expanded="true" aria-controls="control-panel-content" title="Collapse panel"><span aria-hidden="true">‹</span></button>
     <div class="copc-panel__body" id="control-panel-content" data-testid="control-panel-body">
       <div class="copc-panel__heading">
-        <div class="copc-panel__eyebrow">COPC ADAPTER TESTBED</div>
-        <h1>Consumer harness</h1>
-        <p class="copc-panel__help">Remote COPC streaming is the functional spec. Local fixtures are deterministic regressions.</p>
+        <div class="copc-panel__eyebrow">COPC ADAPTER</div>
+        <h1>Consumer testbed</h1>
         <div class="copc-panel__tags">
           <span data-field="host"></span><span data-field="renderer-label"></span>
           <span data-testid="adapter-source"></span>
         </div>
+        <div class="copc-panel__status-line">
+          <span>Status</span><strong data-testid="harness-status" data-status="idle">idle</strong>
+        </div>
       </div>
-    <label>Renderer<select data-testid="renderer-select"></select></label>
-    <label>Backend<select data-testid="backend-select">
-      <option value="copc-js">copc-js</option><option value="rust">rust / WASM</option>
-    </select></label>
-    <section class="copc-panel__source" aria-label="COPC source">
-      <h2>COPC Source</h2>
-      <label>Remote / fixture<select data-testid="fixture-select" aria-label="COPC Source"></select></label>
-      <div class="copc-panel__source-url"><span>Source URL</span><code data-testid="source-url"></code></div>
-      <label>Custom URL<input data-testid="custom-source-url" type="url" placeholder="https://host.example/data.copc.laz" autocomplete="url"></label>
-      <button data-testid="load-custom-source" type="button">Load custom URL</button>
-      <div class="copc-panel__status"><span>Source type</span><strong data-testid="source-type">Remote HTTP</strong></div>
-      <div class="copc-panel__status"><span>Attributes</span><strong data-testid="source-capabilities">—</strong></div>
-      <div class="copc-panel__status"><span>Reachable</span><strong data-testid="source-reachable">—</strong></div>
-      <div class="copc-panel__status"><span>HTTP Range</span><strong data-testid="source-range">—</strong></div>
-      <div class="copc-panel__status"><span>HTTP status</span><strong data-testid="source-http-status">—</strong></div>
-      <div class="copc-panel__status"><span>Content-Range</span><strong data-testid="source-content-range">—</strong></div>
-      <div class="copc-panel__status"><span>COPC detected</span><strong data-testid="source-copc">—</strong></div>
-      <div class="copc-panel__status"><span>CORS readable</span><strong data-testid="source-cors">—</strong></div>
-      <div class="copc-panel__status"><span>Active dataset</span><strong data-testid="active-dataset">—</strong></div>
-      <div class="copc-panel__status"><span>Camera center</span><strong data-testid="camera-location">—</strong></div>
-    </section>
-    <div class="copc-panel__status"><span>Status</span><strong data-testid="harness-status" data-status="idle">idle</strong></div>
-    <div class="copc-panel__status"><span>Selection</span><strong data-field="fixture"></strong></div>
-    <div class="copc-panel__status"><span>Error</span><strong class="copc-panel__error" data-testid="harness-error">—</strong></div>
-    <div class="copc-panel__diagnostics">
-      <div><span>Adapter</span><b data-field="adapter"></b></div>
-      <div><span>Selected nodes</span><b data-testid="selected-nodes">0</b></div>
-      <div><span>Rendered nodes</span><b data-testid="rendered-nodes">0</b></div>
-      <div><span>Rendered points</span><b data-testid="rendered-points">0</b></div>
-      <div><span>Stream updates</span><b data-testid="stream-updates">0</b></div>
-      <div><span>Range requests</span><b data-testid="range-requests">0</b></div>
-      <div><span>Hierarchy requests</span><b data-testid="hierarchy-requests">0</b></div>
-      <div><span>Hierarchy cache hits</span><b data-testid="hierarchy-cache-hits">0</b></div>
-      <div><span>Point cache</span><b data-testid="point-cache">0 entries</b></div>
-      <div><span>Visible LoD levels</span><b data-testid="visible-lod-levels">—</b></div>
-    </div>
-    <p class="copc-panel__metrics-note">Live counts reflect the current view. Camera distance and streaming settings are editable below.</p>
-    <fieldset class="copc-panel__streaming" data-testid="streaming-settings">
-      <legend>Render and streaming settings</legend>
-      <p>Render distance frames the camera; max render distance limits node streaming. Apply settings to reload the layer.</p>
-      <div class="copc-panel__streaming-grid">
-        <label>Render distance (m; blank = auto-fit)<input data-testid="render-distance-input" type="number" placeholder="Auto-fit"></label>
+      <fieldset class="copc-panel__field">
+        <legend>Renderer</legend>
+        <div class="copc-segmented" role="radiogroup" aria-label="Renderer" data-testid="renderer-select"></div>
+      </fieldset>
+      <fieldset class="copc-panel__field">
+        <legend>Backend</legend>
+        <div class="copc-segmented" role="radiogroup" aria-label="Backend" data-testid="backend-select">
+          <button type="button" role="radio" data-value="copc-js">JavaScript</button>
+          <button type="button" role="radio" data-value="rust">Rust / WASM</button>
+        </div>
+      </fieldset>
+      <section class="copc-panel__section copc-panel__source" aria-label="COPC source">
+        <h2>Source</h2>
+        <label>Dataset<select data-testid="fixture-select" aria-label="COPC source"></select></label>
+        <label>Custom URL<input data-testid="custom-source-url" type="url" placeholder="https://host.example/data.copc.laz" autocomplete="url"></label>
+        <div class="copc-panel__source-url"><span>URL</span><code data-testid="source-url"></code></div>
+        <button data-testid="load-source" type="button">Load source</button>
+        <details class="copc-panel__details" data-testid="source-diagnostics">
+          <summary>Source diagnostics</summary>
+          <div class="copc-panel__status"><span>Selected dataset</span><strong data-testid="selected-dataset">—</strong></div>
+          <div class="copc-panel__status"><span>Source type</span><strong data-testid="source-type">Remote HTTP</strong></div>
+          <div class="copc-panel__status"><span>Attributes</span><strong data-testid="source-capabilities">—</strong></div>
+          <div class="copc-panel__status"><span>Reachable</span><strong data-testid="source-reachable">—</strong></div>
+          <div class="copc-panel__status"><span>HTTP Range</span><strong data-testid="source-range">—</strong></div>
+          <div class="copc-panel__status"><span>HTTP status</span><strong data-testid="source-http-status">—</strong></div>
+          <div class="copc-panel__status"><span>Content-Range</span><strong data-testid="source-content-range">—</strong></div>
+          <div class="copc-panel__status"><span>COPC detected</span><strong data-testid="source-copc">—</strong></div>
+          <div class="copc-panel__status"><span>CORS readable</span><strong data-testid="source-cors">—</strong></div>
+          <div class="copc-panel__status"><span>Active dataset</span><strong data-testid="active-dataset">—</strong></div>
+          <div class="copc-panel__status"><span>Camera center</span><strong data-testid="camera-location">—</strong></div>
+        </details>
+      </section>
+      <section class="copc-panel__section">
+        <h2>Appearance</h2>
+        <label>Color mode<select data-testid="style-select">
+          <option value="rgb">RGB</option><option value="elevation">Elevation</option>
+          <option value="intensity">Intensity</option><option value="classification">Classification</option>
+        </select></label>
+        <p class="copc-panel__hint" data-testid="style-support-note" hidden>Live color-mode changes are supported by Cesium in this testbed.</p>
+        <div class="copc-slider" data-control="pointSize">
+          <div class="copc-slider__heading"><label for="point-size-slider">Point size</label><output data-value-for="pointSize">3 px</output></div>
+          <input id="point-size-slider" data-slider="pointSize" data-testid="point-size-slider" type="range" min="1" max="10" step="1" aria-label="Point size" />
+        </div>
+      </section>
+      <section class="copc-panel__section" data-testid="streaming-settings">
+        <h2>Streaming</h2>
+        <div class="copc-slider" data-control="maxNodes">
+          <div class="copc-slider__heading"><label for="max-nodes-slider">Max selected nodes</label><output data-value-for="maxNodes">8</output></div>
+          <input id="max-nodes-slider" data-slider="maxNodes" data-testid="max-nodes-slider" type="range" min="1" max="32" step="1" aria-label="Max selected nodes" />
+        </div>
+        <div class="copc-slider" data-control="maxRenderedPoints">
+          <div class="copc-slider__heading"><label for="max-rendered-points-slider">Max rendered points</label><output data-value-for="maxRenderedPoints">1,000,000</output></div>
+          <input id="max-rendered-points-slider" data-slider="maxRenderedPoints" data-testid="max-rendered-points-slider" type="range" min="0" max="6" step="1" aria-label="Max rendered points" />
+        </div>
+        <div class="copc-slider" data-control="maxDepth">
+          <div class="copc-slider__heading"><label for="max-depth-slider">Max depth</label><output data-value-for="maxDepth">8</output></div>
+          <input id="max-depth-slider" data-slider="maxDepth" data-testid="max-depth-slider" type="range" min="0" max="16" step="1" aria-label="Max depth" />
+        </div>
+        <div class="copc-slider" data-control="maxScreenSpaceError">
+          <div class="copc-slider__heading"><label for="max-screen-space-error-slider">Screen-space error</label><output data-value-for="maxScreenSpaceError">8 px</output></div>
+          <input id="max-screen-space-error-slider" data-slider="maxScreenSpaceError" data-testid="max-screen-space-error-slider" type="range" min="0.1" max="16" step="0.1" aria-label="Screen-space error" />
+          <p class="copc-panel__hint">Lower values generally request more detail.</p>
+        </div>
+        <div class="copc-panel__distance-mode">
+          <span>Camera distance</span>
+          <div class="copc-segmented" role="radiogroup" aria-label="Camera distance mode" data-testid="render-distance-mode">
+            <button type="button" role="radio" data-value="auto">Auto-fit</button>
+            <button type="button" role="radio" data-value="manual">Manual</button>
+          </div>
+          <div class="copc-slider" data-control="renderDistance">
+            <div class="copc-slider__heading"><label for="render-distance-slider">Manual camera distance</label><output data-value-for="renderDistance">Auto-fit</output></div>
+            <input id="render-distance-slider" data-slider="renderDistance" data-testid="render-distance-slider" type="range" min="0" max="17" step="1" aria-label="Camera distance" />
+          </div>
+        </div>
+        <p class="copc-panel__hint">Camera distance frames the view. Max render distance limits which nodes stream.</p>
+        <div class="copc-slider" data-control="maxRenderDistanceMeters">
+          <div class="copc-slider__heading"><label for="max-render-distance-slider">Max render distance</label><output data-value-for="maxRenderDistanceMeters">20,000 m</output></div>
+      <input id="max-render-distance-slider" data-slider="maxRenderDistanceMeters" data-testid="max-render-distance-slider" type="range" min="0" max="16" step="1" aria-label="Max render distance in meters" />
+        </div>
+      </section>
+      <details class="copc-panel__details" data-testid="advanced-settings">
+        <summary>Advanced settings</summary>
+        <p class="copc-panel__hint">Enter exact values within the adapter's supported ranges.</p>
+        <label>Point size (px)<input data-testid="point-size-input" type="number" required></label>
         <label>Max selected nodes<input data-streaming-setting="maxNodes" data-testid="max-nodes-input" type="number" required></label>
         <label>Max rendered points<input data-streaming-setting="maxRenderedPoints" data-testid="max-rendered-points-input" type="number" required></label>
         <label>Max depth<input data-streaming-setting="maxDepth" data-testid="max-depth-input" type="number" required></label>
-        <label>Screen-space error<input data-streaming-setting="maxScreenSpaceError" data-testid="max-screen-space-error-input" type="number" required></label>
+        <label>Screen-space error (px)<input data-streaming-setting="maxScreenSpaceError" data-testid="max-screen-space-error-input" type="number" required></label>
         <label>Max render distance (m)<input data-streaming-setting="maxRenderDistanceMeters" data-testid="max-render-distance-input" type="number" required></label>
+        <label>Camera distance (m; blank = auto-fit)<input data-testid="render-distance-input" type="number" placeholder="Auto-fit"></label>
+      </details>
+      <div class="copc-panel__selection-status"><span>Requested configuration</span><strong data-testid="settings-summary">Cesium · JavaScript · 3 px</strong></div>
+      <p class="copc-panel__status-note" data-testid="settings-state">Ready configuration is active. Changes apply on request.</p>
+      <div class="copc-panel__button-row copc-panel__button-row--single">
+        <button class="copc-panel__primary" data-testid="apply-settings" type="button">Apply settings</button>
       </div>
-    </fieldset>
-    <label>Style<select data-testid="style-select">
-      <option value="rgb">RGB</option><option value="elevation">Elevation</option>
-      <option value="intensity">Intensity</option><option value="classification">Classification</option>
-    </select></label>
-    <div class="copc-panel__button-row">
-      <button class="copc-panel__primary" data-testid="apply-settings" type="button">Apply / reload</button>
-      <button data-testid="reload-renderer" type="button">Reload renderer</button>
-    </div>
-    <div class="copc-panel__button-row copc-panel__button-row--three">
-      <button data-action="overview" type="button">Overview</button>
-      <button data-action="far" type="button">Far</button>
-      <button data-action="near" type="button">Near</button>
-    </div>
-    <div class="copc-panel__button-row copc-panel__button-row--two">
-      <button data-testid="demo-start" type="button">Start demo</button>
+      <div class="copc-panel__button-row">
+        <button data-testid="reload-renderer" type="button">Reload renderer</button>
+        <button data-testid="demo-start" type="button">Start demo</button>
+      </div>
       <button data-testid="demo-stop" type="button">Stop demo</button>
-    </div>
+      <fieldset class="copc-panel__field copc-panel__view-field">
+        <legend>Camera view</legend>
+        <div class="copc-segmented" role="radiogroup" aria-label="Camera view" data-testid="camera-view-select">
+          <button type="button" role="radio" data-value="overview">Overview</button>
+          <button type="button" role="radio" data-value="near">Near</button>
+          <button type="button" role="radio" data-value="far">Far</button>
+        </div>
+      </fieldset>
+      <div class="copc-panel__error" data-testid="harness-error" hidden></div>
+      <details class="copc-panel__details" data-testid="diagnostics-details">
+        <summary>More diagnostics</summary>
+        <div class="copc-panel__diagnostics">
+          <div><span>Adapter</span><b data-field="adapter"></b></div>
+          <div><span>Backend</span><b data-testid="diag-backend">—</b></div>
+          <div><span>Renderer point size</span><b data-testid="diag-point-size">—</b></div>
+          <div><span>Metadata</span><b data-testid="metadata-summary">—</b></div>
+          <div><span>Hierarchy</span><b data-testid="hierarchy-summary">—</b></div>
+          <div><span>Worker</span><b data-testid="worker-summary">—</b></div>
+          <div><span>Streaming performance</span><b data-testid="performance-summary">—</b></div>
+          <div><span>Selected nodes</span><b data-testid="selected-nodes">0</b></div>
+          <div><span>Rendered nodes</span><b data-testid="rendered-nodes">0</b></div>
+          <div><span>Rendered points</span><b data-testid="rendered-points">0</b></div>
+          <div><span>Stream updates</span><b data-testid="stream-updates">0</b></div>
+          <div><span>Range requests</span><b data-testid="range-requests">0</b></div>
+          <div><span>Hierarchy requests</span><b data-testid="hierarchy-requests">0</b></div>
+          <div><span>Hierarchy cache hits</span><b data-testid="hierarchy-cache-hits">0</b></div>
+          <div><span>Point cache</span><b data-testid="point-cache">0 entries</b></div>
+          <div><span>Visible LoD levels</span><b data-testid="visible-lod-levels">—</b></div>
+        </div>
+      </details>
     </div>
   `;
   const streamingHud = document.createElement('section');
@@ -210,17 +280,31 @@ export function mountControlPanel(
   streamingHud.setAttribute('aria-label', 'COPC streaming status');
   streamingHud.setAttribute('aria-live', 'polite');
   streamingHud.innerHTML = `
-    <div class="copc-streaming-hud__heading">COPC Streaming</div>
-    <div class="copc-streaming-hud__context">
-      <span data-testid="hud-backend">copc-js</span>
-      <span data-testid="hud-view">Overview</span>
+    <div class="copc-streaming-hud__heading-row">
+      <div class="copc-streaming-hud__heading">COPC Streaming</div>
+      <button
+        class="copc-streaming-hud__toggle"
+        data-testid="streaming-hud-toggle"
+        type="button"
+        aria-label="Collapse streaming status"
+        aria-expanded="true"
+        aria-controls="streaming-hud-body"
+        title="Collapse streaming status"
+      ><span aria-hidden="true">−</span></button>
     </div>
-    <dl class="copc-streaming-hud__metrics">
-      <div><dt>Selected nodes</dt><dd data-testid="hud-selected-nodes">0 / 8</dd></div>
-      <div><dt>Rendered nodes</dt><dd data-testid="hud-rendered-nodes">0</dd></div>
-      <div><dt>Rendered points</dt><dd data-testid="hud-rendered-points">0 / 1,000,000</dd></div>
-      <div><dt>LoD</dt><dd data-testid="hud-lod">—</dd></div>
-    </dl>
+    <div class="copc-streaming-hud__body" data-testid="streaming-hud-body" id="streaming-hud-body">
+      <div class="copc-streaming-hud__context">
+        <span data-testid="hud-backend">copc-js</span>
+        <span data-testid="hud-view">Overview</span>
+      </div>
+      <dl class="copc-streaming-hud__metrics">
+        <div><dt>Selected nodes</dt><dd data-testid="hud-selected-nodes">0 / 8</dd></div>
+        <div><dt>Rendered nodes</dt><dd data-testid="hud-rendered-nodes">0</dd></div>
+        <div><dt>Rendered points</dt><dd data-testid="hud-rendered-points">0 / 1,000,000</dd></div>
+        <div><dt>Range requests</dt><dd data-testid="hud-range-requests">0</dd></div>
+        <div><dt>LoD</dt><dd data-testid="hud-lod">—</dd></div>
+      </dl>
+    </div>
   `;
   const pointPopover = document.createElement('section');
   pointPopover.className = 'copc-point-popover';
@@ -264,14 +348,12 @@ export function mountControlPanel(
   };
   const byPointTestId = <T extends HTMLElement>(id: string): T => {
     const node = pointPopover.querySelector<T>(`[data-testid="${id}"]`);
-    if (!node)
-      throw new Error(`Point popover is missing data-testid="${id}".`);
+    if (!node) throw new Error(`Point popover is missing data-testid="${id}".`);
     return node;
   };
   const byHudTestId = <T extends HTMLElement>(id: string): T => {
     const node = streamingHud.querySelector<T>(`[data-testid="${id}"]`);
-    if (!node)
-      throw new Error(`Streaming HUD is missing data-testid="${id}".`);
+    if (!node) throw new Error(`Streaming HUD is missing data-testid="${id}".`);
     return node;
   };
   const field = <T extends HTMLElement>(name: string): T => {
@@ -280,21 +362,63 @@ export function mountControlPanel(
       throw new Error(`Shared control panel is missing data-field="${name}".`);
     return node;
   };
-  const rendererSelect = byTestId<HTMLSelectElement>('renderer-select');
-  for (const renderer of renderers) {
-    const option = document.createElement('option');
-    option.value = renderer;
-    option.textContent =
-      renderer === 'r3f'
-        ? 'React Three Fiber'
-        : renderer === 'three'
-          ? 'Three.js'
-          : 'Cesium';
-    rendererSelect.append(option);
-  }
+  const selectedSegment = (group: HTMLElement): string =>
+    group.dataset.selected ?? '';
+  const setSegmentValue = (group: HTMLElement, value: string): void => {
+    group.dataset.selected = value;
+    for (const button of group.querySelectorAll<HTMLButtonElement>(
+      '[role="radio"]',
+    )) {
+      const selected = button.dataset.value === value;
+      button.setAttribute('aria-checked', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+    }
+  };
+  const bindSegment = (
+    group: HTMLElement,
+    onChange: (value: string) => void,
+  ): void => {
+    group.setAttribute('aria-orientation', 'horizontal');
+    const buttons = (): HTMLButtonElement[] =>
+      Array.from(group.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
+    const select = (button: HTMLButtonElement): void => {
+      const value = button.dataset.value;
+      if (!value || button.disabled) return;
+      setSegmentValue(group, value);
+      onChange(value);
+    };
+    for (const button of buttons()) {
+      button.addEventListener('click', () => select(button));
+      button.addEventListener('keydown', (event) => {
+        const choices = buttons().filter((candidate) => !candidate.disabled);
+        const index = choices.indexOf(button);
+        const nextIndex =
+          event.key === 'ArrowRight' || event.key === 'ArrowDown'
+            ? (index + 1) % choices.length
+            : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+              ? (index - 1 + choices.length) % choices.length
+              : event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? choices.length - 1
+                  : -1;
+        if (nextIndex < 0) return;
+        event.preventDefault();
+        const next = choices[nextIndex];
+        if (next) {
+          select(next);
+          next.focus();
+        }
+      });
+    }
+  };
   const state = { ...options.state };
   let localFixtures = [] as FixtureCatalogEntry[];
-  const backendSelect = byTestId<HTMLSelectElement>('backend-select');
+  const rendererSelect = byTestId<HTMLElement>('renderer-select');
+  const backendSelect = byTestId<HTMLElement>('backend-select');
+  const cameraViewSelect = byTestId<HTMLElement>('camera-view-select');
+  const renderDistanceMode = byTestId<HTMLElement>('render-distance-mode');
+  const selectedDataset = byTestId<HTMLElement>('selected-dataset');
   const fixtureSelect = byTestId<HTMLSelectElement>('fixture-select');
   const customSourceInput = byTestId<HTMLInputElement>('custom-source-url');
   const sourceUrl = byTestId<HTMLElement>('source-url');
@@ -302,24 +426,13 @@ export function mountControlPanel(
   const renderDistanceInput = byTestId<HTMLInputElement>(
     'render-distance-input',
   );
+  const pointSizeInput = byTestId<HTMLInputElement>('point-size-input');
   renderDistanceInput.min = String(HARNESS_RENDER_DISTANCE_LIMITS.min);
   renderDistanceInput.max = String(HARNESS_RENDER_DISTANCE_LIMITS.max);
   renderDistanceInput.step = String(HARNESS_RENDER_DISTANCE_LIMITS.step);
-  const writeRenderDistanceInput = (
-    renderDistance: number | undefined,
-  ): void => {
-    const value = renderDistance === undefined ? '' : String(renderDistance);
-    if (renderDistanceInput.value !== value) renderDistanceInput.value = value;
-  };
-  const readRenderDistanceInput = (): number | undefined | null => {
-    if (!renderDistanceInput.checkValidity()) {
-      renderDistanceInput.reportValidity();
-      return null;
-    }
-    return renderDistanceInput.value === ''
-      ? undefined
-      : renderDistanceInput.valueAsNumber;
-  };
+  pointSizeInput.min = String(HARNESS_POINT_SIZE_LIMITS.min);
+  pointSizeInput.max = String(HARNESS_POINT_SIZE_LIMITS.max);
+  pointSizeInput.step = String(HARNESS_POINT_SIZE_LIMITS.step);
   const streamingInputs = new Map<
     keyof HarnessStreamingSettings,
     HTMLInputElement
@@ -341,24 +454,220 @@ export function mountControlPanel(
     input.step = String(limits.step);
     streamingInputs.set(key, input);
   }
-  const writeStreamingInputs = (streaming: HarnessStreamingSettings): void => {
-    for (const [key, input] of streamingInputs) {
-      const value = streaming[key];
-      if (input.valueAsNumber !== value) input.value = String(value);
+  type ScalarKey =
+    | keyof HarnessStreamingSettings
+    | 'pointSize'
+    | 'renderDistance';
+  const scalarInputs = new Map<ScalarKey, HTMLInputElement>([
+    ['pointSize', pointSizeInput],
+    ['renderDistance', renderDistanceInput],
+    ...streamingInputs,
+  ]);
+  const sliderInputs = new Map<ScalarKey, HTMLInputElement>();
+  for (const slider of root.querySelectorAll<HTMLInputElement>('[data-slider]')) {
+    const key = slider.dataset.slider as ScalarKey | undefined;
+    if (key) sliderInputs.set(key, slider);
+  }
+  const sliderStops: Partial<Record<ScalarKey, number[]>> = {
+    maxRenderedPoints: [
+      100_000, 250_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000,
+    ],
+    maxRenderDistanceMeters: [
+      1, 100, 150, 250, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000,
+      100_000, 250_000, 500_000, 1_000_000, 2_000_000, 10_000_000,
+    ],
+    renderDistance: [
+      150, 250, 500, 750, 1_000, 1_500, 2_000, 3_000, 5_000, 10_000,
+      20_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 5_000_000,
+      10_000_000,
+    ],
+  };
+  const formatSetting = (key: ScalarKey, value: number | undefined): string => {
+    if (value === undefined) return 'Auto-fit';
+    const formatted = new Intl.NumberFormat('en-US', {
+      maximumFractionDigits: key === 'maxScreenSpaceError' ? 1 : 0,
+    }).format(value);
+    if (key === 'pointSize') return `${formatted} px`;
+    if (key === 'maxScreenSpaceError') return `${formatted} px`;
+    if (key === 'renderDistance' || key === 'maxRenderDistanceMeters')
+      return `${formatted} m`;
+    return formatted;
+  };
+  const nearestStop = (key: ScalarKey, value: number): number => {
+    const stops = sliderStops[key];
+    if (!stops) return value;
+    return stops.reduce(
+      (nearest, candidate, index) =>
+        Math.abs(candidate - value) < Math.abs(stops[nearest]! - value)
+          ? index
+          : nearest,
+      0,
+    );
+  };
+  const writeScalar = (key: ScalarKey, value: number | undefined): void => {
+    const input = scalarInputs.get(key);
+    if (input) {
+      const next = value === undefined ? '' : String(value);
+      if (input.value !== next) input.value = next;
     }
+    const slider = sliderInputs.get(key);
+    if (slider) {
+      if (value !== undefined) {
+        const next = String(nearestStop(key, value));
+        if (slider.value !== next) slider.value = next;
+      }
+      slider.disabled = key === 'renderDistance' && value === undefined;
+    }
+    const output = root.querySelector<HTMLOutputElement>(
+      `[data-value-for="${key}"]`,
+    );
+    if (output) output.textContent = formatSetting(key, value);
+  };
+  const writeRenderDistanceMode = (renderDistance: number | undefined): void => {
+    setSegmentValue(
+      renderDistanceMode,
+      renderDistance === undefined ? 'auto' : 'manual',
+    );
+    writeScalar('renderDistance', renderDistance);
+  };
+  const writeStreamingInputs = (streaming: HarnessStreamingSettings): void => {
+    for (const [key, value] of Object.entries(streaming) as [
+      keyof HarnessStreamingSettings,
+      number,
+    ][])
+      writeScalar(key, value);
+  };
+  const readScalar = (key: ScalarKey): number | undefined | null => {
+    if (key === 'renderDistance' && selectedSegment(renderDistanceMode) === 'auto')
+      return undefined;
+    const input = scalarInputs.get(key)!;
+    if (!input.checkValidity()) {
+      input.reportValidity();
+      return null;
+    }
+    return input.value === '' && key === 'renderDistance'
+      ? undefined
+      : input.valueAsNumber;
   };
   const readStreamingInputs = (): HarnessStreamingSettings | undefined => {
-    const entries = [...streamingInputs.entries()];
-    const invalid = entries.find(([, input]) => !input.checkValidity());
-    if (invalid) {
-      invalid[1].reportValidity();
-      return undefined;
+    const values = {} as HarnessStreamingSettings;
+    for (const key of Object.keys(DEFAULT_HARNESS_STREAMING_SETTINGS) as (keyof HarnessStreamingSettings)[]) {
+      const value = readScalar(key);
+      if (value === undefined || value === null) return undefined;
+      values[key] = value;
     }
-    return Object.fromEntries(
-      entries.map(([key, input]) => [key, input.valueAsNumber]),
-    ) as HarnessStreamingSettings;
+    return values;
   };
-  writeRenderDistanceInput(state.renderDistance);
+  const rendererLabels: Record<HarnessRenderer, string> = {
+    cesium: 'Cesium',
+    three: 'Three.js',
+    r3f: 'R3F',
+  };
+  rendererSelect.replaceChildren();
+  for (const renderer of renderers) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('role', 'radio');
+    button.dataset.value = renderer;
+    button.dataset.testid = `renderer-option-${renderer}`;
+    button.textContent = rendererLabels[renderer];
+    rendererSelect.append(button);
+  }
+  let rendererDraft = state.renderer;
+  let backendDraft = state.backend;
+  setSegmentValue(rendererSelect, rendererDraft);
+  setSegmentValue(backendSelect, backendDraft);
+  setSegmentValue(cameraViewSelect, state.activeView ?? 'overview');
+  const selectedFixtureId = (): string => {
+    if (fixtureSelect.value !== 'custom:') return fixtureSelect.value;
+    const enteredUrl = customSourceInput.value.trim();
+    if (enteredUrl) return `custom:${enteredUrl}`;
+    return state.fixtureId.startsWith('custom:') ? state.fixtureId : 'custom:';
+  };
+  const updateSelectedDataset = (): void => {
+    const id = selectedFixtureId();
+    const remote = REMOTE_COPC_SOURCES.find(
+      (source) => `remote:${source.id}` === id,
+    );
+    const fixture = localFixtures.find((candidate) => candidate.id === id);
+    selectedDataset.textContent =
+      remote?.name ??
+      fixture?.title ??
+      (id.startsWith('custom:')
+        ? id.length > 7
+          ? id.slice(7)
+          : 'Custom URL required'
+        : id || fixtureName(state.fixtureUrl));
+  };
+  const readRawScalar = (key: ScalarKey): number | undefined => {
+    if (key === 'renderDistance' && selectedSegment(renderDistanceMode) === 'auto')
+      return undefined;
+    const value = scalarInputs.get(key)!.value;
+    return value === '' && key === 'renderDistance'
+      ? undefined
+      : scalarInputs.get(key)!.valueAsNumber;
+  };
+  const settingsSummary = byTestId<HTMLElement>('settings-summary');
+  const settingsState = byTestId<HTMLElement>('settings-state');
+  const applyButton = byTestId<HTMLButtonElement>('apply-settings');
+  const loadSourceButton = byTestId<HTMLButtonElement>('load-source');
+  const markDirty = (): void => {
+    const dirty =
+      rendererDraft !== state.renderer ||
+      backendDraft !== state.backend ||
+      selectedFixtureId() !== state.fixtureId ||
+      readRawScalar('pointSize') !== state.pointSize ||
+      readRawScalar('renderDistance') !== state.renderDistance ||
+      (Object.keys(DEFAULT_HARNESS_STREAMING_SETTINGS) as (keyof HarnessStreamingSettings)[]).some(
+        (key) => readRawScalar(key) !== state.streaming[key],
+      );
+    settingsSummary.textContent = `${rendererLabels[rendererDraft]} · ${backendDraft === 'rust' ? 'Rust / WASM' : 'JavaScript'} · ${formatSetting('pointSize', readRawScalar('pointSize'))}`;
+    settingsState.textContent = dirty
+      ? 'Changes are pending. Apply settings to activate them.'
+      : state.status === 'loading'
+        ? 'Loading the requested configuration…'
+        : state.status === 'error'
+          ? 'The requested configuration failed to load.'
+          : state.status === 'ready'
+            ? 'The requested configuration is active.'
+            : 'Choose settings, then apply them.';
+    applyButton.disabled = state.status === 'loading';
+    loadSourceButton.disabled = state.status === 'loading';
+    const error = byTestId<HTMLElement>('harness-error');
+    error.hidden = !state.error;
+    error.textContent = state.error ?? '';
+    updateSelectedDataset();
+  };
+  bindSegment(rendererSelect, (value) => {
+    rendererDraft = value as HarnessRenderer;
+    markDirty();
+  });
+  bindSegment(backendSelect, (value) => {
+    backendDraft = value as PanelSelection['backend'];
+    markDirty();
+  });
+  bindSegment(cameraViewSelect, (value) => {
+    if (value === 'overview') actions.overview();
+    else if (value === 'near') actions.near();
+    else if (value === 'far') actions.far();
+  });
+  bindSegment(renderDistanceMode, (value) => {
+    if (value === 'auto') {
+      renderDistanceInput.value = '';
+      writeScalar('renderDistance', undefined);
+    } else {
+      const current = Number(renderDistanceInput.value);
+      writeScalar(
+        'renderDistance',
+        Number.isFinite(current) && current >= HARNESS_RENDER_DISTANCE_LIMITS.min
+          ? current
+          : 2_000,
+      );
+    }
+    markDirty();
+  });
+  writeScalar('pointSize', state.pointSize ?? DEFAULT_HARNESS_POINT_SIZE);
+  writeRenderDistanceMode(state.renderDistance);
   writeStreamingInputs(state.streaming);
   const panelBody = byTestId<HTMLElement>('control-panel-body');
   const panelToggle = byTestId<HTMLButtonElement>('panel-toggle');
@@ -373,53 +682,79 @@ export function mountControlPanel(
     panelToggle.title = collapsed ? 'Expand panel' : 'Collapse panel';
     panelToggle.querySelector('span')!.textContent = collapsed ? '›' : '‹';
   });
-  rendererSelect.value = state.renderer;
-  backendSelect.value = state.backend;
-  fixtureSelect.value = state.fixtureId;
-  const selectedFixtureId = (): string => {
-    if (fixtureSelect.value !== 'custom:') return fixtureSelect.value;
-    const enteredUrl = customSourceInput.value.trim();
-    if (enteredUrl) return `custom:${enteredUrl}`;
-    return state.fixtureId.startsWith('custom:') ? state.fixtureId : 'custom:';
-  };
+  const hudBody = byHudTestId<HTMLElement>('streaming-hud-body');
+  const hudToggle = byHudTestId<HTMLButtonElement>('streaming-hud-toggle');
+  hudToggle.addEventListener('click', () => {
+    const collapsed = streamingHud.classList.toggle(
+      'copc-streaming-hud--collapsed',
+    );
+    hudBody.hidden = collapsed;
+    hudToggle.setAttribute('aria-expanded', String(!collapsed));
+    hudToggle.setAttribute(
+      'aria-label',
+      collapsed ? 'Expand streaming status' : 'Collapse streaming status',
+    );
+    hudToggle.title = collapsed
+      ? 'Expand streaming status'
+      : 'Collapse streaming status';
+    hudToggle.querySelector('span')!.textContent = collapsed ? '+' : '−';
+  });
+  fixtureSelect.value = state.fixtureId.startsWith('custom:')
+    ? 'custom:'
+    : state.fixtureId;
   const onApply = (): void => {
     const streaming = readStreamingInputs();
     if (!streaming) return;
-    const renderDistance = readRenderDistanceInput();
+    const renderDistance = readScalar('renderDistance');
     if (renderDistance === null) return;
+    const pointSize = readScalar('pointSize');
+    if (pointSize === undefined || pointSize === null) return;
     actions.apply({
-      renderer: rendererSelect.value as HarnessRenderer,
-      backend: backendSelect.value as PanelSelection['backend'],
+      renderer: rendererDraft,
+      backend: backendDraft,
       fixtureId: selectedFixtureId(),
       streaming,
       renderDistance,
+      pointSize,
     });
   };
-  fixtureSelect.addEventListener('change', () => {
-    if (fixtureSelect.value !== 'custom:') onApply();
+  fixtureSelect.addEventListener('change', markDirty);
+  customSourceInput.addEventListener('input', () => {
+    if (customSourceInput.value.trim()) fixtureSelect.value = 'custom:';
+    markDirty();
   });
+  for (const [key, input] of scalarInputs) {
+    input.addEventListener('input', () => {
+      const value =
+        input.value === '' && key === 'renderDistance'
+          ? undefined
+          : input.valueAsNumber;
+      writeScalar(key, value);
+      if (key === 'renderDistance')
+        setSegmentValue(
+          renderDistanceMode,
+          value === undefined ? 'auto' : 'manual',
+        );
+      markDirty();
+    });
+  }
+  for (const [key, slider] of sliderInputs) {
+    slider.addEventListener('input', () => {
+      const stops = sliderStops[key];
+      const index = slider.valueAsNumber;
+      const value = stops ? stops[Math.round(index)] : index;
+      if (value === undefined) return;
+      writeScalar(key, value);
+      if (key === 'renderDistance')
+        setSegmentValue(renderDistanceMode, 'manual');
+      markDirty();
+    });
+  }
   byTestId<HTMLButtonElement>('apply-settings').addEventListener(
     'click',
     onApply,
   );
-  byTestId<HTMLButtonElement>('load-custom-source').addEventListener(
-    'click',
-    () => {
-      const url = customSourceInput.value.trim();
-      if (!url) return;
-      const streaming = readStreamingInputs();
-      if (!streaming) return;
-      const renderDistance = readRenderDistanceInput();
-      if (renderDistance === null) return;
-      actions.apply({
-        renderer: rendererSelect.value as HarnessRenderer,
-        backend: backendSelect.value as PanelSelection['backend'],
-        fixtureId: `custom:${url}`,
-        streaming,
-        renderDistance,
-      });
-    },
-  );
+  loadSourceButton.addEventListener('click', onApply);
   styleSelect.addEventListener('change', () =>
     actions.setStyle(
       styleSelect.value as 'rgb' | 'elevation' | 'intensity' | 'classification',
@@ -437,15 +772,7 @@ export function mountControlPanel(
     'click',
     actions.stopDemo,
   );
-  for (const button of root.querySelectorAll<HTMLButtonElement>(
-    '[data-action]',
-  )) {
-    button.addEventListener('click', () => {
-      if (button.dataset.action === 'overview') actions.overview();
-      else if (button.dataset.action === 'far') actions.far();
-      else if (button.dataset.action === 'near') actions.near();
-    });
-  }
+  markDirty();
 
   const panel: MountedPanel = {
     element: root,
@@ -456,20 +783,35 @@ export function mountControlPanel(
         renderer: state.renderer !== next.renderer,
         backend: state.backend !== next.backend,
         fixtureId: state.fixtureId !== next.fixtureId,
+        pointSize: state.pointSize !== next.pointSize,
         streaming:
           JSON.stringify(state.streaming) !== JSON.stringify(next.streaming),
         renderDistance: state.renderDistance !== next.renderDistance,
       };
       Object.assign(state, next);
-      if (selectionChanged.renderer) rendererSelect.value = state.renderer;
-      if (selectionChanged.backend) backendSelect.value = state.backend;
-      if (selectionChanged.fixtureId)
+      if (selectionChanged.renderer) {
+        rendererDraft = state.renderer;
+        setSegmentValue(rendererSelect, state.renderer);
+      }
+      if (selectionChanged.backend) {
+        backendDraft = state.backend;
+        setSegmentValue(backendSelect, state.backend);
+      }
+      if (selectionChanged.fixtureId) {
         fixtureSelect.value = state.fixtureId.startsWith('custom:')
           ? 'custom:'
           : state.fixtureId;
+        customSourceInput.value = state.fixtureId.startsWith('custom:')
+          ? state.fixtureId.slice('custom:'.length)
+          : '';
+      }
+      if (selectionChanged.pointSize)
+        writeScalar('pointSize', state.pointSize);
       if (selectionChanged.streaming) writeStreamingInputs(state.streaming);
       if (selectionChanged.renderDistance)
-        writeRenderDistanceInput(state.renderDistance);
+        writeRenderDistanceMode(state.renderDistance);
+      if (state.activeView)
+        setSegmentValue(cameraViewSelect, state.activeView);
       field('host').textContent = `Host: ${state.host}`;
       field('renderer-label').textContent = state.renderer;
       field('adapter').textContent =
@@ -481,12 +823,7 @@ export function mountControlPanel(
       const selectedFixture = localFixtures.find(
         (fixture) => fixture.id === state.fixtureId,
       );
-      field('fixture').textContent =
-        selectedRemote?.name ??
-        selectedFixture?.title ??
-        (state.fixtureId.startsWith('custom:')
-          ? 'Custom URL'
-          : state.fixtureId || fixtureName(state.fixtureUrl));
+      updateSelectedDataset();
       sourceUrl.textContent = state.fixtureUrl;
       byTestId('source-type').textContent =
         state.activeSourceKind === 'local-fixture' ||
@@ -551,13 +888,20 @@ export function mountControlPanel(
               value.toLowerCase().includes(style),
             );
           option.disabled = capability === false;
+          option.title =
+            capability === false
+              ? `${style.toUpperCase()} attributes are not available in this dataset.`
+              : '';
+          option.textContent =
+            capability === false
+              ? `${style.toUpperCase()} (unavailable)`
+              : style.toUpperCase();
         }
       }
       if (state.colorMode) styleSelect.value = state.colorMode;
       const status = byTestId<HTMLElement>('harness-status');
       status.dataset.status = state.status;
       status.textContent = state.status;
-      byTestId('harness-error').textContent = state.error ?? '—';
       const snapshot =
         state.snapshot === undefined
           ? undefined
@@ -579,6 +923,68 @@ export function mountControlPanel(
       const rangeRequests = nested('rangeRequests');
       const hierarchy = nested('hierarchy');
       const pointCache = nested('pointCache');
+      const worker = nested('worker');
+      const performance = nested('performance');
+      const metadata = nested('metadata');
+      const statCount = (value: unknown): string | undefined =>
+        typeof value === 'number' && Number.isFinite(value)
+          ? number(value)
+          : undefined;
+      byTestId('diag-backend').textContent =
+        state.backend === 'rust' ? 'Rust / WASM' : 'JavaScript';
+      const snapshotPointSize = statCount(snapshotRecord?.rendererPointSize);
+      byTestId('diag-point-size').textContent = snapshotPointSize
+        ? `${snapshotPointSize} px`
+        : '—';
+      byTestId('metadata-summary').textContent = [
+        typeof metadata?.pointCount === 'number'
+          ? `${number(metadata.pointCount)} points`
+          : undefined,
+        typeof metadata?.lasVersion === 'string'
+          ? `LAS ${metadata.lasVersion}`
+          : undefined,
+        typeof metadata?.pointFormat === 'number'
+          ? `PDRF ${metadata.pointFormat}`
+          : undefined,
+      ]
+        .filter((value): value is string => value !== undefined)
+        .join(' · ') || '—';
+      byTestId('hierarchy-summary').textContent = [
+        statCount(hierarchy?.pageRequests) !== undefined
+          ? `${statCount(hierarchy?.pageRequests)} requests`
+          : undefined,
+        statCount(hierarchy?.pageCacheHits) !== undefined
+          ? `${statCount(hierarchy?.pageCacheHits)} cache hits`
+          : undefined,
+      ]
+        .filter((value): value is string => value !== undefined)
+        .join(' · ') || '—';
+      byTestId('worker-summary').textContent = [
+        statCount(worker?.completedCount) !== undefined
+          ? `${statCount(worker?.completedCount)} completed`
+          : undefined,
+        statCount(worker?.activeCount) !== undefined
+          ? `${statCount(worker?.activeCount)} active`
+          : undefined,
+        statCount(worker?.failedCount) !== undefined
+          ? `${statCount(worker?.failedCount)} failed`
+          : undefined,
+      ]
+        .filter((value): value is string => value !== undefined)
+        .join(' · ') || '—';
+      byTestId('performance-summary').textContent = [
+        typeof performance?.updateDurationMs === 'number'
+          ? `update ${performance.updateDurationMs.toFixed(1)} ms`
+          : undefined,
+        typeof performance?.nodeSelectionMs === 'number'
+          ? `selection ${performance.nodeSelectionMs.toFixed(1)} ms`
+          : undefined,
+        typeof performance?.budgetUtilizationPercent === 'number'
+          ? `${performance.budgetUtilizationPercent.toFixed(1)}% budget`
+          : undefined,
+      ]
+        .filter((value): value is string => value !== undefined)
+        .join(' · ') || '—';
       const selectedKeys = Array.isArray(snapshotRecord?.selectedNodeKeys)
         ? snapshotRecord.selectedNodeKeys.filter(
             (key): key is string => typeof key === 'string',
@@ -631,7 +1037,10 @@ export function mountControlPanel(
       const renderedPointCount = number(
         state.renderedPoints ?? snapshot?.renderedPointCount,
       );
-      setHudValue('hud-backend', state.backend === 'rust' ? 'Rust / WASM' : 'copc-js');
+      setHudValue(
+        'hud-backend',
+        state.backend === 'rust' ? 'Rust / WASM' : 'copc-js',
+      );
       setHudValue(
         'hud-view',
         state.activeView === 'near'
@@ -651,6 +1060,14 @@ export function mountControlPanel(
       setHudValue(
         'hud-rendered-points',
         `${renderedPointCount} / ${number(state.streaming.maxRenderedPoints)}`,
+      );
+      setHudValue(
+        'hud-range-requests',
+        number(
+          typeof rangeRequests?.requested === 'number'
+            ? rangeRequests.requested
+            : undefined,
+        ),
       );
       setHudValue(
         'hud-lod',
@@ -708,9 +1125,7 @@ export function mountControlPanel(
           )
         : [];
       const hasRgb = rgbValues.length === 3 && rgbValues.every(Boolean);
-      const rgbText = hasRgb
-        ? rgbValues.join(', ')
-        : '—';
+      const rgbText = hasRgb ? rgbValues.join(', ') : '—';
       const rgbElement = byPointTestId('point-rgb');
       if (rgbElement.textContent !== rgbText) rgbElement.textContent = rgbText;
       const rgbRow = byPointTestId<HTMLElement>('point-rgb-row');
@@ -769,10 +1184,7 @@ export function mountControlPanel(
         'index',
         'node',
         'backend',
-      ].some(
-        (name) =>
-          !byPointTestId<HTMLElement>(`point-${name}-row`).hidden,
-      );
+      ].some((name) => !byPointTestId<HTMLElement>(`point-${name}-row`).hidden);
       byPointTestId<HTMLDetailsElement>('point-extra-details').hidden =
         !hasAdditionalAttributes &&
         sourceText === undefined &&
@@ -804,6 +1216,9 @@ export function mountControlPanel(
       styleSelect.disabled =
         state.renderer !== 'cesium' ||
         (state.status !== 'ready' && !state.activeDatasetUrl);
+      byTestId<HTMLElement>('style-support-note').hidden =
+        state.renderer === 'cesium';
+      markDirty();
     },
     setFixtures(fixtures) {
       const selected = fixtureSelect.value || state.fixtureId;
@@ -850,7 +1265,15 @@ export function mountControlPanel(
         REMOTE_COPC_SOURCES.some(({ id }) => `remote:${id}` === selected)
       )
         fixtureSelect.value = selected;
-      else if (selected.startsWith('custom:')) fixtureSelect.value = 'custom:';
+      else if (selected.startsWith('custom:')) {
+        fixtureSelect.value = 'custom:';
+        customSourceInput.value =
+          selected.slice('custom:'.length) ||
+          customSourceInput.value ||
+          state.fixtureUrl ||
+          '';
+      }
+      updateSelectedDataset();
     },
     destroy() {
       root.remove();
@@ -872,6 +1295,7 @@ export function panelStateFromConfig(
     host,
     renderer: config.renderer,
     backend: config.backend,
+    pointSize: config.pointSize,
     fixtureId,
     fixtureUrl: config.fixtureUrl,
     packageName: '@frillab/copc-adapter',

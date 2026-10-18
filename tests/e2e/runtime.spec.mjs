@@ -13,7 +13,7 @@ test('shared panel applies point size in Cesium and preserves it when switching 
   page,
 }) => {
   await openHarness(page, 'vanilla', 'cesium', 'copc-js', 'small-valid-copc', {
-    maxRenderedPoints: 20_000,
+    maxRenderedPoints: 100_000,
   });
   const activePointSize = () =>
     page.evaluate(() => {

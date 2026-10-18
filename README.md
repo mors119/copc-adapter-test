@@ -90,8 +90,8 @@ Use checkout mode while actively developing adapter source. `npm run bootstrap:l
 Use tarball mode to test the exact `.tgz` intended for publication. From the adapter repository root, pack its package into this repository's ignored `local-packages/` directory:
 
 ```sh
-cd apps/viewer-web
-npm pack --pack-destination ../../../copc-adapter-test/local-packages
+cd packages
+npm pack --pack-destination ../../copc-adapter-test/local-packages
 ```
 
 Then, from this repository, run:

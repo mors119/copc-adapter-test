@@ -247,7 +247,11 @@ async function locatePackage(checkout) {
   const configured = process.env.COPC_ADAPTER_PACKAGE_DIR;
   const candidates = configured
     ? [resolve(configured)]
-    : [join(resolve(checkout), 'apps/viewer-web'), resolve(checkout)];
+    : [
+        join(resolve(checkout), 'packages'),
+        join(resolve(checkout), 'apps/viewer-web'),
+        resolve(checkout),
+      ];
   for (const candidate of candidates) {
     const path = join(candidate, 'package.json');
     if (!(await isFile(path))) continue;
@@ -256,7 +260,7 @@ async function locatePackage(checkout) {
       return { directory: candidate, metadata };
   }
   throw new Error(
-    `Could not find ${ADAPTER_PACKAGE} under ${resolve(checkout)}. Expected apps/viewer-web/package.json.`,
+    `Could not find ${ADAPTER_PACKAGE} under ${resolve(checkout)}. Expected packages/package.json, apps/viewer-web/package.json, or a root package.json.`,
   );
 }
 

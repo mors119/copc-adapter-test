@@ -12,7 +12,9 @@ test('Vanilla mounts a real Cesium globe and streams a COPC fixture', async ({
 test('shared panel applies point size in Cesium and preserves it when switching to Three', async ({
   page,
 }) => {
-  await openHarness(page, 'vanilla', 'cesium');
+  await openHarness(page, 'vanilla', 'cesium', 'copc-js', 'small-valid-copc', {
+    maxRenderedPoints: 20_000,
+  });
   const activePointSize = () =>
     page.evaluate(() => {
       const result = window.__COPC_TEST__?.getResult();
@@ -57,10 +59,7 @@ test('shared panel applies point size in Cesium and preserves it when switching 
     'aria-checked',
     'false',
   );
-  // Renderer replacement can keep Chromium's click navigation watcher open
-  // while Cesium tears down its WebGL scene. Dispatch the real button click
-  // in-page and wait for the harness state below to confirm the transition.
-  await page.getByTestId('apply-settings').evaluate((button) => button.click());
+  await page.getByTestId('apply-settings').click();
   await expect.poll(activePointSize).toMatchObject({
     status: 'ready',
     renderer: 6,

@@ -60,10 +60,18 @@ export async function openHarness(
   renderer,
   backend = 'copc-js',
   fixture = 'small-valid-copc',
+  settings = {},
 ) {
   const path =
     host === 'next' ? `/${renderer === 'three' ? 'three' : 'cesium'}` : '/';
-  const query = new URLSearchParams({ renderer, backend, fixtureId: fixture });
+  const query = new URLSearchParams({
+    renderer,
+    backend,
+    fixtureId: fixture,
+    ...Object.fromEntries(
+      Object.entries(settings).map(([key, value]) => [key, String(value)]),
+    ),
+  });
   await page.goto(`${origins[host]}${path}?${query}`);
   await expect
     .poll(() => page.evaluate(() => window.__COPC_TEST__?.result.status), {

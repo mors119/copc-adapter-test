@@ -18,8 +18,8 @@ import { spawn } from 'node:child_process';
 import semver from 'semver';
 
 export const ADAPTER_PACKAGE = '@frillab/copc-adapter';
-export const ADAPTER_VERSION = '0.5.3';
-export const PUBLIC_EXPORTS = ['.', './cesium', './three'];
+export const ADAPTER_VERSION = '0.7.1';
+export const PUBLIC_EXPORTS = ['.', './cesium', './core', './three'];
 const root = resolve(import.meta.dirname, '../..');
 const localPackagesDirectory = resolve(root, 'local-packages');
 
@@ -275,7 +275,7 @@ export async function packAdapterCheckout(
   await mkdir(destination, { recursive: true });
   const expectedArtifact = join(
     resolve(destination),
-    'frillab-copc-adapter-0.5.3.tgz',
+    'frillab-copc-adapter-0.7.1.tgz',
   );
   await rm(expectedArtifact, { force: true });
   const before = new Set(

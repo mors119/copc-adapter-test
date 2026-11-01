@@ -124,7 +124,7 @@ test('Vanilla Cesium streams remote COPC sources directly and keeps its Viewer a
   expect(initial.config.fixtureUrl).toBe(
     'https://data.pointcloud.org/autzen/autzen-classified.copc.laz',
   );
-  expect(initial.config.packageVersion).toBe('0.5.3');
+  expect(initial.config.packageVersion).toBe('0.7.1');
   expect(initial.diagnostics.metadataLoaded).toBe(true);
   expect(initial.diagnostics.hierarchyLoaded).toBe(true);
   expect(initial.diagnostics.renderedPointCount).toBeGreaterThan(0);

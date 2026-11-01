@@ -83,7 +83,7 @@ export async function openHarness(
   expect(result.config.renderer).toBe(renderer);
   expect(result.config.backend).toBe(backend);
   expect(result.config.fixtureUrl).toContain(fixture);
-  expect(result.config.packageVersion).toBe('0.5.3');
+  expect(result.config.packageVersion).toBe('0.7.1');
   expect(result.diagnostics.renderedPointCount).toBeGreaterThan(0);
   expect(result.diagnostics.metadataLoaded).toBe(true);
   expect(result.diagnostics.hierarchyLoaded).toBe(true);

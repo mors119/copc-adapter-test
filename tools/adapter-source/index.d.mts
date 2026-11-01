@@ -1,6 +1,6 @@
 export const ADAPTER_PACKAGE: '@frillab/copc-adapter';
-export const ADAPTER_VERSION: '0.5.3';
-export const PUBLIC_EXPORTS: readonly ['.', './cesium', './three'];
+export const ADAPTER_VERSION: '0.7.1';
+export const PUBLIC_EXPORTS: readonly ['.', './cesium', './core', './three'];
 export function readAdapterSourceMetadata(): {
   packageName: string;
   packageSource: 'checkout' | 'tarball' | 'npm';
